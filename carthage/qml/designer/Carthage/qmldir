@@ -1,0 +1,3 @@
+module Carthage
+singleton Backend 1.0 Backend.qml
+CardGeometry 1.0 CardGeometry.qml

@@ -1,0 +1,17 @@
+// Open this file in Qt Creator (File → Open File or Project, Design mode) or Qt Design
+// Studio to edit Carthage's screens visually. designer/Carthage/ is a stand-in for the
+// Python engine: a QML Backend singleton with the real theme and demo games (regenerate:
+// python tools/make_designer_data.py) and an empty 3D card shape. Pictures painted by
+// Python (plastic, icons) and the 3D card itself don't show in the editor.
+import QmlProject
+
+Project {
+    mainFile: "Main.qml"
+    qt6Project: true
+    importPaths: [ ".", "designer" ]
+
+    QmlFiles { directory: "." }
+    JavaScriptFiles { directory: "." }
+    ImageFiles { directory: "." }
+    Files { filter: "qmldir"; directory: "." }
+}
