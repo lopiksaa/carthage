@@ -3,7 +3,7 @@
 ![Library](screenshots/library.png)
 
 ## Regarding AI usage
- Carthage was built with Claude Opus 5.5
+ Carthage was built with Claude Opus 5.5.
  I'm learning to code, and wanting to make this project is what got me into it. 
  I gave Claude a try, and yes it basically wrote the whole thing, but it made me want
  to be able to code without it.
