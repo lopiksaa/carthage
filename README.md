@@ -95,6 +95,14 @@ of Carthage, but please give it a different name and icon, so nobody mistakes it
 Fonts, icons, textures, sounds and launcher logos come from other projects and keep their own
 licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+## Regarding AI usage
+ I'm learning to code, and wanting to make this project is what got me into it. 
+ I gave Claude a try, and yes it basically wrote the whole thing, but it made me want
+ to be able to code without it.
+ I don't want my only approach to coding to be sending a prompt, so I'm studying, 
+ and I'm determined to one day be able to build something like this myself. 
+ It's a learning project more than a polished product, so expect rough edges and messy code.
+
 ## Trademarks
 
 Carthage is an independent project. It isn't affiliated with, endorsed or sponsored by any of
