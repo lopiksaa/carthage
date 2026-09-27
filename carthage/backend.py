@@ -384,14 +384,16 @@ class Backend(QObject):
             return {}
         if self._settings.get("lastVersion") == VERSION:
             return {}
-        return notes_for(VERSION) or {}
+        notes = notes_for(VERSION)
+        return notes if notes and notes["slides"] else {}
 
     @Slot(result="QVariantMap")
     def whatsNewNotes(self):
-        """This version's notes, always (Menu → What's new, and the demo harness)."""
+        """The latest notes, always (Menu → What's new, and the demo harness)."""
         from .whatsnew import NOTES, notes_for
 
-        return notes_for(VERSION) or notes_for(next(iter(NOTES))) or {}
+        # The newest version with something to show; fix-only versions have no steps.
+        return next((n for v in NOTES if (n := notes_for(v))["slides"]), {})
 
     @Slot()
     def whatsNewSeen(self):

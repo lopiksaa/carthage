@@ -8,6 +8,9 @@ user needs to know. Newest version first.
 """
 
 NOTES = {
+    "0.3.2": [
+        {"kind": "fixed", "text": "Polished What's new and the setup wizard."},
+    ],
     "0.3.1": [
         {"kind": "new", "icon": "internet-services", "title": "Steam and Epic stores",
          "text": "Browse both in the same style as your library, with a shelf of free games. Buying happens in each store."},
@@ -35,10 +38,12 @@ def markdown(version):
     """The release notes for GitHub: the same changes, as a list per kind."""
     items = NOTES.get(version) or []
     out = []
+    several = len({i["kind"] for i in items}) > 1
     for kind, heading in KINDS:
         lines = [i for i in items if i["kind"] == kind]
         if lines:
-            out.append(f"## {heading}")
+            if several:
+                out.append(f"## {heading}")
             out += [f"- **{i['title']}.** {i['text']}" if i.get("title") else f"- {i['text']}" for i in lines]
             out.append("")
     return "\n".join(out).strip() + "\n"
