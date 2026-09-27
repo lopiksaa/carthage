@@ -2,6 +2,19 @@
 
 ![Library](screenshots/library.png)
 
+## Regarding AI usage
+ Carthage was built with Claude Opus 5.5
+ I'm learning to code, and wanting to make this project is what got me into it. 
+ I gave Claude a try, and yes it basically wrote the whole thing, but it made me want
+ to be able to code without it.
+ I don't want my only approach to coding to be sending a prompt, so I'm studying, 
+ and I'm determined to one day be able to build something like this myself. 
+ I do not in any way claim to be a developer or to know what the different parts of this 
+ code do, yet I am determined to get there. This is just a way to share the project
+ I am using as a learning tool. Thank you for reading this, and I hope you have fun 
+ using Carthage as much as I am enjoying learning how to make something like this.
+
+## Carthage
 Carthage is a game launcher for Linux and Windows. It gathers your games from Steam, Heroic,
 Lutris, Flatpak, Epic, Battle.net, Riot and games you add yourself, and shows each one as a
 cartridge. Start one and it slides into the dock while it runs. The Steam and Epic stores are
@@ -77,10 +90,9 @@ Useful while working on it:
 `packaging/` builds the Windows installer and the Linux AppImage. The same steps run in
 `.github/workflows/release.yml`.
 
-## Disclaimer
+## Credits
 
-This is a little side project inspired by [Cartridges](https://github.com/kra-mo/cartridges)
-by kramo.
+This project is inspired by [Cartridges](https://github.com/kra-mo/cartridges).
 
 ## License
 
@@ -94,14 +106,6 @@ of Carthage, but please give it a different name and icon, so nobody mistakes it
 
 Fonts, icons, textures, sounds and launcher logos come from other projects and keep their own
 licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## Regarding AI usage
- I'm learning to code, and wanting to make this project is what got me into it. 
- I gave Claude a try, and yes it basically wrote the whole thing, but it made me want
- to be able to code without it.
- I don't want my only approach to coding to be sending a prompt, so I'm studying, 
- and I'm determined to one day be able to build something like this myself. 
- It's a learning project more than a polished product, so expect rough edges and messy code.
 
 ## Trademarks
 
