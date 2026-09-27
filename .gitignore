@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+# Windows build output (packaging/build_windows.ps1)
+/build/
+/dist/
+/Carthage.spec
+/packaging/carthage.ico
+# Qt Creator per-user settings
+*.user
+.qtcreator/
