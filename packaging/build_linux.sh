@@ -23,6 +23,15 @@ echo "Building Carthage $version"
 cp LICENSE dist/Carthage/LICENSE.txt
 cp THIRD_PARTY_NOTICES.md dist/Carthage/THIRD_PARTY_NOTICES.md
 "$PY" packaging/prune_qt_linux.py dist/Carthage
+# Libraries every desktop has, which must be the system's own: the graphics driver (Mesa)
+# loads into Carthage and needs the C++ runtime, X11 and gbm it was built with. Bundled
+# copies from the older build machine make it fail ("Could not initialize GLX").
+for lib in libstdc++.so.6 libgcc_s.so.1 libgbm.so.1 libX11.so.6 libX11-xcb.so.1 libXext.so.6 \
+    libXrender.so.1 libxcb-glx.so.0 libxcb-randr.so.0 libxcb-render.so.0 libxcb-shm.so.0 \
+    libxcb-sync.so.1 libxcb-xfixes.so.0 libxkbcommon.so.0 libfontconfig.so.1 libfreetype.so.6 \
+    libharfbuzz.so.0 libexpat.so.1 libz.so.1 libdbus-1.so.3; do
+    rm -f "dist/Carthage/_internal/$lib"
+done
 
 tar -C dist -czf "dist/Carthage-$version-linux.tar.gz" Carthage
 

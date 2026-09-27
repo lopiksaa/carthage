@@ -8,6 +8,9 @@ user needs to know. Newest version first.
 """
 
 NOTES = {
+    "0.3.3": [
+        {"kind": "fixed", "text": "Fixed Carthage not starting on some Linux systems."},
+    ],
     "0.3.2": [
         {"kind": "fixed", "text": "Polished What's new and the setup wizard."},
     ],
