@@ -9,14 +9,10 @@ user needs to know. Newest version first.
 
 NOTES = {
     "0.3.1": [
-        {"kind": "new", "icon": "view-grid", "title": "Every game is a cartridge",
-         "text": "Steam, Heroic, Lutris, Flatpak, Epic, Battle.net, Riot and games you add yourself, all in one tray. Start one and it slides into the dock."},
         {"kind": "new", "icon": "internet-services", "title": "Steam and Epic stores",
          "text": "Browse both in the same style as your library, with a shelf of free games. Buying happens in each store."},
         {"kind": "new", "icon": "dice", "title": "Roll the dice",
          "text": "Can't decide what to play? The dice in the library bar picks a game for you."},
-        {"kind": "new", "icon": "lock", "title": "No keys needed",
-         "text": "Carthage works without any keys. Add them in Menu → Accounts & Keys for cartridge art and your whole Steam library."},
         {"kind": "new", "icon": "download", "title": "Updates itself",
          "text": "New versions download in the background and install when Carthage restarts."},
     ],
