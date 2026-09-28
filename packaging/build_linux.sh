@@ -3,8 +3,8 @@
 # and dist/Carthage-<version>-x86_64.AppImage. Used by .github/workflows/release.yml; also
 # runs locally from the repo root:
 #   sh packaging/build_linux.sh [python]
-# Needs Python with PySide6 6.11, pillow, numpy, python-xlib and pyinstaller, and readelf. Downloads
-# appimagetool if it isn't on PATH.
+# Needs Python with PySide6 6.11, pillow, numpy, python-xlib, certifi and pyinstaller, and
+# readelf. Downloads appimagetool if it isn't on PATH.
 set -eu
 PY="${1:-python3}"
 cd "$(dirname "$0")/.."

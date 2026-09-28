@@ -16,7 +16,8 @@ def _fit_linux_host():
     else:
         os.environ.pop("LD_LIBRARY_PATH", None)
     # The bundled OpenSSL looks for certificates where Debian keeps them; elsewhere every
-    # HTTPS request fails. Point it at the system's own list.
+    # HTTPS request fails. Point it at the system's own list, or at the one Carthage carries
+    # (certifi) on a system that keeps it somewhere else again.
     if not os.environ.get("SSL_CERT_FILE") and not os.path.exists(ssl.get_default_verify_paths().openssl_cafile):
         for path in ("/etc/ssl/certs/ca-certificates.crt",    # Debian, Ubuntu, Arch
                      "/etc/pki/tls/certs/ca-bundle.crt",      # Fedora, RHEL
@@ -25,6 +26,10 @@ def _fit_linux_host():
             if os.path.exists(path):
                 os.environ["SSL_CERT_FILE"] = path
                 break
+        else:
+            import certifi
+
+            os.environ["SSL_CERT_FILE"] = certifi.where()
 
 
 if sys.platform.startswith("linux"):
