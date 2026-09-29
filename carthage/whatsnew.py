@@ -8,6 +8,9 @@ user needs to know. Newest version first.
 """
 
 NOTES = {
+    "0.3.6": [
+        {"kind": "fixed", "text": "Hardware colors show in Settings → Look & Feel again, if you had tried the Hi-Fi look."},
+    ],
     "0.3.5": [
         {"kind": "fixed", "text": "Carthage does much less work in the background, especially on Windows."},
         {"kind": "fixed", "text": "Simpler setup: only the optional Steam key is asked for."},
