@@ -2,6 +2,9 @@
 
 ![Library](screenshots/library.png)
 
+![Closer look](screenshots/closer-look.png)
+
+![Store](screenshots/store.png)
 ## Regarding AI usage
  Carthage was built with Claude Opus 5.5.
  I'm learning to code, and wanting to make this project is what got me into it. 
@@ -20,9 +23,7 @@ Lutris, Flatpak, Epic, Battle.net, Riot and games you add yourself, and shows ea
 cartridge. Start one and it slides into the dock while it runs. The Steam and Epic stores are
 built in, in the same style as your library.
 
-![Closer look](screenshots/closer-look.png)
 
-![Store](screenshots/store.png)
 
 ## Download
 
