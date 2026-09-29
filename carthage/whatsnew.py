@@ -11,6 +11,7 @@ NOTES = {
     "0.3.5": [
         {"kind": "fixed", "text": "Carthage does much less work in the background, especially on Windows."},
         {"kind": "fixed", "text": "Simpler setup: only the optional Steam key is asked for."},
+        {"kind": "fixed", "text": "Fixed connections (keys, store, updates) on Linux systems that keep their certificates in an unusual place."},
     ],
     "0.3.4": [
         {"kind": "fixed", "text": "Fixed API keys, the store, updates and starting games on some Linux systems."},

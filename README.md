@@ -68,7 +68,7 @@ Carthage is Python 3.13+ and Qt Quick (PySide6 6.11).
 
 ```sh
 sudo pacman -S pyside6 qt6-declarative qt6-multimedia qt6-svg python-numpy python-pillow \
-    python-xlib python-gobject libsecret
+    python-xlib libsecret
 python -m carthage
 ```
 
@@ -76,8 +76,8 @@ python -m carthage
 
 ```sh
 pip install "PySide6==6.11.*" numpy pillow
-pip install python-xlib PyGObject   # Linux: window handling and the keyring
-pip install psutil                  # Windows
+pip install python-xlib   # Linux: window handling
+pip install psutil        # Windows
 python -m carthage
 ```
 
