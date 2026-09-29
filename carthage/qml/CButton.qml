@@ -2,7 +2,7 @@
 //   kind: "primary" (Play), "danger" (Quit), "plain", "ghost" (icon-only close etc.),
 //         "scrim" (secondary actions over the dark backdrop of the closer look / store page),
 //         "key" (a physical key on the hardware: sits in a well, travels 3 px when pressed;
-//         the hardware's plastic, or black rubber in the Hi-Fi skin)
+//         in the hardware's plastic)
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -17,9 +17,8 @@ QQC2.AbstractButton {
     readonly property var pal: Backend.theme.p
     readonly property var acc: Backend.theme.accent
     readonly property bool isKey: kind === "key"
-    readonly property bool rubber: isKey && Backend.theme.skin === "hifi"
     readonly property color fg: tint.a > 0 ? tint
-                               : isKey ? (rubber ? "#e9e6e0" : pal.dockText)
+                               : isKey ? pal.dockText
                                : kind === "primary" ? acc.accentText
                                : kind === "scrim" ? Ui.onScrim
                                : kind === "danger" ? pal.dangerText : pal.panelText
@@ -43,7 +42,7 @@ QQC2.AbstractButton {
         anchors.margins: -3
         anchors.topMargin: 0
         radius: Ui.radiusMedium + 3
-        color: Qt.rgba(0, 0, 0, btn.rubber ? 0.55 : 0.4)
+        color: Qt.rgba(0, 0, 0, 0.4)
         Rectangle {
             anchors.fill: parent
             radius: parent.radius
@@ -61,11 +60,11 @@ QQC2.AbstractButton {
         radius: Ui.radiusMedium
         opacity: btn.enabled ? 1 : 0.45
         gradient: Gradient {
-            GradientStop { position: 0.0; color: btn.rubber ? (btn.hovered ? "#3a3a3a" : "#333333") : (btn.hovered ? Qt.lighter(btn.pal.dockTop, 1.05) : btn.pal.dockTop) }
-            GradientStop { position: 1.0; color: btn.rubber ? "#1d1d1d" : btn.pal.dockBottom }
+            GradientStop { position: 0.0; color: btn.hovered ? Qt.lighter(btn.pal.dockTop, 1.05) : btn.pal.dockTop }
+            GradientStop { position: 1.0; color: btn.pal.dockBottom }
         }
         border.width: 1
-        border.color: Qt.rgba(0, 0, 0, btn.rubber ? 0.7 : (Backend.theme.dark ? 0.5 : 0.2))
+        border.color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.2)
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
@@ -73,7 +72,7 @@ QQC2.AbstractButton {
             anchors.rightMargin: parent.radius
             y: 1
             height: 1
-            color: Qt.rgba(1, 1, 1, btn.rubber ? 0.12 : 0.18)
+            color: Qt.rgba(1, 1, 1, 0.18)
         }
       }
       Rectangle {

@@ -10,7 +10,6 @@ Item {
     property alias searchField: search
 
     readonly property var pal: Backend.theme.p
-    readonly property bool hifi: Backend.theme.skin === "hifi"
 
     height: 58
 
@@ -62,10 +61,10 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "CARTHAGE"
             color: header.pal.dockText
-            font.family: header.hifi ? "Barlow Condensed" : "Nunito"
-            font.weight: header.hifi ? Font.Bold : Font.Black
-            font.pixelSize: header.hifi ? Ui.textTitle : Ui.textLead
-            font.letterSpacing: header.hifi ? 6 : 3.5
+            font.family: "Nunito"
+            font.weight: Font.Black
+            font.pixelSize: Ui.textLead
+            font.letterSpacing: 3.5
         }
     }
 
@@ -80,10 +79,10 @@ Item {
         color: searchDisplay.ink
         font.family: searchDisplay.fontFamily
         font.weight: searchDisplay.bare ? Font.DemiBold : Font.Normal
-        font.pixelSize: searchDisplay.bare ? Ui.textBody : searchDisplay.fontPx(15)
+        font.pixelSize: searchDisplay.bare ? Ui.textBody : 15
         font.letterSpacing: searchDisplay.bare ? 0 : 0.6
         font.capitalization: searchDisplay.bare ? Font.MixedCase : Font.AllUppercase
-        selectionColor: header.hifi ? "#2a6d60" : searchDisplay.bare ? Backend.theme.accent.accent : "#6d8a33"
+        selectionColor: searchDisplay.bare ? Backend.theme.accent.accent : "#6d8a33"
         selectedTextColor: searchDisplay.bare ? "#ffffff" : searchDisplay.ink
         verticalAlignment: TextInput.AlignVCenter
         selectByMouse: true

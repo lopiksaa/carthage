@@ -59,13 +59,12 @@ QQC2.AbstractButton {
         }
         Item {
             id: track
-            readonly property bool hifi: Backend.theme.skin === "hifi"
             readonly property bool classic: Backend.theme.skin === "classic"
             anchors.right: parent.right
             anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
-            width: hifi ? 44 : classic ? 40 : 58
-            height: hifi ? 40 : classic ? 22 : 26
+            width: classic ? 40 : 58
+            height: classic ? 22 : 26
 
             Rectangle {
                 visible: track.classic
@@ -85,7 +84,7 @@ QQC2.AbstractButton {
             }
 
             Rectangle {
-                visible: !track.hifi && !track.classic
+                visible: !track.classic
                 anchors.fill: parent
                 radius: 7
                 gradient: Gradient {
@@ -122,64 +121,6 @@ QQC2.AbstractButton {
                         Repeater { model: 4; Rectangle { width: 1.5; height: 9; color: Qt.rgba(0, 0, 0, 0.45) } }
                     }
                 }
-            }
-
-            Text {
-                visible: track.hifi
-                anchors.right: parent.left
-                anchors.rightMargin: 2
-                y: 0
-                text: "ON"
-                color: sw.checked ? sw.pal.panelText : sw.pal.panelTextDim
-                font.family: "Barlow Condensed"
-                font.weight: Font.Bold
-                font.pixelSize: 9
-                font.letterSpacing: 1.2
-            }
-            Text {
-                visible: track.hifi
-                anchors.right: parent.left
-                anchors.rightMargin: 2
-                anchors.bottom: parent.bottom
-                text: "OFF"
-                color: sw.checked ? sw.pal.panelTextDim : sw.pal.panelText
-                font.family: "Barlow Condensed"
-                font.weight: Font.Bold
-                font.pixelSize: 9
-                font.letterSpacing: 1.2
-            }
-            Rectangle {
-                visible: track.hifi
-                anchors.centerIn: parent
-                width: 22
-                height: 22
-                radius: 11
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: "#f2f2f0" }
-                    GradientStop { position: 1.0; color: "#8c8d89" }
-                }
-                border.width: 3
-                border.color: "#6a6b67"
-            }
-            Rectangle {
-                visible: track.hifi
-                x: parent.width / 2 - width / 2
-                y: parent.height / 2
-                width: 7
-                height: 19
-                radius: 3.5
-                antialiasing: true
-                transformOrigin: Item.Top
-                rotation: sw.checked ? 180 : 0
-                Behavior on rotation { NumberAnimation { duration: 110 * Backend.motion; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "#8c8d89" }
-                    GradientStop { position: 0.4; color: "#f5f5f3" }
-                    GradientStop { position: 1.0; color: "#9c9d99" }
-                }
-                border.width: 1
-                border.color: Qt.rgba(0, 0, 0, 0.35)
             }
         }
     }

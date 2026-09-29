@@ -35,7 +35,7 @@ class Settings(QObject):
         "discordPresence": False,
         # The version whose "What's new" was last seen ("" = none yet).
         "lastVersion": "",
-        # The skin: "plastic", "classic" or "hifi".
+        # The skin: "plastic" or "classic".
         "skin": "plastic",
     }
 
@@ -54,6 +54,8 @@ class Settings(QObject):
                     self._values[key] = value
         except (OSError, ValueError):
             pass
+        if self._values["skin"] not in ("plastic", "classic"):
+            self._values["skin"] = self.DEFAULTS["skin"]  # e.g. "hifi", a skin that's gone
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(400)

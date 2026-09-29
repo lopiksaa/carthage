@@ -12,8 +12,6 @@ next to the font as `OFL-<name>.txt`.
 |---|---|
 | Nunito | 2014 The Nunito Project Authors (github.com/googlefonts/nunito) |
 | DM Mono | 2020 The DM Mono Project Authors (github.com/googlefonts/dm-mono) |
-| Barlow Condensed | 2017 The Barlow Project Authors (github.com/jpt/barlow) |
-| VT323 | 2011 The VT323 Project Authors |
 | DotGothic16 | 2020 The DotGothic16 Project Authors (github.com/fontworks-fonts/DotGothic16), cut down to its Latin characters |
 
 ## Interface icons (`carthage/assets/icons/ui`)

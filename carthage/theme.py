@@ -192,10 +192,8 @@ EDITIONS["neon"] = _variant("dark", "#b8f53a", tray="#1f2415")
 EDITIONS["neon"].update({"dockText": "#12160a", "dockTextDim": "#2e3a14", "trayText": "#e9f7cf", "trayTextDim": "#b3c498"})
 EDITIONS["atomic"] = _variant("dark", "#6b4bb8")
 EDITIONS["red"] = _variant("dark", "#d8343a", tray="#2a1416")
-# The Hi-Fi skin: aluminum over a black anodized tray, whatever the hardware color.
-EDITIONS["hifi"] = _variant("dark", "#c9cac6", tray="#101010")
 
-for _e in ("pink", "mint", "neon", "atomic", "red", "hifi"):
+for _e in ("pink", "mint", "neon", "atomic", "red"):
     _fix_contrast(EDITIONS[_e])
 
 HARDWARE = [
@@ -249,7 +247,6 @@ LED = {"green": "#35c46a", "amber": "#f0a232"}
 ACCENTS = {
     "dark": "#0b78b8", "light": "#0b78b8", "pink": "#c2185b", "mint": "#00796b",
     "neon": "#4a7a00", "atomic": "#6b40d6", "red": "#c62828",
-    "hifi": "#c2410c",  # a deep orange, dark enough for white text (5.2:1)
 }
 
 
@@ -292,7 +289,7 @@ class Theme(QObject):
         return self._skin
 
     def _set_skin(self, value):
-        value = value if value in ("hifi", "classic") else "plastic"
+        value = value if value == "classic" else "plastic"
         if value != self._skin:
             self._skin = value
             self.changed.emit()
@@ -376,7 +373,7 @@ class Theme(QObject):
 
     @Property(str, notify=changed)
     def edition(self):
-        return "hifi" if self._skin == "hifi" else edition_of(self._hardware)
+        return edition_of(self._hardware)
 
     @Property("QVariantMap", notify=changed)
     def p(self):

@@ -151,7 +151,6 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: display.bare ? 0 : 8
             anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: display.vfd ? 1 : 0
             textFormat: Text.StyledText
             text: display.bare
                   ? "<b>" + display.main.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</b>"
@@ -160,7 +159,7 @@ Item {
                     + "<font color=\"" + display.inkDim + "\"> · " + display.detail.toUpperCase().replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</font>"
             color: display.ink
             font.family: display.fontFamily
-            font.pixelSize: display.bare ? Ui.textBody : display.fontPx(12)
+            font.pixelSize: display.bare ? Ui.textBody : 12
             font.letterSpacing: display.bare ? 0 : 0.4
             elide: Text.ElideRight
             HoverHandler { id: statusHover }
@@ -184,7 +183,6 @@ Item {
         Keys.onSpacePressed: dock.appRoot.toggleDrawer()
 
         readonly property bool down: keyTap.pressed
-        readonly property bool hot: Backend.theme.skin === "hifi"
         Rectangle {
             anchors.fill: parent
             anchors.margins: -3
@@ -197,29 +195,18 @@ Item {
             anchors.bottomMargin: menuKey.down ? 0 : 2
             radius: 10
             gradient: Gradient {
-                GradientStop { position: 0.0; color: menuKey.hot ? (menuHover.hovered ? "#ff9a5c" : "#ff8a45") : (menuHover.hovered ? Qt.lighter(dock.pal.dockTop, 1.04) : dock.pal.dockTop) }
-                GradientStop { position: 1.0; color: menuKey.hot ? "#d24d06" : dock.pal.dockBottom }
+                GradientStop { position: 0.0; color: menuHover.hovered ? Qt.lighter(dock.pal.dockTop, 1.04) : dock.pal.dockTop }
+                GradientStop { position: 1.0; color: dock.pal.dockBottom }
             }
             border.width: 1
-            border.color: menuKey.hot ? "#8c3300" : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.18)
+            border.color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.18)
             CIcon {
-                visible: !menuKey.hot
                 anchors.centerIn: parent
                 width: 20
                 height: 20
                 source: "application-menu-symbolic"
                 isMask: true
                 color: dock.pal.dockText
-            }
-            Text {
-                visible: menuKey.hot
-                anchors.centerIn: parent
-                text: "MENU"
-                color: "#ffffff"
-                font.family: "Barlow Condensed"
-                font.weight: Font.Bold
-                font.pixelSize: 12
-                font.letterSpacing: 2
             }
         }
         Rectangle {

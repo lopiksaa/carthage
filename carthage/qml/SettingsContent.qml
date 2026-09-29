@@ -87,7 +87,6 @@ Column {
             // One chip size for both rows, so their colors line up in columns.
             readonly property var options: Backend.theme.hardwareOptions
             readonly property real chipSize: Math.floor(Math.min(30, (width - (options.length + 1) * Ui.gapS) / (options.length + 2)))
-            readonly property bool hifi: Backend.settings.skin === "hifi"
             Label_ { visible: false; text: "Skin" }  // held back: only Classic ships for now
             CSegmented {
                 visible: false
@@ -95,14 +94,12 @@ Column {
                 value: Backend.settings.skin
                 options: [
                     { value: "plastic", text: "Plastic" },
-                    { value: "hifi", text: "Hi-Fi" },
                     { value: "classic", text: "Classic" },
                 ]
                 onPicked: (v) => { Backend.settings.skin = v; sc.appRoot.sound("key") }
             }
-            Label_ { visible: !look.hifi; text: "Hardware  ·  " + ((look.options.find(o => o.value === Backend.settings.hardware) || {}).text || "Custom") }
+            Label_ { text: "Hardware  ·  " + ((look.options.find(o => o.value === Backend.settings.hardware) || {}).text || "Custom") }
             Row {
-                visible: !look.hifi
                 spacing: Ui.gapS
                 Repeater {
                     model: look.options
@@ -124,7 +121,7 @@ Column {
                     onPicked: sc.appRoot.pickColor("hardware")
                 }
             }
-            Label_ { text: "Cartridges  ·  " + (Backend.settings.cardColor === "same" ? (look.hifi ? "Same as the Plastic skin" : "Same as hardware")
+            Label_ { text: "Cartridges  ·  " + (Backend.settings.cardColor === "same" ? "Same as hardware"
                         : ((look.options.find(o => o.value === Backend.settings.cardColor) || {}).text || "Custom")) }
             Row {
                 spacing: Ui.gapS
@@ -176,7 +173,6 @@ Column {
                     onToggled: Backend.settings.tiltEnabled = checked
                 }
                 CSwitch {
-                    visible: !look.hifi  // aluminum has its own brushed finish
                     width: parent.width
                     text: "Textured plastic"
                     hint: "A pebbled finish on the hardware"

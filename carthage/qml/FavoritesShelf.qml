@@ -99,19 +99,9 @@ Column {
                 id: channel
                 visible: !dash.visible
                 anchors.fill: parent
-                radius: Backend.theme.skin === "hifi" ? 6 : Ui.radiusLarge
-                color: Backend.theme.skin === "hifi" ? "#161616" : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.28 : 0.08)
+                radius: Ui.radiusLarge
+                color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.28 : 0.08)
                 clip: true
-                Repeater {
-                    model: Backend.theme.skin === "hifi" ? Math.ceil(channel.width / 12) : 0
-                    Rectangle {
-                        required property int index
-                        x: index * 12
-                        width: 6
-                        height: channel.height
-                        color: "#1c1c1c"
-                    }
-                }
                 Rectangle { // shade under the top edge: it's sunk into the surface
                     anchors.fill: parent
                     radius: parent.radius

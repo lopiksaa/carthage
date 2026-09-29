@@ -33,7 +33,7 @@ QQC2.ApplicationWindow {
     Binding {
         target: Backend.theme
         property: "skin"
-        // Only Classic ships for now; Plastic and Hi-Fi are switched off.
+        // Only Classic ships for now; Plastic is switched off.
         value: "classic"
     }
 

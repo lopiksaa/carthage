@@ -70,34 +70,6 @@ def blur(img, radius):
 
 
 _noise_cache = {}
-_brushed_cache = {}
-
-
-def brushed(w=512, h=128, seed=11):
-    """Tileable brushed aluminum (the Hi-Fi skin): fine horizontal streaks, stored like the
-    plastic grain as translucent white (brighter) or black (darker) per pixel."""
-    key = (w, h, seed)
-    if key in _brushed_cache:
-        return _brushed_cache[key]
-    import numpy as np
-
-    rng = np.random.default_rng(seed)
-    v = rng.normal(0.0, 1.0, (h, w))
-    # Long horizontal blur (wrapping, so it tiles): streaks, not specks.
-    for r in (1, 2, 4, 8, 16, 32):
-        v = (v + np.roll(v, r, axis=1)) / 2
-    v += rng.normal(0.0, 0.6, (h, 1))  # each row a little lighter or darker
-    v = v / (np.abs(v).max() or 1)
-    a = (np.abs(v) * 60).astype(np.uint8)
-    img = np.zeros((h, w, 4), np.uint8)
-    light = v > 0
-    img[..., 0] = img[..., 1] = img[..., 2] = np.where(light, 255, 0).astype(np.uint8)
-    img[..., 3] = a
-    for c in range(3):
-        img[..., c] = (img[..., c].astype(np.uint16) * a // 255).astype(np.uint8)
-    q = QImage(img.tobytes(), w, h, 4 * w, QImage.Format_RGBA8888_Premultiplied).copy()
-    _brushed_cache[key] = q
-    return q
 
 
 def noise(size=160, seed=7, strength=30):
@@ -683,8 +655,6 @@ class ImageProvider(QQuickImageProvider):
             return render_header(w, h, parts[1], parts[2], self._library.source_name(parts[1]))
         if kind == "icon":  # icon/<name>/<rrggbb[aa]>: a bundled UI icon, tinted
             return render_icon(w, h, parts[1], parts[2] if len(parts) > 2 else "000000")
-        if kind == "brushed":  # brushed: the Hi-Fi skin's aluminum streaks
-            return brushed()
         if kind == "grain":  # grain/<edition>?tex=…: the tileable overlay itself
             return tex if tex is not None else noise()
         if kind == "art":
