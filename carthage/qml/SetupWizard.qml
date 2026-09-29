@@ -1,4 +1,4 @@
-// First-run setup: what Carthage found, then the optional keys. Every step can be skipped.
+// First-run setup: what Carthage found, then the optional Steam key. Every step can be skipped.
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -9,9 +9,9 @@ CDialog {
     property Item appRoot
     property int step: 0
     property var found: []
-    readonly property int lastStep: 3
+    readonly property int lastStep: 2
     readonly property bool steamStep: Backend.keys.steamFound
-    readonly property string stepKey: step === 1 ? "steamgrid" : step === 2 ? "steam" : ""
+    readonly property string stepKey: step === 1 ? "steam" : ""
     readonly property bool keyDone: stepKey === "" || Backend.keys.has[stepKey] === true
 
     function start() {
@@ -22,11 +22,11 @@ CDialog {
     function next() {
         if (step >= lastStep) { close(); return }
         step++
-        if (step === 2 && !steamStep) step++
+        if (step === 1 && !steamStep) step++
     }
     function back() {
         step--
-        if (step === 2 && !steamStep) step--
+        if (step === 1 && !steamStep) step--
     }
 
     onClosed: Backend.setupFinished()
@@ -65,7 +65,7 @@ CDialog {
                     model: wiz.steamStep ? wiz.lastStep + 1 : wiz.lastStep
                     delegate: Rectangle {
                         required property int index
-                        readonly property int at: !wiz.steamStep && wiz.step > 2 ? wiz.step - 1 : wiz.step
+                        readonly property int at: !wiz.steamStep && wiz.step > 1 ? wiz.step - 1 : wiz.step
                         width: index === at ? 18 : 6
                         height: 6
                         radius: 3
@@ -114,9 +114,8 @@ CDialog {
                 }
             }
             Body_ {
-                text: wiz.steamStep
-                      ? "Two free keys make Carthage better: one for cartridge art, one to show every Steam game you own. Both are optional — skip them and add them later in Menu → Accounts & Keys."
-                      : "A free key fetches custom game art for your cartridges. It's optional — skip it and add it later in Menu → Accounts & Keys."
+                visible: wiz.steamStep
+                text: "A free Steam key shows every Steam game you own. It's optional — skip it and add it later in Menu → Accounts & Keys."
             }
         }
 
@@ -124,23 +123,8 @@ CDialog {
             visible: wiz.step === 1
             width: parent.width
             spacing: Ui.gapM
-            Title_ { text: "Cartridge art" }
-            Body_ { text: "SteamGridDB has custom game art made by its community; this key fetches it for your cartridges — Steam, Battle.net and games you add yourself. Without this key most cartridges only get a plain printed label." }
-            KeyRow {
-                width: parent.width
-                service: "steamgrid"
-                title: "SteamGridDB API key"
-                purpose: "Sign in on SteamGridDB, open Preferences → API, and copy the key."
-                getUrl: "https://www.steamgriddb.com/profile/preferences/api"
-            }
-        }
-
-        Column {
-            visible: wiz.step === 2
-            width: parent.width
-            spacing: Ui.gapM
-            Title_ { text: "Steam library and play time" }
-            Body_ { text: "Steam's files on this PC only know games you've installed or played here. The Steam Web API key lets Carthage show every game you own, with your play time, so you can install them from the tray." }
+            Title_ { text: "Steam library access" }
+            Body_ { text: "Carthage will show you all the games already installed on your PC. To access your full library and your play time, Carthage needs your Steam API key. If you want, you can set it up later from Menu → Accounts & Keys." }
             KeyRow {
                 width: parent.width
                 service: "steam"
@@ -152,7 +136,7 @@ CDialog {
         Body_ {
             visible: wiz.stepKey !== ""
             font.pixelSize: Ui.textCaption
-            text: "Keys stay in your system keyring (Credential Manager on Windows) and are only sent to their own service: SteamGridDB's key to steamgriddb.com, Steam's to api.steampowered.com."
+            text: "The key stays in your system keyring (Credential Manager on Windows) and is only sent to Steam (api.steampowered.com)."
         }
 
         Column {
