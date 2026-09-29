@@ -94,4 +94,10 @@ jobs:
         run: |
           v="${{ github.ref_name }}"
           python3 -m carthage.whatsnew "${v#v}" > notes.md
-          gh release create "$v" Carthage-* --title "Carthage $v" --notes-file notes.md
+          # A release made on the website (which also makes the tag) already exists: fill it in.
+          if gh release view "$v" >/dev/null 2>&1; then
+            gh release upload "$v" Carthage-* --clobber
+            gh release edit "$v" --title "Carthage $v" --notes-file notes.md
+          else
+            gh release create "$v" Carthage-* --title "Carthage $v" --notes-file notes.md
+          fi
