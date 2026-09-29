@@ -98,8 +98,7 @@ This project is inspired by [Cartridges](https://github.com/kra-mo/cartridges).
 
 Carthage is free software under the [GNU General Public License v3.0 or later](LICENSE).
 
-**AI Usage Disclaimer:** Co-built with Anthropic's Claude.\
-Carthage is co-designed and co-built using AI tools.
+**AI Usage Disclaimer:** Co-built with Anthropic's Claude.
 
 The license covers the code, not the name or the logo. You're welcome to make your own version
 of Carthage, but please give it a different name and icon, so nobody mistakes it for this one.
