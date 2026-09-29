@@ -1,5 +1,7 @@
 // A faint, slow drift so a held cartridge doesn't look pasted on. Off at animation speed
-// "Instant".
+// "Instant". It rests while Carthage isn't the active window (nobody is looking), and it
+// steps 30 times a second rather than every screen refresh: at this speed a step is a
+// tenth of a pixel, so it looks the same and the graphics card gets to rest in between.
 import QtQuick
 
 Item {
@@ -18,14 +20,19 @@ Item {
     readonly property int period: 7000      // ms
     readonly property int fadeDuration: 1200        // ms
 
-    property real amount: active && motion > 0 ? 1 : 0
+    property real amount: active && motion > 0 && Qt.application.state === Qt.ApplicationActive ? 1 : 0
     Behavior on amount { NumberAnimation { duration: drift.fadeDuration; easing.type: Easing.InOutSine } }
     property real phase: 0
-    NumberAnimation on phase {
+    Timer {
+        property real last: 0
         running: drift.amount > 0
-        from: 0
-        to: 2 * Math.PI
-        duration: drift.period
-        loops: Animation.Infinite
+        interval: 33
+        repeat: true
+        onRunningChanged: last = Date.now()
+        onTriggered: {
+            const now = Date.now()
+            drift.phase = (drift.phase + 2 * Math.PI * (now - last) / drift.period) % (2 * Math.PI)
+            last = now
+        }
     }
 }

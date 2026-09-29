@@ -338,7 +338,13 @@ class SessionModel(QAbstractListModel):
         jobs = [(s.game.game_id, s.handle, self._related.get(s.game.game_id, ""))
                 for s in self._rows if s.handle and s.state != "ended"]
         self._polls = getattr(self, "_polls", 0) + 1
-        cands = self._detect_candidates() if self._polls % DETECT_EVERY == 1 else []
+        detect = self._polls % DETECT_EVERY == 1
+        if not jobs and not detect:
+            # Nothing of Carthage's is running: only look for games started elsewhere, which
+            # doesn't need a pass over every process each second.
+            self._busy = False
+            return
+        cands = self._detect_candidates() if detect else []
         need_flatpak = any(h["kind"] == "flatpak" for _, h, _r in jobs) or any(h["kind"] == "flatpak" for _, h in cands)
 
         def work():

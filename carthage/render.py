@@ -613,6 +613,8 @@ def not_installed(img):
     return gray
 
 
+CACHE_BYTES = 256 * 2**20  # drawn images kept for reuse
+
 
 class ImageProvider(QQuickImageProvider):
     def __init__(self, library, art=None):
@@ -621,11 +623,13 @@ class ImageProvider(QQuickImageProvider):
         self._art = art  # ArtManager, or None (demo library)
         self.header_custom = None  # gameId → (custom text, custom image path); set by app.py
         self._cache = OrderedDict()
+        self._bytes = 0
         self._lock = threading.Lock()
 
     def clear(self):
         with self._lock:
             self._cache.clear()
+            self._bytes = 0
 
     def requestImage(self, image_id, size, requested):
         w = requested.width() if requested.width() > 0 else 300
@@ -637,9 +641,13 @@ class ImageProvider(QQuickImageProvider):
                 return self._cache[key]
         img = self._render(image_id, w, h)
         with self._lock:
-            self._cache[key] = img
-            while len(self._cache) > 600:
-                self._cache.popitem(last=False)
+            if key not in self._cache:
+                self._cache[key] = img
+                self._bytes += img.sizeInBytes()
+            # Oldest first, by count and by size: a store page's big cartridge alone can
+            # take several MB, so browsing many pages would otherwise pile up.
+            while len(self._cache) > 600 or (self._bytes > CACHE_BYTES and len(self._cache) > 1):
+                self._bytes -= self._cache.popitem(last=False)[1].sizeInBytes()
         return img
 
     def _render(self, image_id, w, h):

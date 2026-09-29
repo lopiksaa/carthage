@@ -76,16 +76,17 @@ def _install_dir(appid):
 
 
 class Snapshot:
-    """One pass over the running processes: parent links, names and command lines."""
+    """One pass over the running processes: parent links, names, paths and start times.
+    (Not command lines: reading those means reaching into every program's memory, and
+    nothing here needs them.)"""
 
     def __init__(self):
-        self.parent, self.children, self.cmd, self.name, self.exe, self.started = {}, {}, {}, {}, {}, {}
-        for p in psutil.process_iter(["pid", "ppid", "name", "exe", "cmdline", "create_time"]):
+        self.parent, self.children, self.name, self.exe, self.started = {}, {}, {}, {}, {}
+        for p in psutil.process_iter(["pid", "ppid", "name", "exe", "create_time"]):
             i = p.info
             pid = i["pid"]
             self.parent[pid] = i["ppid"] or 0
             self.children.setdefault(i["ppid"] or 0, []).append(pid)
-            self.cmd[pid] = [a.encode() for a in (i["cmdline"] or [i["name"] or ""])]
             self.name[pid] = (i["name"] or "").lower()
             self.exe[pid] = (i["exe"] or "").lower()
             self.started[pid] = i["create_time"] or 0

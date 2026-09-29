@@ -17,18 +17,27 @@ class Status(QObject):
     """Live facts for the dock's status display when nothing is running."""
 
     changed = Signal()
+    _result = Signal(bool)
 
     def __init__(self, library, parent=None):
         super().__init__(parent)
         self._library = library
         self._steam = False
+        self._busy = False
+        self._result.connect(self._apply)
         self._poll()
         t = QTimer(self)
         t.timeout.connect(self._poll)
         t.start(4000)
 
     def _poll(self):
-        running = _process_running("steam")
+        if self._busy:
+            return
+        self._busy = True
+        threading.Thread(target=lambda: self._result.emit(_process_running("steam")), daemon=True).start()
+
+    def _apply(self, running):
+        self._busy = False
         if running != self._steam:
             self._steam = running
             self.changed.emit()
@@ -49,9 +58,10 @@ class Status(QObject):
 def _process_running(name):
     """True if a process with this exact name exists (reads /proc/*/comm; no subprocess)."""
     if os.name == "nt":
-        from . import launcher
+        import psutil
 
-        return launcher.Snapshot().running(name)
+        want = name.lower() + ".exe"
+        return any((p.info["name"] or "").lower() == want for p in psutil.process_iter(["name"]))
     try:
         for pid in os.listdir("/proc"):
             if pid.isdigit():
