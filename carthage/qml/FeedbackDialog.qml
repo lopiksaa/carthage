@@ -136,8 +136,8 @@ CDialog {
             width: parent.width
             text: dlg.state_ === "failed"
                   ? "Couldn't send it. Check your connection and try again, or send it from your browser."
-                  : "Sent to the developer with Carthage's version and your operating system"
-                    + (answer.checked ? ", and your email so they can answer. " : ". ") + "Nothing else."
+                  : "Sent to lopiksa with Carthage's version and your operating system"
+                    + (answer.checked ? ", and your email so lopiksa can answer. " : ". ") + "Nothing else."
             color: dlg.state_ === "failed" ? dlg.pal.dangerText : dlg.pal.panelTextDim
             font.family: Ui.fontText
             font.pixelSize: Ui.textCaption
