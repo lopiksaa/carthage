@@ -5,14 +5,31 @@ below come from other projects and keep their own licenses.
 
 ## Fonts (`carthage/assets/fonts`)
 
-All five are under the SIL Open Font License 1.1. Each license, with its copyright line, sits
+All 21 are under the SIL Open Font License 1.1. Each license, with its copyright line, sits
 next to the font as `OFL-<name>.txt`.
 
 | Font | Copyright |
 |---|---|
 | Nunito | 2014 The Nunito Project Authors (github.com/googlefonts/nunito) |
 | DM Mono | 2020 The DM Mono Project Authors (github.com/googlefonts/dm-mono) |
-| DotGothic16 | 2020 The DotGothic16 Project Authors (github.com/fontworks-fonts/DotGothic16), cut down to its Latin characters |
+| Chakra Petch | 2018 The Chakra Petch Project Authors (github.com/m4rc1e/Chakra-Petch.git), static weights, cut down to Latin |
+| Michroma | 2011 The Michroma Project Authors (github.com/googlefonts/Michroma-font), cut down to Latin |
+| Bai Jamjuree | 2018 Bai Jamjuree (github.com/cadsondemak/Bai-Jamjuree), static weights, cut down to Latin |
+| Sora | 2019 The Sora Project Authors (github.com/sora-xor/sora-font), static weights, cut down to Latin |
+| Red Hat Display | 2024 The Red Hat Project Authors (github.com/RedHatOfficial/RedHatFont), static weights, cut down to Latin |
+| Instrument Sans | 2022 The Instrument Sans Project Authors (github.com/Instrument/instrument-sans), static weights, cut down to Latin |
+| Orbitron | 2018 The Orbitron Project Authors (github.com/theleagueof/orbitron), with Reserved Font Name: "Orbitron"; the authors’ Medium, Bold and Black files, unmodified |
+| Audiowide | 2012, Brian J. Bonislawsky DBA Astigmatic (AOETI), with Reserved Font Names "Audiowide"; unmodified |
+| Jura | 2019 The Jura Project Authors (github.com/ossobuffo/jura), static weights, cut down to Latin |
+| Righteous | 2011 by Brian J. Bonislawsky DBA Astigmatic (AOETI), cut down to Latin |
+| Manrope | 2018 The Manrope Project Authors (github.com/googlefonts/manrope), static weights, cut down to Latin |
+| Figtree | 2022 The Figtree Project Authors (github.com/erikdkennedy/figtree), static weights, cut down to Latin |
+| Onest | 2021 The Onest Project Authors (github.com/googlefonts/onest), static weights, cut down to Latin |
+| Plus Jakarta Sans | 2020 The Plus Jakarta Sans Project Authors (github.com/tokotype/PlusJakartaSans), static weights, cut down to Latin |
+| Lexend | 2018 The Lexend Project Authors (github.com/googlefonts/lexend), with Reserved Font Name “RevReading Lexend”, static weights, cut down to Latin |
+| Hanken Grotesk | 2021 The Hanken Grotesk Project Authors (github.com/marcologous/hanken-grotesk), static weights, cut down to Latin |
+| Albert Sans | 2021 The Albert Sans Project Authors (github.com/usted/Albert-Sans), static weights, cut down to Latin |
+| Urbanist | 2021 The Urbanist Project Authors (github.com/coreyhu/Urbanist), static weights, cut down to Latin |
 
 ## Interface icons (`carthage/assets/icons/ui`)
 
@@ -20,14 +37,14 @@ These are from KDE's [Breeze icon theme](https://invent.kde.org/frameworks/breez
 KDE contributors, under the GNU LGPL v3.0 or later. `carthage.svg`, `dice.svg` and
 `edit-undo.svg` in that folder are Carthage's own.
 
-## Texture (`carthage/assets/textures`)
+## Textures (`carthage/assets/textures`)
 
-The normal map is from Plastic012A by [ambientCG](https://ambientcg.com/view?id=Plastic012A),
-under CC0 1.0.
+The normal maps are from Plastic004, Plastic012A, Plastic014A and Plastic017A by
+[ambientCG](https://ambientcg.com), under CC0 1.0.
 
-## Sound (`carthage/assets/sounds/lab`)
+## Sounds (`carthage/assets/sounds`)
 
-The recording `release_2.wav` is trimmed from "51 UI sound effects" by
+The recording `release.wav` is trimmed from "51 UI sound effects" by
 [Kenney](https://www.kenney.nl), under CC0 1.0. `tools/make_sounds.py` generates all the other
 sounds.
 

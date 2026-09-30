@@ -10,13 +10,13 @@ import json
 import os
 import time
 
-from .chrome import REAL_CONFIG_HOME
+from .chrome import CONFIG_HOME
 
 
 class PlayLog:
     def __init__(self, enabled=True):
         self._enabled = enabled and not os.environ.get("GC_DEMO")
-        self._path = REAL_CONFIG_HOME / "carthage" / "playtime.json"
+        self._path = CONFIG_HOME / "carthage" / "playtime.json"
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
             self._data = {k: v for k, v in data.items() if isinstance(v, dict)}

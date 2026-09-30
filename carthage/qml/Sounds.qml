@@ -6,12 +6,10 @@ import QtMultimedia
 Item {
     id: sounds
 
-    // Re-read only when the chosen recordings change, not on every setting change.
-    readonly property string choice: JSON.stringify(Backend.settings.soundChoice)
     component Fx: SoundEffect {
         property string name
         property real level: 1
-        source: sounds.choice.length >= 0 ? Backend.soundUrl(name) : ""
+        source: Backend.soundUrl(name)
         volume: Backend.settings.soundVolume * level
     }
     Fx { id: clickIn; name: "click_in" }

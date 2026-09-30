@@ -77,7 +77,6 @@ Column {
             height: parent.height
             Shape {
                 id: dash
-                visible: Backend.theme.skin === "classic"
                 anchors.fill: parent
                 preferredRendererType: Shape.CurveRenderer
                 ShapePath {
@@ -94,32 +93,6 @@ Column {
                         radius: Ui.radiusLarge
                     }
                 }
-            }
-            Rectangle {
-                id: channel
-                visible: !dash.visible
-                anchors.fill: parent
-                radius: Ui.radiusLarge
-                color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.28 : 0.08)
-                clip: true
-                Rectangle { // shade under the top edge: it's sunk into the surface
-                    anchors.fill: parent
-                    radius: parent.radius
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.45 : 0.14) }
-                        GradientStop { position: 0.25; color: "transparent" }
-                    }
-                }
-            }
-            Rectangle { // the lit lower rim of the recess (light from the top-left)
-                visible: channel.visible
-                anchors.left: channel.left
-                anchors.right: channel.right
-                anchors.leftMargin: channel.radius
-                anchors.rightMargin: channel.radius
-                anchors.top: channel.bottom
-                height: 1
-                color: fs.pal.engraveHi
             }
             Column {
                 anchors.centerIn: parent
@@ -139,7 +112,7 @@ Column {
                         anchors.verticalCenter: parent.verticalCenter
                         text: fs.hot ? "Drop it here" : "Drag a cartridge here to keep it close"
                         color: fs.hot ? fs.pal.trayText : fs.pal.trayTextDim
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Bold
                         font.pixelSize: Ui.textBody
                     }
@@ -149,7 +122,7 @@ Column {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "or right-click one › Add to Favorites"
                     color: fs.pal.trayTextDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.pixelSize: Ui.textCaption
                 }
             }

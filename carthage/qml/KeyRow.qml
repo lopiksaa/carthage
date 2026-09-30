@@ -21,18 +21,17 @@ Column {
 
     spacing: Ui.gapS
 
-    Row {
+    Flow { // the badge wraps under a long title instead of running off the edge
+        width: parent.width
         spacing: Ui.gapS
         Text {
-            anchors.verticalCenter: parent.verticalCenter
             text: row.title
             color: row.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textBody
         }
         Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
             width: needText.implicitWidth + 2 * Ui.gapS
             height: needText.implicitHeight + 4
             radius: height / 2
@@ -44,7 +43,7 @@ Column {
                 anchors.centerIn: parent
                 text: row.required ? "Required" : "Optional"
                 color: row.required ? "#ffffff" : row.pal.panelTextDim
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Black
                 font.pixelSize: Ui.textCaption
             }
@@ -54,7 +53,7 @@ Column {
         width: parent.width
         text: row.purpose
         color: row.pal.panelTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.pixelSize: Ui.textCaption
         wrapMode: Text.Wrap
     }
@@ -85,7 +84,7 @@ Column {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Saved"
                     color: row.pal.panelText
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Bold
                     font.pixelSize: Ui.textBody
                 }
@@ -150,7 +149,7 @@ Column {
         width: parent.width
         text: row.message
         color: row.status === "error" ? row.pal.dangerText : row.pal.panelTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.DemiBold
         font.pixelSize: Ui.textCaption
         wrapMode: Text.Wrap
@@ -160,7 +159,7 @@ Column {
         visible: !row.saved || row.editing
         text: row.getText + " ↗"
         color: Backend.theme.accent.accent
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Bold
         font.pixelSize: Ui.textBody
         Accessible.role: Accessible.Link

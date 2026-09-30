@@ -61,7 +61,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "CARTHAGE"
             color: header.pal.dockText
-            font.family: "Nunito"
+            font.family: Ui.fontLabels
             font.weight: Font.Black
             font.pixelSize: Ui.textLead
             font.letterSpacing: 3.5
@@ -75,15 +75,13 @@ Item {
         height: Ui.controlHeight
         leftPadding: 38
         rightPadding: clear.visible ? 34 : 14
-        placeholderTextColor: searchDisplay.inkDim
-        color: searchDisplay.ink
-        font.family: searchDisplay.fontFamily
-        font.weight: searchDisplay.bare ? Font.DemiBold : Font.Normal
-        font.pixelSize: searchDisplay.bare ? Ui.textBody : 15
-        font.letterSpacing: searchDisplay.bare ? 0 : 0.6
-        font.capitalization: searchDisplay.bare ? Font.MixedCase : Font.AllUppercase
-        selectionColor: searchDisplay.bare ? Backend.theme.accent.accent : "#6d8a33"
-        selectedTextColor: searchDisplay.bare ? "#ffffff" : searchDisplay.ink
+        placeholderTextColor: header.pal.dockTextDim
+        color: header.pal.dockText
+        font.family: Ui.fontText
+        font.weight: Font.DemiBold
+        font.pixelSize: Ui.textBody
+        selectionColor: Backend.theme.accent.accent
+        selectedTextColor: "#ffffff"
         verticalAlignment: TextInput.AlignVCenter
         selectByMouse: true
         Accessible.name: "Search games"
@@ -96,24 +94,18 @@ Item {
         Keys.onDownPressed: header.appRoot.focusTray()
         Keys.onReturnPressed: header.appRoot.focusTray()
 
-        background: Display {
-            id: searchDisplay
-            focused: search.activeFocus && !bare
+        background: Rectangle {
+            radius: height / 2
+            color: Backend.theme.dark ? Qt.darker(header.pal.dockBottom, 1.35) : Qt.darker(header.pal.dockTop, 1.06)
+            border.width: search.activeFocus ? 2 : 1
+            border.color: search.activeFocus ? Ui.focusColor : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.14)
             Rectangle {
-                visible: searchDisplay.bare
                 anchors.fill: parent
-                radius: height / 2
-                color: Backend.theme.dark ? Qt.darker(header.pal.dockBottom, 1.35) : Qt.darker(header.pal.dockTop, 1.06)
-                border.width: search.activeFocus ? 2 : 1
-                border.color: search.activeFocus ? Ui.focusColor : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.14)
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    radius: parent.radius
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.25 : 0.06) }
-                        GradientStop { position: 0.35; color: "transparent" }
-                    }
+                anchors.margins: 1
+                radius: parent.radius
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.25 : 0.06) }
+                    GradientStop { position: 0.35; color: "transparent" }
                 }
             }
         }
@@ -125,7 +117,7 @@ Item {
             height: 16
             source: "search-symbolic"
             isMask: true
-            color: searchDisplay.inkDim
+            color: header.pal.dockTextDim
         }
         CButton {
             id: clear
@@ -136,7 +128,7 @@ Item {
             width: 28
             height: 28
             kind: "ghost"
-            tint: searchDisplay.inkDim
+            tint: header.pal.dockTextDim
             icon.name: "edit-clear-symbolic"
             Accessible.name: "Clear search"
             focusPolicy: Qt.NoFocus

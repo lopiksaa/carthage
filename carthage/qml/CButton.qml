@@ -12,6 +12,7 @@ QQC2.AbstractButton {
 
     property string kind: "plain"
     property bool big: false
+    property bool iconAfter: false // the icon after the text (a forward arrow: "All Categories →")
     property color tint: "transparent" // overrides the foreground, e.g. on a dark backdrop
 
     readonly property var pal: Backend.theme.p
@@ -36,23 +37,24 @@ QQC2.AbstractButton {
     }
 
     background: Item {
-      Rectangle {
+      // A raised key: its darker side shows under the face and disappears when pressed.
+      Rectangle { // soft shadow where the key meets the surface
         visible: btn.isKey
         anchors.fill: parent
-        anchors.margins: -3
-        anchors.topMargin: 0
-        radius: Ui.radiusMedium + 3
-        color: Qt.rgba(0, 0, 0, 0.4)
-        Rectangle {
-            anchors.fill: parent
-            radius: parent.radius
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.35) }
-                GradientStop { position: 0.4; color: "transparent" }
-            }
-        }
+        anchors.topMargin: 2
+        anchors.bottomMargin: -1
+        radius: Ui.radiusMedium
+        color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.35 : 0.15)
       }
-      Rectangle {
+      Rectangle { // the key's side
+        visible: btn.isKey
+        anchors.fill: parent
+        radius: Ui.radiusMedium
+        opacity: btn.enabled ? 1 : 0.45
+        color: Qt.darker(btn.pal.dockBottom, Backend.theme.dark ? 1.5 : 1.15)
+      }
+      Rectangle { // the face, lit from above
+        id: keyFace
         visible: btn.isKey
         anchors.fill: parent
         anchors.topMargin: btn.down ? 3 : 0
@@ -60,19 +62,25 @@ QQC2.AbstractButton {
         radius: Ui.radiusMedium
         opacity: btn.enabled ? 1 : 0.45
         gradient: Gradient {
-            GradientStop { position: 0.0; color: btn.hovered ? Qt.lighter(btn.pal.dockTop, 1.05) : btn.pal.dockTop }
+            GradientStop { position: 0.0; color: Qt.tint(btn.pal.dockTop, Qt.rgba(1, 1, 1, btn.hovered ? 0.1 : 0.06)) }
             GradientStop { position: 1.0; color: btn.pal.dockBottom }
         }
         border.width: 1
         border.color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.2)
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: parent.radius
-            anchors.rightMargin: parent.radius
-            y: 1
-            height: 1
-            color: Qt.rgba(1, 1, 1, 0.18)
+        Item { // shine along the top edge and round the corners, fading out halfway down
+            visible: !btn.down
+            anchors.fill: parent
+            anchors.margins: 1
+            anchors.bottomMargin: parent.height / 2
+            clip: true
+            Rectangle {
+                width: parent.width
+                height: keyFace.height - 2
+                radius: Ui.radiusMedium - 1
+                color: "transparent"
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, Backend.theme.dark ? 0.1 : 0.4)
+            }
         }
       }
       Rectangle {
@@ -103,11 +111,13 @@ QQC2.AbstractButton {
     contentItem: Item {
         implicitWidth: row.implicitWidth
         implicitHeight: row.implicitHeight
+        opacity: btn.enabled ? 1 : 0.4  // a button that can't be used looks it, label included
         transform: Translate { y: btn.isKey ? (btn.down ? 1.5 : -1.5) : 0 }
         Row {
             id: row
             anchors.centerIn: parent
             spacing: Ui.gapS
+            layoutDirection: btn.iconAfter ? Qt.RightToLeft : Qt.LeftToRight
             CIcon {
                 visible: btn.icon.name !== ""
                 anchors.verticalCenter: parent.verticalCenter
@@ -122,7 +132,7 @@ QQC2.AbstractButton {
                 anchors.verticalCenter: parent.verticalCenter
                 text: btn.text
                 color: btn.fg
-                font.family: "Nunito"
+                font.family: Ui.fontButtons
                 font.weight: btn.kind === "primary" ? Font.Black : Font.Bold
                 font.pixelSize: btn.big ? Ui.textLead + 2 : Ui.textBody
             }

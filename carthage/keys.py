@@ -90,7 +90,6 @@ class Keys(QObject):
         self._message = {"steam": "", "steamgrid": "", "itad": ""}
         # A check that failed for reasons other than the key (offline, service down): setup
         # then lets you go on without it for now.
-        self._unreachable = {"steam": False, "steamgrid": False, "itad": False}
         self._steam_found = False
         self._results = []  # delivered to the UI thread via _deliver
         self._refresh()
@@ -129,10 +128,6 @@ class Keys(QObject):
                 service, status, message, stored = data
                 self._status[service] = status
                 self._message[service] = message
-                self._unreachable[service] = status == "error" and message.startswith(("Couldn't reach", "Couldn't save", "Couldn't find"))
-                if status == "error" and (" answered with an error " in message or "unexpected answer" in message
-                                          or "is busy" in message):
-                    self._unreachable[service] = True
                 if stored is not None:
                     self._has[service] = stored
         self.changed.emit()
@@ -151,10 +146,6 @@ class Keys(QObject):
     @Property("QVariantMap", notify=changed)
     def message(self):
         return dict(self._message)
-
-    @Property("QVariantMap", notify=changed)
-    def unreachable(self):
-        return dict(self._unreachable)
 
     @Property(bool, notify=changed)
     def steamFound(self):

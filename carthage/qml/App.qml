@@ -50,7 +50,7 @@ Item {
                                       || headerPicker.opened || textPrompt.opened || processPicker.opened
                                       || storePage.open || mediaViewer.opened
                                       || addGameDialog.opened || slotPanel.opened || inspect.open
-                                      || colorWheel.opened || whatsNew.opened
+                                      || colorPicker.opened || whatsNew.opened
                                       || app.settingsOpen || Ui.openMenus > 0
 
     // gameId → true while the cartridge is out of its recess (inspected, flying or docked).
@@ -866,11 +866,11 @@ Item {
         addGameDialog.start()
     }
 
-    ColorWheelDialog {
-        id: colorWheel
+    ColorPickerDialog {
+        id: colorPicker
     }
     function pickColor(target) {  // "hardware" or "card"
-        colorWheel.openFor(target)
+        colorPicker.openFor(target)
     }
     SetupWizard {
         id: setupWizard
@@ -1064,7 +1064,7 @@ Item {
             break
         }
         case "closeAll":  // every dialog, menu, page and the drawer (each on its own, so one can't stop the rest)
-            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, setupWizard, slotPanel, mediaViewer, colorWheel])
+            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, setupWizard, slotPanel, mediaViewer, colorPicker, whatsNew])
                 try { p.close() } catch (e) { console.warn("closeAll:", e) }
             for (const f of [() => inspect.closeMenus(), () => tray.closeMenus(), () => storePage.close(), () => inspect.close(), () => closeDrawer()])
                 try { f() } catch (e) { console.warn("closeAll:", e) }
@@ -1091,7 +1091,7 @@ Item {
             if (storePage.open) storePage.exitGallery()
             else inspect.exitGallery()
             break
-        case "colorWheel":  // {"target": "hardware" | "card"}
+        case "colorPicker":  // {"target": "hardware" | "card"}
             pickColor(cmd.target || "hardware")
             break
         case "setting":  // {"key": "testCartridge", "value": false} — test runs never save settings

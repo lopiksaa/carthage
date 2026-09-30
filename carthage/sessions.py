@@ -233,9 +233,10 @@ class SessionModel(QAbstractListModel):
 
     @Slot(str)
     def quit(self, game_id):
-        if self.frozen:
-            return
         i, s = self._row(game_id)
+        # Frozen (a test on the real library): only simulated games, which have no process.
+        if self.frozen and not (s and s.simulated):
+            return
         if not s or s.state not in ("running", "starting", "notresponding", "unconfirmed"):
             return
         s.cancel_timers()

@@ -1,5 +1,6 @@
 // Full-window viewer for a store game's trailers and screenshots.
 import QtQuick
+import Carthage
 import QtQuick.Controls as QQC2
 import QtMultimedia
 
@@ -77,7 +78,7 @@ QQC2.Popup {
                 videoOutput: video
                 audioOutput: AudioOutput { volume: 0.6 }
                 source: viewer.opened && viewer.cur.kind === "video" ? viewer.cur.url : ""
-                onSourceChanged: if (source != "") play()
+                onSourceChanged: if (source.toString() !== "") play()
             }
             MouseArea {
                 anchors.centerIn: parent
@@ -118,7 +119,7 @@ QQC2.Popup {
             anchors.margins: 16
             text: (viewer.index + 1) + " / " + viewer.media.length
             color: Qt.rgba(1, 1, 1, 0.7)
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textBody
         }

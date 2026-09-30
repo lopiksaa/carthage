@@ -25,7 +25,6 @@ Item {
     height: 52
 
     Row {
-        id: leftRow
         x: bar.tray ? bar.tray.contentLeft : 24
         anchors.verticalCenter: parent.verticalCenter
         spacing: Ui.gapM
@@ -33,29 +32,13 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "Library"
         }
-        readonly property int n: Backend.games.count + Backend.favorites.count
-        Display {
-            id: countDisplay
-            visible: !bare
-            anchors.verticalCenter: parent.verticalCenter
-            width: Math.max(34, countText.implicitWidth + 14)
-            height: 24
-            Text {
-                id: countText
-                anchors.centerIn: parent
-                text: String(leftRow.n)
-                color: countDisplay.ink
-                font.family: countDisplay.fontFamily
-                font.pixelSize: 14
-            }
-        }
         Text {
             anchors.verticalCenter: parent.verticalCenter
             readonly property int n: Backend.games.count + Backend.favorites.count
-            text: (countDisplay.bare ? n + " " : "")
+            text: n + " "
                   + (Backend.games.filterText !== "" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games"))
             color: bar.pal.trayTextDim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textCaption
         }

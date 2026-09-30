@@ -145,7 +145,6 @@ def main(argv=None):
         import ctypes
 
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("lopiksa.Carthage")
-    chrome.before_app()
     fmt = QSurfaceFormat.defaultFormat()
     fmt.setSamples(4)
     QSurfaceFormat.setDefaultFormat(fmt)

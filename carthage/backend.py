@@ -8,9 +8,9 @@ from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 from .library import GameModel, TrayModel, fake_games, real_games
 from .sessions import SessionModel
 from .settings import Settings
-from .theme import PLASTIC_TEXTURE, Theme
+from .theme import PLASTIC_TEXTURE, TEXTURES, Theme
 from .version import VERSION
-from .watchers import InstallWatch, LibraryWatcher, Status
+from .watchers import InstallWatch, LibraryWatcher
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 
@@ -52,7 +52,10 @@ class Backend(QObject):
         self._tray.installedFirst = st.get("installedFirst")
         st.changed.connect(lambda: setattr(self._tray, "installedFirst", st.get("installedFirst")))
         def apply_texture():
-            self._theme.texture = PLASTIC_TEXTURE if st.get("texturedPlastic") else "none"
+            tex = st.get("plasticTexture")
+            tex = tex if tex in dict(TEXTURES) else PLASTIC_TEXTURE
+            self._theme.set_card_texture(tex)
+            self._theme.texture = tex if st.get("texturedPlastic") else "none"
 
         apply_texture()
         st.changed.connect(apply_texture)
@@ -69,7 +72,6 @@ class Backend(QObject):
         # Never from the demo library or a scripted test: those would show on the real Discord.
         self._presence = Presence(lambda: not fake and not self._test_run and self._settings.get("discordPresence"))
         self._settings.changed.connect(self._presence.refresh)
-        self._status = Status(self._library, self)
         self._install = InstallWatch(self) if not fake else None
         from .store import Store
 
@@ -81,8 +83,6 @@ class Backend(QObject):
         from .sources import steam
 
         self._keys = Keys(lambda: steam.steam_id64(steam.find_root()) if steam.find_root() else None, self)
-        self._library.modelReset.connect(self._status.changed)
-        self._library.refreshed.connect(self._status.changed)
         self._art = None
         self._art_rev = {}
         if not fake:
@@ -320,18 +320,11 @@ class Backend(QObject):
         QDesktopServices.openUrl(QUrl(url))
 
     @Property(QObject, constant=True)
-    def status(self):
-        return self._status
-
-    @Property(QObject, constant=True)
     def sessions(self):
         return self._sessions
 
     @Slot(str, result=QUrl)
     def soundUrl(self, name):
-        chosen = self._settings.get("soundChoice").get(name)
-        if chosen and (ASSETS / "sounds" / "lab" / chosen).exists():
-            return QUrl.fromLocalFile(str(ASSETS / "sounds" / "lab" / chosen))
         return QUrl.fromLocalFile(str(ASSETS / "sounds" / f"{name}.wav"))
 
     @Slot(str, result=str)
@@ -343,9 +336,11 @@ class Backend(QObject):
         g = self._library.game(game_id)
         if g is None:
             return "missing"
-        if self._test_run:
+        from .library import TEST_CARTRIDGE_ID
+
+        if self._test_run and game_id != TEST_CARTRIDGE_ID:
             # A scripted test (GC_DEMO) on the real library never starts anything, whatever
-            # gets clicked.
+            # gets clicked. The Test Cartridge launches nothing, so it may run.
             import logging
 
             logging.getLogger("carthage").warning("Test run: not launching %s", g.title)
@@ -389,11 +384,17 @@ class Backend(QObject):
 
     @Slot(result="QVariantMap")
     def whatsNewNotes(self):
-        """The latest notes, always (Menu → What's new, and the demo harness)."""
-        from .whatsnew import NOTES, notes_for
+        """This version's notes, always (Menu → What's new, and the demo harness). Its fixes
+        come as one last "Fixes" step, so a fix-only version still has something to show."""
+        from .whatsnew import notes_for
 
-        # The newest version with something to show; fix-only versions have no steps.
-        return next((n for v in NOTES if (n := notes_for(v))["slides"]), {})
+        notes = notes_for(VERSION)
+        if not notes:
+            return {}
+        if notes["fixed"]:
+            notes["slides"].append({"kind": "fixed", "icon": "tools", "title": "Fixes",
+                                    "text": "\n".join("• " + t for t in notes["fixed"])})
+        return notes
 
     @Slot()
     def whatsNewSeen(self):
@@ -530,10 +531,10 @@ class Backend(QObject):
 
     @staticmethod
     def _header_image_path(game_id):
-        from .chrome import REAL_CONFIG_HOME
+        from .chrome import CONFIG_HOME
 
         safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in game_id)
-        return REAL_CONFIG_HOME / "carthage" / "headers" / (safe + ".png")
+        return CONFIG_HOME / "carthage" / "headers" / (safe + ".png")
 
     def header_custom(self, game_id):
         """(custom text, custom image path or None) — for the image provider."""

@@ -12,9 +12,9 @@ import uuid
 
 def path():
     # chrome.py redirects XDG_CONFIG_HOME for the UI toolkit; use the real one.
-    from ..chrome import REAL_CONFIG_HOME
+    from ..chrome import CONFIG_HOME
 
-    return REAL_CONFIG_HOME / "carthage" / "games.json"
+    return CONFIG_HOME / "carthage" / "games.json"
 
 
 def _read():

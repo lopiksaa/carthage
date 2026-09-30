@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Synthesize Carthage's UI sounds from one physical model of its plastic.
 
-The model is measured from the eject recording (lab/release_2.wav, Kenney CC0):
+The model is measured from the eject recording (release.wav, Kenney CC0):
   - a low body resonance: three close modes around 800 Hz, ~20 ms to fade 20 dB
   - bright click resonances: clusters around 4.8 kHz and 7.5–8.9 kHz, ~10 ms
   - each contact is a double tap ~8 ms apart (the part bouncing once)

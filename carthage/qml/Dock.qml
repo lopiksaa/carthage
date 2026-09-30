@@ -97,40 +97,41 @@ Item {
 
     // The status line follows the slot under the pointer or keyboard focus; otherwise the game
     // that needs attention, else the most recent one.
-    Display {
+    Item {
         id: display
+        readonly property color ink: dock.pal.dockText
+        readonly property color inkDim: dock.pal.dockTextDim
         readonly property Item s: dock.activeSlot
         readonly property real room: (dock.width - dock.slotCount * dock.slotW) / 2 - 2 * Ui.gapXL
         readonly property var inst: dock.installing
         readonly property bool gettingArt: !s && !inst && !!Backend.artPicker && Backend.artPicker.pending > 0
         readonly property color ledColor: dock.appRoot && !dock.appRoot.powered ? dock.pal.ledOff
                                         : !s ? (inst || gettingArt ? Backend.theme.led.amber
-                                                  : Backend.status.steamRunning ? Backend.theme.led.green : dock.pal.ledOff)
+                                                  : Backend.theme.led.green)
                                             : s.led === "green" ? Backend.theme.led.green : Backend.theme.led.amber
-        readonly property string main: !s ? (inst ? "Installing " + inst.title
-                                                  : Backend.status.steamRunning ? "Steam is on" : "Steam is off")
+        readonly property string main: !s ? (inst ? "Installing " + inst.title : "Ready")
                                      : s.state_ === "notresponding" ? s.title + " isn't responding"
                                      : s.title
         readonly property string detail: {
             if (!s) {
                 if (inst) return Math.round(inst.progress * 100) + "%" + (inst.more ? ", and " + inst.more + " more" : "")
                 if (gettingArt) return "getting art, " + Backend.artPicker.pending + " left"
-                return Backend.status.total + " games, " + Backend.status.installed + " installed"
+                return ""  // at rest: just "Ready"
             }
             const d = s.state_ === "notresponding" ? "click the cartridge" : s.statusText
             return dock.filled > 1 ? d + " · " + dock.filled + " running" : d
         }
-        visible: room >= (bare ? 120 : 140)
-        x: bare ? 20 : 24  // the window's side margin (a bezel reaches the 20 px margin)
+        visible: room >= 120
+        x: 20
         y: Math.round(dock.lipY - height / 2) - 2
-        width: Math.min(bare ? 420 : 280, room)
-        height: bare ? 20 : 30
+        width: Math.min(420, room)
+        height: 20
         Accessible.role: Accessible.StaticText
-        Accessible.name: main + ", " + detail
+        Accessible.name: detail ? main + ", " + detail : main
 
         Led {
             id: statusLed
-            x: display.bare ? 0 : 10
+            x: 0
             anchors.verticalCenter: parent.verticalCenter
             color: display.ledColor
             // A busy blink at 2 Hz, under the 3 Hz flashing limit.
@@ -147,24 +148,19 @@ Item {
         Text {
             id: statusText
             anchors.left: statusLed.right
-            anchors.leftMargin: display.bare ? 10 : 8
+            anchors.leftMargin: 10
             anchors.right: parent.right
-            anchors.rightMargin: display.bare ? 0 : 8
             anchors.verticalCenter: parent.verticalCenter
             textFormat: Text.StyledText
-            text: display.bare
-                  ? "<b>" + display.main.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</b>"
-                    + "<font color=\"" + display.inkDim + "\">  ·  " + display.detail.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</font>"
-                  : display.main.toUpperCase().replace(/&/g, "&amp;").replace(/</g, "&lt;")
-                    + "<font color=\"" + display.inkDim + "\"> · " + display.detail.toUpperCase().replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</font>"
+            text: "<b>" + Ui.escapeHtml(display.main) + "</b>"
+                  + (display.detail ? "<font color=\"" + display.inkDim + "\">  ·  " + Ui.escapeHtml(display.detail) + "</font>" : "")
             color: display.ink
-            font.family: display.fontFamily
-            font.pixelSize: display.bare ? Ui.textBody : 12
-            font.letterSpacing: display.bare ? 0 : 0.4
+            font.family: Ui.fontText
+            font.pixelSize: Ui.textBody
             elide: Text.ElideRight
             HoverHandler { id: statusHover }
             QQC2.ToolTip.visible: statusHover.hovered && statusText.truncated
-            QQC2.ToolTip.text: display.main + " · " + display.detail
+            QQC2.ToolTip.text: display.detail ? display.main + " · " + display.detail : display.main
         }
     }
 

@@ -13,69 +13,6 @@ from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, Signal
 from .library import real_games
 
 
-class Status(QObject):
-    """Live facts for the dock's status display when nothing is running."""
-
-    changed = Signal()
-    _result = Signal(bool)
-
-    def __init__(self, library, parent=None):
-        super().__init__(parent)
-        self._library = library
-        self._steam = False
-        self._busy = False
-        self._result.connect(self._apply)
-        self._poll()
-        t = QTimer(self)
-        t.timeout.connect(self._poll)
-        t.start(4000)
-
-    def _poll(self):
-        if self._busy:
-            return
-        self._busy = True
-        threading.Thread(target=lambda: self._result.emit(_process_running("steam")), daemon=True).start()
-
-    def _apply(self, running):
-        self._busy = False
-        if running != self._steam:
-            self._steam = running
-            self.changed.emit()
-
-    @Property(bool, notify=changed)
-    def steamRunning(self):
-        return self._steam
-
-    @Property(int, notify=changed)
-    def total(self):
-        return self._library.rowCount()
-
-    @Property(int, notify=changed)
-    def installed(self):
-        return sum(1 for g in self._library._games if g.installed)
-
-
-def _process_running(name):
-    """True if a process with this exact name exists (reads /proc/*/comm; no subprocess)."""
-    if os.name == "nt":
-        import psutil
-
-        want = name.lower() + ".exe"
-        return any((p.info["name"] or "").lower() == want for p in psutil.process_iter(["name"]))
-    try:
-        for pid in os.listdir("/proc"):
-            if pid.isdigit():
-                try:
-                    with open(f"/proc/{pid}/comm") as f:
-                        if f.read().strip() == name:
-                            return True
-                except OSError:
-                    continue
-    except OSError:
-        pass
-    return False
-
-
 class LibraryWatcher(QObject):
     """Reloads the real library (in a worker thread) when a launcher's files change —
     e.g. a game finishes installing in Steam, or one is added in Heroic or Lutris."""

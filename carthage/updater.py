@@ -133,7 +133,7 @@ class Updater(QObject):
 
     def _download(self, asset):
         self._state, self._progress = "downloading", 0.0
-        kind, latest = self._kind, self._latest
+        kind = self._kind
 
         def work():
             try:

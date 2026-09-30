@@ -8,6 +8,7 @@ QQC2.ApplicationWindow {
     id: root
     visible: true
     color: Backend.theme.p.tray
+    font.family: Ui.fontText  // standard controls (fields, menus) inherit the chosen font
 
     title: "Carthage"
     // Never larger than the free desktop area (a 1366×768 laptop, or 1080p at 125% scaling).
@@ -29,12 +30,6 @@ QQC2.ApplicationWindow {
         target: Backend.theme
         property: "cardColor"
         value: Backend.settings.cardColor
-    }
-    Binding {
-        target: Backend.theme
-        property: "skin"
-        // Only Classic ships for now; Plastic is switched off.
-        value: "classic"
     }
 
     onReloadCountChanged: {
@@ -107,7 +102,7 @@ QQC2.ApplicationWindow {
                 width: Math.min(implicitWidth, root.width - 220)
                 text: toast.message
                 color: Backend.theme.p.panelText
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Bold
                 font.pixelSize: Ui.textBody
                 elide: Text.ElideRight

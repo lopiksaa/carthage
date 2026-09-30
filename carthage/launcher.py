@@ -7,6 +7,6 @@ the registry, Win32 windows) offer the same functions, so sessions.py doesn't ca
 import os
 
 if os.name == "nt":
-    from .launcher_win import *  # noqa: F401,F403
+    from .launcher_win import *  # noqa: F403
 else:
-    from .launcher_linux import *  # noqa: F401,F403
+    from .launcher_linux import *  # noqa: F403
