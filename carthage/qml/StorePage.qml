@@ -98,6 +98,14 @@ FocusScope {
         offers = it.offers || []
         offerIndex = 0
         if (it.appid) Backend.store.loadDetails(it.appid)
+        // Get the games on either side ready, so ← → shows them at once.
+        const list = siblings || []
+        for (let k = 0; k < list.length; k++) {
+            if (keyOf(list[k]) !== keyOf(it)) continue
+            for (const n of [list[k - 1], list[k + 1]])
+                if (n && n.appid) Backend.store.prefetchDetails(n.appid)
+            break
+        }
         Backend.store.loadOffers(keyOf(it), it.appid || 0, it.name || "",
                                  { price: it.price || "", original: it.original || "", discount: it.discount || 0 })
         resetGallery()
@@ -340,7 +348,7 @@ FocusScope {
         text: "Prices from <a href=\"https://isthereanydeal.com\">IsThereAnyDeal</a>"
         color: Ui.onScrimDim
         linkColor: Ui.onScrimDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.pixelSize: Ui.textCaption
         onLinkActivated: (url) => Backend.openUrl(url)
         HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
@@ -380,14 +388,14 @@ FocusScope {
                     Text {
                         text: chip.modelData.storeName
                         color: chip.current ? "#141417" : Ui.onScrim
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Black
                         font.pixelSize: Ui.textCaption
                     }
                     Text {
                         text: chip.modelData.price
                         color: chip.current ? "#141417" : Ui.onScrimDim
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Bold
                         font.pixelSize: Ui.textCaption
                     }
@@ -453,7 +461,7 @@ FocusScope {
                 Text {
                     text: [page.storeName].concat(page.info.genres || []).join("  ·  ").toUpperCase()
                     color: Ui.onScrimDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontLabels
                     font.weight: Font.Black
                     font.pixelSize: Ui.textCaption
                     font.letterSpacing: 2
@@ -464,7 +472,7 @@ FocusScope {
                     width: parent.width
                     text: page.info.name || page.item.name || ""
                     color: Ui.onScrim
-                    font.family: "Nunito"
+                    font.family: Ui.fontTitles
                     font.weight: Font.Black
                     font.pixelSize: Ui.textDisplay
                     lineHeight: 0.95
@@ -479,7 +487,7 @@ FocusScope {
                     text: Ui.creditsLine(page.info.developer, page.info.publisher, page.info.released)
                     color: Ui.onScrimDim
                     linkColor: Ui.onScrimDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Bold
                     font.pixelSize: Ui.textLead
                     wrapMode: Text.Wrap
@@ -502,7 +510,7 @@ FocusScope {
                         anchors.centerIn: parent
                         text: "-" + (page.shown.discount || 0) + "%"
                         color: Ui.onScrim
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Black
                         font.pixelSize: Ui.textLead
                     }
@@ -512,7 +520,7 @@ FocusScope {
                     anchors.verticalCenter: parent.verticalCenter
                     text: page.shown.original || ""
                     color: Ui.onScrimFaint
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Bold
                     font.pixelSize: Ui.textLead
                     font.strikeout: true
@@ -523,7 +531,7 @@ FocusScope {
                         : page.steamShown && page.info.comingSoon ? "Coming soon"
                         : (page.shown.until || page.shown.price || "")
                     color: Ui.onScrim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Black
                     font.pixelSize: Ui.textTitle
                 }
@@ -596,7 +604,7 @@ FocusScope {
                     width: parent.width
                     text: page.info.description || ""
                     color: Ui.onScrim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.pixelSize: Ui.textLead
                     lineHeight: 1.15
                     wrapMode: Text.Wrap
@@ -625,7 +633,7 @@ FocusScope {
                                 anchors.centerIn: parent
                                 text: modelData
                                 color: Ui.onScrim
-                                font.family: "Nunito"
+                                font.family: Ui.fontText
                                 font.weight: Font.Bold
                                 font.pixelSize: Ui.textCaption
                             }

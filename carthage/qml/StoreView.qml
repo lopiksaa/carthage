@@ -179,54 +179,56 @@ Item {
                 }
             }
           }
-          Column {
-            width: shelves.width
-            spacing: Ui.gapM
-            Item {
-              width: parent.width
-              height: browseTitle.height
-              EngravedLabel {
-                id: browseTitle
-                x: 28
-                text: "Browse by Category"
-              }
-              CButton {
-                anchors.right: parent.right
-                anchors.rightMargin: 24
-                anchors.verticalCenter: browseTitle.verticalCenter
-                text: "All Categories"
-                icon.name: "go-next-symbolic"
-                onClicked: view.showCategories()
-              }
+        }
+        // Categories come last, after the shelves.
+        footer: Column {
+          width: shelves.width
+          topPadding: Ui.gapXL + Ui.gapS
+          spacing: Ui.gapM
+          Item {
+            width: parent.width
+            height: browseTitle.height
+            EngravedLabel {
+              id: browseTitle
+              x: 28
+              text: "Browse by Category"
             }
-            ListView {
-              id: tileRow
-              width: parent.width
+            CButton {
+              anchors.right: parent.right
+              anchors.rightMargin: 24
+              anchors.verticalCenter: browseTitle.verticalCenter
+              text: "All Categories"
+              icon.name: "go-next-symbolic"
+              iconAfter: true
+              onClicked: view.showCategories()
+            }
+          }
+          ListView {
+            id: tileRow
+            width: parent.width
+            height: 110
+            orientation: ListView.Horizontal
+            spacing: Ui.gapL
+            leftMargin: 28
+            rightMargin: 28
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            model: Backend.store.categories
+            WheelAccel { flickable: tileRow; horizontal: true; step: 200; acceptedModifiers: Qt.ShiftModifier }
+            delegate: Item {
+              required property var modelData
+              width: 170
               height: 110
-              orientation: ListView.Horizontal
-              spacing: Ui.gapL
-              leftMargin: 28
-              rightMargin: 28
-              clip: true
-              boundsBehavior: Flickable.StopAtBounds
-              model: Backend.store.categories
-              WheelAccel { flickable: tileRow; horizontal: true; step: 200; acceptedModifiers: Qt.ShiftModifier }
-              delegate: Item {
-                required property var modelData
+              CategoryTile {
+                y: 8
                 width: 170
-                height: 110
-                CategoryTile {
-                  y: 8
-                  width: 170
-                  height: 96
-                  compact: true
-                  name: modelData.name
-                  tag: modelData.tag
-                  onChosen: view.openCategory(modelData)
-                }
+                height: 96
+                compact: true
+                name: modelData.name
+                tag: modelData.tag
+                onChosen: view.openCategory(modelData)
               }
             }
-            Item { width: 1; height: Ui.gapXL + Ui.gapS }
           }
         }
         boundsBehavior: Flickable.StopAtBounds
@@ -243,35 +245,28 @@ Item {
                 x: 28
                 text: shelf.modelData.title
             }
-            // Exactly as tall as its cards, so every shelf is spaced the same.
-            Item {
-                width: parent.width
-                height: row.height
-                ListView {
-                    id: row
-                    x: 0
-                    width: parent.width
-                    height: view.cardW * Backend.theme.ratio + view.cardW * 0.07
-                            + (shelf.modelData.key === "charts" ? 76 : 58)
-                    orientation: ListView.Horizontal
-                    leftMargin: 32
-                    rightMargin: 32
-                    spacing: 22
-                    clip: false
-                    boundsBehavior: Flickable.StopAtBounds
+            // The shelf's cartridges in rows, like the library tray (columns as in the
+            // search results).
+            Grid {
+                id: grid
+                x: 24
+                readonly property real cellW: Math.floor((shelves.width - 48) / columns)
+                columns: Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
+                rowSpacing: Ui.gapL
+                Repeater {
                     model: shelf.modelData.items
-                    delegate: StoreCard {
+                    delegate: Item {
                         required property var modelData
-                        item: modelData
-                        cardW: view.cardW
-                        appRoot: view.appRoot
-                        onChosen: (it, cart) => view.chosen(it, cart, shelf.modelData.items)
-                    }
-                    WheelAccel {
-                        flickable: row
-                        horizontal: true
-                        acceptedModifiers: Qt.ShiftModifier
-                        step: view.cardW * 0.8
+                        width: grid.cellW
+                        height: card.height
+                        StoreCard {
+                            id: card
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            item: parent.modelData
+                            cardW: view.cardW
+                            appRoot: view.appRoot
+                            onChosen: (it, cart) => view.chosen(it, cart, shelf.modelData.items)
+                        }
                     }
                 }
             }
@@ -355,7 +350,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Top sellers"
                     color: view.pal.trayTextDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.pixelSize: Ui.textLead
                 }
             }

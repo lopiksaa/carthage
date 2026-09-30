@@ -260,13 +260,15 @@ class Store(QObject):
     detailsReady = Signal(int, "QVariantMap")
     failed = Signal(str)
 
-    def __init__(self, owned_ids=lambda: set(), hide_adult=lambda: True, parent=None, other_stores=lambda: False):
+    def __init__(self, owned_ids=set, hide_adult=lambda: True, parent=None, other_stores=lambda: False):
         super().__init__(parent)
         self._owned = owned_ids
         self._hide_adult = hide_adult
         self._featured = None
         self._featured_t = 0
         self._details = {}
+        # appid → quiet, for detail fetches still running (a prefetch, or a page waiting).
+        self._fetching = {}
         CACHE.mkdir(parents=True, exist_ok=True)
         self._cat_art = self._load_category_art()
         from .itad import Itad
@@ -313,7 +315,7 @@ class Store(QObject):
             try:
                 d = _get("featuredcategories", {})
             except FETCH_ERRORS:
-                self.failed.emit("Couldn't reach the Steam store. Check your connection.")
+                self.failed.emit("Something went wrong while loading the store.")
                 return
             sections = []
             for key, title in SECTIONS:
@@ -592,13 +594,33 @@ class Store(QObject):
         (delisted, region-locked) just shows nothing extra instead of an error."""
         self._load_details(appid, quiet=True)
 
+    @Slot(int)
+    def prefetchDetails(self, appid):
+        """Fetch a game's details ahead of time (the store page's neighbours), so stepping to
+        it shows them at once. Quiet: nothing is shown, and a failure says nothing."""
+        cached = self._details.get(appid)
+        if appid and appid not in self._fetching and not (cached and time.time() - cached[0] < DETAILS_TTL):
+            self._load_details(appid, quiet=True)
+
     def _load_details(self, appid, quiet):
         cached = self._details.get(appid)
         if cached and time.time() - cached[0] < DETAILS_TTL:
             self.detailsReady.emit(appid, cached[1])
             return
+        if appid in self._fetching:
+            # Already on its way (e.g. prefetched): that fetch reports it, loudly if a page
+            # is now waiting for it.
+            self._fetching[appid] = self._fetching[appid] and quiet
+            return
+        self._fetching[appid] = quiet
 
         def work():
+            try:
+                fetch()
+            finally:
+                self._fetching.pop(appid, None)
+
+        def fetch():
             path = CACHE / f"{appid}.json"
             data = None
             try:
@@ -615,7 +637,7 @@ class Store(QObject):
                     data = entry["data"]
                     path.write_text(json.dumps(data), encoding="utf-8")
                 except FETCH_ERRORS + (StopIteration,):
-                    if not quiet:
+                    if not self._fetching.get(appid, quiet):
                         self.failed.emit("Couldn't load this game's store page.")
                     return
             po = data.get("price_overview") or {}
