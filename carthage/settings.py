@@ -31,6 +31,8 @@ class Settings(QObject):
         "favorites": [], "crtEffects": True,
         "favoritesShelf": False,
         "otherStores": False,
+        # Store shelves: "rows" (wrapping, like the library) or "scroll" (one row, sideways).
+        "storeLayout": "rows",
         "discordPresence": False,
         # The version whose "What's new" was last seen ("" = none yet).
         "lastVersion": "",
@@ -114,6 +116,7 @@ class Settings(QObject):
     checkUpdates = _prop("checkUpdates", bool, changed)
     hideAdult = _prop("hideAdult", bool, changed)
     otherStores = _prop("otherStores", bool, changed)
+    storeLayout = _prop("storeLayout", str, changed)
     discordPresence = _prop("discordPresence", bool, changed)
     usageMinutes = _prop("usageMinutes", int, changed)
     feedbackAsked = _prop("feedbackAsked", bool, changed)

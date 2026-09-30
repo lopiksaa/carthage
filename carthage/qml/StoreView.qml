@@ -45,8 +45,8 @@ Item {
     // still creating shelves destroys them.
     property var shelfModel: []
     function rebuildShelves() {
-        shelfModel = (free.length ? [{ key: "free", title: "Free for a Limited Time", items: free }] : [])
-            .concat(sections.slice(0, 1))
+        shelfModel = sections.slice(0, 1)
+            .concat(free.length ? [{ key: "free", title: "Free for a Limited Time", items: free }] : [])
             .concat(charts.length ? [{ key: "charts", title: "Most Played Right Now", items: charts }] : [])
             .concat(sections.slice(1))
     }
@@ -245,28 +245,63 @@ Item {
                 x: 28
                 text: shelf.modelData.title
             }
-            // The shelf's cartridges in rows, like the library tray (columns as in the
-            // search results).
-            Grid {
-                id: grid
-                x: 24
-                readonly property real cellW: Math.floor((shelves.width - 48) / columns)
-                columns: Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
-                rowSpacing: Ui.gapL
-                Repeater {
-                    model: shelf.modelData.items
-                    delegate: Item {
-                        required property var modelData
-                        width: grid.cellW
-                        height: card.height
-                        StoreCard {
-                            id: card
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            item: parent.modelData
-                            cardW: view.cardW
-                            appRoot: view.appRoot
-                            onChosen: (it, cart) => view.chosen(it, cart, shelf.modelData.items)
+            // The shelf's cartridges, laid out as chosen in Settings → Store.
+            Loader {
+                sourceComponent: Backend.settings.storeLayout === "scroll" ? sideways : rows
+            }
+            // In rows, like the library tray (columns as in the search results).
+            Component {
+                id: rows
+                Grid {
+                    id: grid
+                    x: 24
+                    readonly property real cellW: Math.floor((shelves.width - 48) / columns)
+                    columns: Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
+                    rowSpacing: Ui.gapL
+                    Repeater {
+                        model: shelf.modelData.items
+                        delegate: Item {
+                            required property var modelData
+                            width: grid.cellW
+                            height: card.height
+                            StoreCard {
+                                id: card
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                item: parent.modelData
+                                cardW: view.cardW
+                                appRoot: view.appRoot
+                                onChosen: (it, cart) => view.chosen(it, cart, shelf.modelData.items)
+                            }
                         }
+                    }
+                }
+            }
+            // In one row that scrolls sideways (Shift + wheel).
+            Component {
+                id: sideways
+                ListView {
+                    id: row
+                    width: shelves.width
+                    height: view.cardW * Backend.theme.ratio + view.cardW * 0.07
+                            + (shelf.modelData.key === "charts" ? 76 : 58)
+                    orientation: ListView.Horizontal
+                    leftMargin: 32
+                    rightMargin: 32
+                    spacing: 22
+                    boundsBehavior: Flickable.StopAtBounds
+                    model: shelf.modelData.items
+                    delegate: StoreCard {
+                        required property var modelData
+                        item: modelData
+                        cardW: view.cardW
+                        appRoot: view.appRoot
+                        onChosen: (it, cart) => view.chosen(it, cart, shelf.modelData.items)
+                    }
+                    WheelAccel {
+                        flickable: row
+                        horizontal: true
+                        acceptedModifiers: Qt.ShiftModifier
+                        step: view.cardW * 0.8
                     }
                 }
             }

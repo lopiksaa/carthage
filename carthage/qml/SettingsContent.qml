@@ -387,6 +387,16 @@ Column {
         sectionId: "store"
         sourceComponent: Column {
             spacing: Ui.gapM
+            Label_ { text: "Shelves" }
+            CSegmented {
+                width: parent.width
+                value: Backend.settings.storeLayout
+                options: [
+                    { value: "rows", text: "Rows" },
+                    { value: "scroll", text: "Scroll Sideways" },
+                ]
+                onPicked: (v) => { Backend.settings.storeLayout = v; sc.appRoot.sound("key") }
+            }
             CSwitch {
                 width: parent.width
                 text: "Hide adult content"
