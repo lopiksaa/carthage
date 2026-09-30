@@ -13,6 +13,7 @@ from .version import VERSION
 from .watchers import InstallWatch, LibraryWatcher
 
 ASSETS = Path(__file__).resolve().parent / "assets"
+FEEDBACK_URL = "https://docs.google.com/forms/d/e/1FAIpQLScqh7yiV38-ZCFqpeUK2DoVs00b-CDBFQp38aocNVy7UVhCjw/viewform"
 
 
 def _human(size):
@@ -312,6 +313,10 @@ class Backend(QObject):
     @Property(QObject, constant=True)
     def keys(self):
         return self._keys
+
+    @Property(str, constant=True)
+    def feedbackUrl(self):
+        return FEEDBACK_URL
 
     @Slot(str)
     def openUrl(self, url):

@@ -898,6 +898,33 @@ Item {
 
     Sounds { id: sounds }
 
+    // Feedback: after 40 minutes of use (counted while the window is active, across runs),
+    // a toast asks once. Menu → System → Send Feedback is always there.
+    FeedbackPrompt {
+        id: feedbackPrompt
+        appRoot: app
+        z: 50
+        anchors.left: parent.left
+        anchors.leftMargin: 20
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: dock.height + 16
+    }
+    Timer {
+        interval: 60000
+        repeat: true
+        running: app.powered && !Backend.settings.feedbackAsked && Qt.application.state === Qt.ApplicationActive
+        onTriggered: {
+            Backend.settings.usageMinutes += 1
+            if (Backend.settings.usageMinutes >= 40 && !app.modalOpen && !app.dragging && !setupWizard.opened) {
+                Backend.settings.feedbackAsked = true
+                feedbackPrompt.show()
+            }
+        }
+    }
+    function sendFeedback() {
+        Backend.openUrl(Backend.feedbackUrl)
+    }
+
     NumberAnimation {
         id: autoScroll
         target: tray
@@ -1075,6 +1102,10 @@ Item {
         case "settingsSection":  // {"id": "look"} opens settings on that section
             openDrawer()
             drawer.openSection = cmd.id
+            break
+        case "feedbackPrompt":  // the one-time feedback toast; {"dismiss": true} closes it
+            if (cmd.dismiss) feedbackPrompt.dismiss()
+            else feedbackPrompt.show()
             break
         case "whatsNew":  // the What's new window for this version ({"step": n} to jump)
             showWhatsNew()

@@ -516,6 +516,12 @@ Column {
                 icon.name: ready ? "view-refresh-symbolic" : "download-symbolic"
                 onClicked: ready ? Backend.updater.restartNow() : Backend.updater.download()
             }
+            CButton {
+                width: parent.width
+                text: "Send Feedback"
+                icon.name: "dialog-messages-symbolic"
+                onClicked: sc.appRoot.sendFeedback()
+            }
             Note {
                 topPadding: 4
                 text: "Carthage " + Backend.updater.version

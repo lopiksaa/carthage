@@ -34,6 +34,9 @@ class Settings(QObject):
         "discordPresence": False,
         # The version whose "What's new" was last seen ("" = none yet).
         "lastVersion": "",
+        # Minutes Carthage has been in use (window active), and whether the one-time
+        # "send feedback" prompt was shown.
+        "usageMinutes": 0, "feedbackAsked": False,
         # Interface fonts by kind of text (the choices are in Ui.qml): logo and labels, game
         # titles, buttons, and everything else.
         "fontLabels": "Orbitron", "fontTitles": "Red Hat Display",
@@ -75,7 +78,7 @@ class Settings(QObject):
 
     def reset(self):
         """Everything back to the defaults (setup stays done)."""
-        self._values = copy.deepcopy(self.DEFAULTS) | {k: self._values[k] for k in ("setupDone", "lastVersion")}
+        self._values = copy.deepcopy(self.DEFAULTS) | {k: self._values[k] for k in ("setupDone", "lastVersion", "usageMinutes", "feedbackAsked")}
         self.changed.emit()
 
     def get(self, name):
@@ -112,6 +115,8 @@ class Settings(QObject):
     hideAdult = _prop("hideAdult", bool, changed)
     otherStores = _prop("otherStores", bool, changed)
     discordPresence = _prop("discordPresence", bool, changed)
+    usageMinutes = _prop("usageMinutes", int, changed)
+    feedbackAsked = _prop("feedbackAsked", bool, changed)
     favoritesShelf = _prop("favoritesShelf", bool, changed)
     crtEffects = _prop("crtEffects", bool, changed)
     texturedPlastic = _prop("texturedPlastic", bool, changed)
