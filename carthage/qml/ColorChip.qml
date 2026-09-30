@@ -11,7 +11,7 @@ Item {
     property string label
     property color plastic: "transparent"
     property bool selected: false
-    property bool rainbow: false // "pick your own color" (opens the color wheel)
+    property bool rainbow: false // "pick your own color" (opens the color picker)
     readonly property bool plain: plastic.a === 0
     signal picked()
 
@@ -70,7 +70,7 @@ Item {
                 anchors.centerIn: parent
                 text: "="
                 color: Backend.theme.p.panelText
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Black
                 font.pixelSize: Math.round(chip.size * 0.55)
             }

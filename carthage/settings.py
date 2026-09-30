@@ -22,11 +22,10 @@ class Settings(QObject):
     DEFAULTS = {
         "tiltEnabled": True, "soundsEnabled": True, "showTitles": True, "cardWidth": 150,
         "soundVolume": 0.3, "hardware": "black", "texturedPlastic": True, "preferOfficialArt": False,
+        # The plastic texture (theme.TEXTURES), on hardware and cartridges.
+        "plasticTexture": "Plastic012A",
         "sortMode": "recent", "filterMode": "all", "hidden": [], "noSlot": [],
         "titles": {}, "headers": {}, "headerTexts": {}, "sgdbIds": {},
-        # Only the eject uses a recording; the rest are modeled on it
-        # (tools/make_sounds.py).
-        "soundChoice": {"release": "release_2.wav"},
         "cardColor": "same", "testCartridge": False, "related": {}, "installedFirst": False,
         "checkUpdates": True, "setupDone": False, "hideAdult": True,
         "favorites": [], "crtEffects": True,
@@ -35,15 +34,17 @@ class Settings(QObject):
         "discordPresence": False,
         # The version whose "What's new" was last seen ("" = none yet).
         "lastVersion": "",
-        # The skin: "plastic" or "classic".
-        "skin": "plastic",
+        # Interface fonts by kind of text (the choices are in Ui.qml): logo and labels, game
+        # titles, buttons, and everything else.
+        "fontLabels": "Orbitron", "fontTitles": "Red Hat Display",
+        "fontButtons": "Chakra Petch", "fontText": "Red Hat Display",
     }
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        from .chrome import REAL_CONFIG_HOME
+        from .chrome import CONFIG_HOME
 
-        self._path = REAL_CONFIG_HOME / "carthage" / "settings.json"
+        self._path = CONFIG_HOME / "carthage" / "settings.json"
         self._values = dict(self.DEFAULTS)
         # No settings file yet: first run (the setup wizard shows).
         self.first_run = not self._path.exists()
@@ -54,8 +55,6 @@ class Settings(QObject):
                     self._values[key] = value
         except (OSError, ValueError):
             pass
-        if self._values["skin"] not in ("plastic", "classic"):
-            self._values["skin"] = self.DEFAULTS["skin"]  # e.g. "hifi", a skin that's gone
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(400)
@@ -103,16 +102,19 @@ class Settings(QObject):
     soundVolume = _prop("soundVolume", float, changed)
     hardware = _prop("hardware", str, changed)
     cardColor = _prop("cardColor", str, changed)
+    fontLabels = _prop("fontLabels", str, changed)
+    fontTitles = _prop("fontTitles", str, changed)
+    fontButtons = _prop("fontButtons", str, changed)
+    fontText = _prop("fontText", str, changed)
     testCartridge = _prop("testCartridge", bool, changed)
     installedFirst = _prop("installedFirst", bool, changed)
     checkUpdates = _prop("checkUpdates", bool, changed)
     hideAdult = _prop("hideAdult", bool, changed)
     otherStores = _prop("otherStores", bool, changed)
     discordPresence = _prop("discordPresence", bool, changed)
-    skin = _prop("skin", str, changed)
     favoritesShelf = _prop("favoritesShelf", bool, changed)
     crtEffects = _prop("crtEffects", bool, changed)
     texturedPlastic = _prop("texturedPlastic", bool, changed)
+    plasticTexture = _prop("plasticTexture", str, changed)
     preferOfficialArt = _prop("preferOfficialArt", bool, changed)
-    soundChoice = _prop("soundChoice", "QVariantMap", changed)
     del _prop

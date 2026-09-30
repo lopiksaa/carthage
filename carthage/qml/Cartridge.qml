@@ -62,7 +62,7 @@ Item {
     Image {
         id: shell
         anchors.fill: parent
-        source: "image://gc/shell/" + cart.edition + (cart.flat ? "/flat" : "") + Backend.theme.texQuery
+        source: "image://gc/shell/" + cart.edition + (cart.flat ? "/flat" : "") + Backend.theme.cardTexQuery
         sourceSize: Qt.size(Math.ceil(cart.width * cart.dpr), Math.ceil(cart.height * cart.dpr))
         asynchronous: !cart.flat
         smooth: true

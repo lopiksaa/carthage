@@ -15,7 +15,7 @@ FocusScope {
     }
     readonly property var sections: [
         { id: "library", title: "Library", icon: "view-grid-symbolic", blurb: "The tray and your games" },
-        { id: "look", title: "Look & Feel", icon: "color-picker-symbolic", blurb: "Colors, card size, motion" },
+        { id: "look", title: "Appearance", icon: "color-picker-symbolic", blurb: "Colors, fonts, card size" },
         { id: "sound", title: "Sound", icon: "audio-volume-high-symbolic", blurb: "Clicks and clunks" },
         { id: "store", title: "Store", icon: "internet-services-symbolic", blurb: "Steam and Epic, other stores" },
         { id: "keys", title: "Accounts & Keys", icon: "lock-symbolic", blurb: "Keys for art, Steam and prices" },
@@ -124,7 +124,7 @@ FocusScope {
                                     width: parent.width
                                     text: fold.modelData.title
                                     color: drawer.pal.panelText
-                                    font.family: "Nunito"
+                                    font.family: Ui.fontText
                                     font.weight: Font.Black
                                     font.pixelSize: Ui.textBody
                                     elide: Text.ElideRight
@@ -133,7 +133,7 @@ FocusScope {
                                     width: parent.width
                                     text: fold.modelData.blurb
                                     color: drawer.pal.panelTextDim
-                                    font.family: "Nunito"
+                                    font.family: Ui.fontText
                                     font.pixelSize: Ui.textCaption
                                     elide: Text.ElideRight
                                 }

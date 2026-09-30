@@ -6,6 +6,8 @@ and measurements from here, so the two can never disagree.
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from .colors import accent_for_plastic, contrast, hex_to_oklch, luminance
+
 # The cartridge is designed on a 600-wide canvas; QML scales with u = width / 600. The canvas
 # includes the visible thickness: the top face ends THICKNESS units above the bottom.
 REF_W = 600.0
@@ -68,9 +70,6 @@ EDITIONS = {
         "panelBorder": "#3d3d44",
         "panelHover": "#3a3a41",
         "scrim": "#a6000000",
-        "display": "#0e1012",
-        "displayText": "#e8efec",
-        "displayDim": "#8d9a96",
         "shadowStrength": 0.55,
     },
     "light": {
@@ -111,9 +110,6 @@ EDITIONS = {
         "panelBorder": "#d6d6dc",
         "panelHover": "#ececf1",
         "scrim": "#73000000",
-        "display": "#16191b",
-        "displayText": "#e8efec",
-        "displayDim": "#8d9a96",
         "shadowStrength": 0.42,
     },
 }
@@ -156,23 +152,11 @@ def _variant(template, plastic, tray=None):
     return p
 
 
-def _lum(h):
-    h = h.lstrip("#")[-6:]
-    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
-    f = lambda c: c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4  # noqa: E731
-    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
-
-
-def _contrast(a, b):
-    la, lb = sorted([_lum(a), _lum(b)], reverse=True)
-    return (la + 0.05) / (lb + 0.05)
-
-
 def _readable(fg, bg, minimum):
     """Nudge fg away from bg's lightness until the pair reaches `minimum` contrast."""
-    step = -0.03 if _lum(bg) > 0.3 else 0.03
+    step = -0.03 if luminance(bg) > 0.3 else 0.03
     for _ in range(40):
-        if _contrast(fg, bg) >= minimum:
+        if contrast(fg, bg) >= minimum:
             break
         fg = _shift(fg, step)
     return fg
@@ -196,29 +180,50 @@ EDITIONS["red"] = _variant("dark", "#d8343a", tray="#2a1416")
 for _e in ("pink", "mint", "neon", "atomic", "red"):
     _fix_contrast(EDITIONS[_e])
 
-HARDWARE = [
-    ("black", "dark", "Black"),
-    ("white", "light", "White"),
-    ("pink", "pink", "Pink"),
-    ("mint", "mint", "Mint"),
-    ("neon", "neon", "Neon"),
-    ("atomic", "atomic", "Atomic Purple"),
-    ("red", "red", "Red"),
-]
-_HW_TO_EDITION = {k: e for k, e, _ in HARDWARE}
 
-
-# Custom plastics: an edition named "c_rrggbb", built on first use from that one color
-# (colors.py).
-def _custom_edition(key):
-    from . import colors
-
-    plastic = "#" + key[2:]
-    L = colors.hex_to_oklch(plastic)[0]
+# An edition from one plastic color, as the color picker makes them: light or dark chrome
+# by the color's lightness, every other surface derived from it (colors.py).
+def _plastic_edition(plastic):
+    L = hex_to_oklch(plastic)[0]
     template = "light" if L > 0.66 else "dark"
     e = _fix_contrast(_variant(template, plastic))
     e["isDark"] = template == "dark"
     return e
+
+
+# Presets made from one plastic color.
+_PLASTIC_PRESETS = {
+    "warmgrey": "#8e877d", "lightgrey": "#a3a5ab", "offwhite": "#ebe7de", "orange": "#e0772b",
+    "forest": "#2f5f48", "teal": "#23807e", "sky": "#86c3ea", "lavender": "#b9a8e3",
+}
+for _k, _c in _PLASTIC_PRESETS.items():
+    EDITIONS[_k] = _plastic_edition(_c)
+
+# The hardware colors offered in Settings, in this order: neutrals dark to light, then
+# colors around the wheel.
+HARDWARE = [
+    ("black", "dark", "Black"),
+    ("warmgrey", "warmgrey", "Warm Grey"),
+    ("lightgrey", "lightgrey", "Light Grey"),
+    ("offwhite", "offwhite", "Off-White"),
+    ("white", "light", "White"),
+    ("red", "red", "Red"),
+    ("orange", "orange", "Orange"),
+    ("neon", "neon", "Neon"),
+    ("mint", "mint", "Mint"),
+    ("forest", "forest", "Forest"),
+    ("teal", "teal", "Teal"),
+    ("sky", "sky", "Sky"),
+    ("lavender", "lavender", "Lavender"),
+    ("atomic", "atomic", "Atomic Purple"),
+    ("pink", "pink", "Pink"),
+]
+_HW_TO_EDITION = {k: e for k, e, _ in HARDWARE}
+
+
+# Custom plastics: an edition named "c_rrggbb", built on first use from that one color.
+def _custom_edition(key):
+    return _plastic_edition("#" + key[2:])
 
 
 def _is_custom(value):
@@ -251,16 +256,23 @@ ACCENTS = {
 
 
 def accent_for(edition):
-    if _is_custom(edition):
-        from . import colors
-
-        base = colors.accent_for_plastic("#" + edition[2:])
+    if _is_custom(edition) or edition in _PLASTIC_PRESETS:
+        base = accent_for_plastic(_PLASTIC_PRESETS.get(edition) or "#" + edition[2:])
     else:
         base = ACCENTS.get(edition, ACCENTS["dark"])
     return {"accent": base, "accentHover": _shift(base, -0.06), "accentText": "#ffffff", "danger": "#d33a31"}
 
 
-PLASTIC_TEXTURE = "Plastic012A"  # ambientCG pebbled plastic (textures.py)
+# The plastic textures offered in Settings (textures.py): ambientCG normal maps, and a
+# generated grain. The first is the default.
+TEXTURES = [
+    ("Plastic012A", "Pebbled"),
+    ("Plastic017A", "Scratched"),
+    ("Plastic014A", "Satin"),
+    ("Plastic004", "Stippled"),
+    ("grain", "Fine grain"),
+]
+PLASTIC_TEXTURE = TEXTURES[0][0]
 TEXTURE_GRAIN = "coarse"
 TEXTURE_STRENGTH = 0.6
 
@@ -272,6 +284,7 @@ class Theme(QObject):
         super().__init__(parent)
         self._hardware = "black"
         self._texture = PLASTIC_TEXTURE
+        self._card_texture = PLASTIC_TEXTURE
 
     def _get_hardware(self):
         return self._hardware
@@ -282,19 +295,6 @@ class Theme(QObject):
             self.changed.emit()
 
     hardware = Property(str, _get_hardware, _set_hardware, notify=changed)
-
-    _skin = "plastic"
-
-    def _get_skin(self):
-        return self._skin
-
-    def _set_skin(self, value):
-        value = value if value == "classic" else "plastic"
-        if value != self._skin:
-            self._skin = value
-            self.changed.emit()
-
-    skin = Property(str, _get_skin, _set_skin, notify=changed)
 
     _card = "same"
 
@@ -323,24 +323,6 @@ class Theme(QObject):
         """Dark chrome (panels, menus) for this edition."""
         return EDITIONS[self.edition]["isDark"]
 
-    @Slot(float, result="QVariantList")
-    def tones(self, hue):
-        from . import colors
-
-        return colors.tones(hue)
-
-    @Slot(str, result="QVariantList")
-    def harmonies(self, plastic):
-        from . import colors
-
-        return colors.harmonies(plastic)
-
-    @Slot(str, result=float)
-    def hueOf(self, color):
-        from . import colors
-
-        return colors.hex_to_oklch(color)[2]
-
     @Slot(str, result=str)
     def customValue(self, color):
         """The setting value for a custom plastic color ("#d9a34b" → "c_d9a34b")."""
@@ -366,10 +348,25 @@ class Theme(QObject):
 
     texture = Property(str, _get_texture, _set_texture, notify=changed)
 
+    def set_card_texture(self, value):
+        if value != self._card_texture:
+            self._card_texture = value
+            self.changed.emit()
+
+    @Property("QVariantList", constant=True)
+    def textureOptions(self):
+        return [{"value": k, "text": n} for k, n in TEXTURES]
+
     @Property(str, notify=changed)
     def texQuery(self):
         """Appended to image ids so every textured image re-renders when this changes."""
         return f"?tex={self._texture}&size={TEXTURE_GRAIN}&s={TEXTURE_STRENGTH:g}"
+
+    @Property(str, notify=changed)
+    def cardTexQuery(self):
+        """The same for cartridges, which are always textured ("Textured plastic" is the
+        hardware's finish only)."""
+        return f"?tex={self._card_texture}&size={TEXTURE_GRAIN}&s={TEXTURE_STRENGTH:g}"
 
     @Property(str, notify=changed)
     def edition(self):

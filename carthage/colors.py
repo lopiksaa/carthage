@@ -1,28 +1,10 @@
-"""Color theory for custom plastics: OKLCH math, plastic tones and harmonies.
+"""Color math for plastics: OKLCH conversions and an accent color for any plastic.
 
 OKLCH (Björn Ottosson's OKLab in polar form) is used instead of HSL because it's
-perceptually even: the same L looks equally light for yellow and for blue, and rotating
-the hue keeps the lightness the eye sees. HSL would make a "complementary" yellow for a
-blue plastic glare, and a "same lightness" blue look almost black next to a yellow.
-
-Choices:
-- A custom color is a hue plus one of five plastic tones (Pastel … Dark). Fully saturated
-  colors read as cheap toys on plastic; real consoles use muted, shaded versions.
-- Cartridge recommendations for a hardware color use the classic harmonies (analogous,
-  complementary, split-complementary, triadic) plus black and white, at a lightness that
-  differs from the hardware's (figure/ground: cartridges must stand off the tray), with
-  complementary pairs toned down so two opposites don't vibrate at full strength.
+perceptually even: the same L looks equally light for yellow and for blue.
 """
 
 import math
-
-TONES = [  # (name, L, C) in OKLCH
-    ("Pastel", 0.88, 0.07),
-    ("Light", 0.80, 0.11),
-    ("Medium", 0.68, 0.14),
-    ("Deep", 0.52, 0.13),
-    ("Dark", 0.38, 0.09),
-]
 
 
 def _lin(c):
@@ -67,34 +49,6 @@ def oklch_to_hex(L, C, H):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def tones(hue):
-    """The five plastic tones of a hue: [{name, color}]."""
-    return [{"name": n, "color": oklch_to_hex(L, C, hue)} for n, L, C in TONES]
-
-
-def harmonies(h):
-    """Recommended cartridge colors for a hardware color: [{group, name, color}]."""
-    L0, C0, H0 = hex_to_oklch(h)
-    out = []
-    if C0 >= 0.035:
-        L = max(0.36, L0 - 0.22) if L0 > 0.6 else min(0.86, L0 + 0.22)
-        C = min(max(C0, 0.08), 0.15)
-        for group, name, dh, k in [
-            ("Calm", "Analogous", 30, 1.0), ("Calm", "Analogous", -30, 1.0),
-            ("Bold", "Complementary", 180, 0.8), ("Bold", "Split", 150, 0.9), ("Bold", "Split", -150, 0.9),
-            ("Playful", "Triadic", 120, 1.0), ("Playful", "Triadic", -120, 1.0),
-        ]:
-            out.append({"group": group, "name": name, "color": oklch_to_hex(L, C * k, (H0 + dh) % 360)})
-    else:
-        # Black or white hardware has no hue to harmonize with: any clear color works, so
-        # offer an even spread around the wheel at a medium plastic tone.
-        for i, name in enumerate(["Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Violet"]):
-            out.append({"group": "Any color", "name": name, "color": oklch_to_hex(0.66, 0.13, (25 + i * 51) % 360)})
-    out.append({"group": "Classic", "name": "Black", "color": "#3c3c41"})
-    out.append({"group": "Classic", "name": "White", "color": "#ffffff"})
-    return out
-
-
 def accent_for_plastic(h, contrast_with_white=4.5):
     """A button/selection color of the plastic's hue that keeps white text readable."""
     _, C0, H0 = hex_to_oklch(h)
@@ -102,18 +56,18 @@ def accent_for_plastic(h, contrast_with_white=4.5):
     L = 0.55
     for _ in range(30):
         c = oklch_to_hex(L, C, H0)
-        if _contrast(c, "#ffffff") >= contrast_with_white:
+        if contrast(c, "#ffffff") >= contrast_with_white:
             return c
         L -= 0.02
     return c
 
 
-def _lum(h):
+def luminance(h):
     h = h.lstrip("#")[-6:]
     r, g, b = (_lin(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4))
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def _contrast(a, b):
-    la, lb = sorted([_lum(a), _lum(b)], reverse=True)
+def contrast(a, b):
+    la, lb = sorted([luminance(a), luminance(b)], reverse=True)
     return (la + 0.05) / (lb + 0.05)

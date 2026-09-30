@@ -2,6 +2,7 @@
 //   SettingsContent { section: "look" }
 import QtQuick
 import Carthage
+import QtQuick.Controls as QQC2
 
 Column {
     id: sc
@@ -12,14 +13,120 @@ Column {
 
     component Label_: Text {
         color: sc.pal.panelText
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Bold
         font.pixelSize: Ui.textBody
+    }
+    // One kind of text's font: a row showing the current font (written in it) that unfolds
+    // the choices, each written in its own font. Only one row is open at a time.
+    // A setting with a few named choices, folded until opened: fonts (each shown in itself)
+    // or, with `names`, anything else.
+    component Choice: Column {
+        id: fc
+        property string label
+        property string key        // the setting, e.g. "fontLabels"
+        property var choices: []
+        property string current    // the value in use
+        property var names: null   // value → shown name; null = the values are fonts
+        function nameOf(v) { return names ? names[v] || v : v }
+        function fontOf(v) { return names ? Ui.fontText : v }
+        readonly property bool open: parent.openKey === key
+        width: parent.width
+        spacing: Ui.gapXS
+        QQC2.AbstractButton {
+            id: head
+            width: parent.width
+            height: Ui.controlHeight
+            hoverEnabled: true
+            focusPolicy: Qt.StrongFocus
+            Accessible.role: Accessible.Button
+            Accessible.name: fc.label + ": " + fc.nameOf(fc.current)
+            onClicked: fc.parent.openKey = fc.open ? "" : fc.key
+            background: Rectangle {
+                radius: Ui.radiusSmall
+                color: head.hovered ? sc.pal.panelHover : Qt.alpha(sc.pal.panelHover, 0.5)
+                border.width: head.visualFocus ? 2 : 0
+                border.color: Ui.focusColor
+            }
+            contentItem: Item {
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Ui.gapM
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: fc.label
+                    color: sc.pal.panelTextDim
+                    font.family: Ui.fontText
+                    font.weight: Font.Bold
+                    font.pixelSize: Ui.textCaption
+                }
+                Text {
+                    anchors.right: arrow.left
+                    anchors.rightMargin: Ui.gapS
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: fc.nameOf(fc.current)
+                    color: sc.pal.panelText
+                    font.family: fc.fontOf(fc.current)
+                    font.weight: Font.Bold
+                    font.pixelSize: Ui.textBody
+                }
+                CIcon {
+                    id: arrow
+                    anchors.right: parent.right
+                    anchors.rightMargin: Ui.gapM
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 12
+                    height: 12
+                    source: fc.open ? "go-up-symbolic" : "go-down-symbolic"
+                    color: sc.pal.panelTextDim
+                }
+            }
+        }
+        Flow {
+            visible: fc.open
+            width: parent.width
+            spacing: Ui.gapXS
+            bottomPadding: Ui.gapS
+            Repeater {
+                model: fc.choices
+                delegate: QQC2.AbstractButton {
+                    id: chip
+                    required property string modelData
+                    readonly property bool chosen: fc.current === modelData
+                    width: Math.min(fc.width, implicitWidth)
+                    implicitWidth: chipText.implicitWidth + 2 * Ui.gapM
+                    height: Ui.controlHeight - 4
+                    hoverEnabled: true
+                    focusPolicy: Qt.StrongFocus
+                    Accessible.role: Accessible.RadioButton
+                    Accessible.name: fc.label + ": " + fc.nameOf(modelData)
+                    Accessible.checked: chosen
+                    onClicked: { Backend.settings[fc.key] = modelData; sc.appRoot.sound("key") }
+                    background: Rectangle {
+                        radius: Ui.radiusSmall
+                        color: chip.chosen ? Backend.theme.accent.accent
+                             : chip.hovered ? sc.pal.panelHover : Qt.alpha(sc.pal.panelHover, 0.5)
+                        border.width: chip.visualFocus ? 2 : 0
+                        border.color: Ui.focusColor
+                    }
+                    contentItem: Text {
+                        id: chipText
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                        text: fc.nameOf(chip.modelData)
+                        color: chip.chosen ? Backend.theme.accent.accentText : sc.pal.panelText
+                        font.family: fc.fontOf(chip.modelData)
+                        font.weight: Font.Bold
+                        font.pixelSize: Ui.textBody
+                    }
+                }
+            }
+        }
     }
     component Note: Text {
         width: parent.width
         color: sc.pal.panelTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.pixelSize: Ui.textCaption
         wrapMode: Text.Wrap
         linkColor: Backend.theme.accent.accent
@@ -84,22 +191,12 @@ Column {
         sourceComponent: Column {
             id: look
             spacing: Ui.gapM
-            // One chip size for both rows, so their colors line up in columns.
+            // One chip size for both color grids, so their colors line up in columns.
             readonly property var options: Backend.theme.hardwareOptions
-            readonly property real chipSize: Math.floor(Math.min(30, (width - (options.length + 1) * Ui.gapS) / (options.length + 2)))
-            Label_ { visible: false; text: "Skin" }  // held back: only Classic ships for now
-            CSegmented {
-                visible: false
-                width: parent.width
-                value: Backend.settings.skin
-                options: [
-                    { value: "plastic", text: "Plastic" },
-                    { value: "classic", text: "Classic" },
-                ]
-                onPicked: (v) => { Backend.settings.skin = v; sc.appRoot.sound("key") }
-            }
+            readonly property real chipSize: 30
             Label_ { text: "Hardware  ·  " + ((look.options.find(o => o.value === Backend.settings.hardware) || {}).text || "Custom") }
-            Row {
+            Flow {
+                width: parent.width
                 spacing: Ui.gapS
                 Repeater {
                     model: look.options
@@ -123,7 +220,8 @@ Column {
             }
             Label_ { text: "Cartridges  ·  " + (Backend.settings.cardColor === "same" ? "Same as hardware"
                         : ((look.options.find(o => o.value === Backend.settings.cardColor) || {}).text || "Custom")) }
-            Row {
+            Flow {
+                width: parent.width
                 spacing: Ui.gapS
                 Repeater {
                     model: look.options
@@ -151,17 +249,76 @@ Column {
                     onPicked: Backend.settings.cardColor = "same"
                 }
             }
-            Label_ { text: "Card size" }
-            CSegmented {
+            Label_ { text: "Fonts" }
+            Column {
                 width: parent.width
-                readonly property int size: Backend.settings.cardWidth
-                value: size <= 132 ? 132 : size >= 178 ? 186 : 150
-                options: [
-                    { value: 132, text: "Small" },
-                    { value: 150, text: "Medium" },
-                    { value: 186, text: "Large" },
-                ]
-                onPicked: (v) => Backend.settings.cardWidth = v
+                spacing: Ui.gapXS
+                property string openKey: "" // the kind of text whose choices are showing
+                Choice { label: "Labels"; key: "fontLabels"; choices: Ui.labelFonts; current: Ui.fontLabels }
+                Choice { label: "Game titles"; key: "fontTitles"; choices: Ui.titleFonts; current: Ui.fontTitles }
+                Choice { label: "Buttons"; key: "fontButtons"; choices: Ui.buttonFonts; current: Ui.fontButtons }
+                Choice { label: "Text"; key: "fontText"; choices: Ui.textFonts; current: Ui.fontText }
+            }
+            Label_ { text: "Plastic" }
+            Column {
+                width: parent.width
+                property string openKey: ""
+                Choice {
+                    label: "Texture"
+                    key: "plasticTexture"
+                    choices: Backend.theme.textureOptions.map(o => o.value)
+                    names: Backend.theme.textureOptions.reduce((m, o) => { m[o.value] = o.text; return m }, {})
+                    current: Backend.settings.plasticTexture
+                }
+            }
+            Label_ { text: "Card size" }
+            Row { // − ● ● ● ○ ○ ○ +  : card widths in steps of 18 px (the old presets are steps 2, 3 and 5)
+                id: sizer
+                readonly property var steps: [114, 132, 150, 168, 186, 204]
+                // The step nearest the saved width (an older saved size may fall between steps).
+                readonly property int index: {
+                    let best = 0
+                    for (let i = 1; i < steps.length; i++)
+                        if (Math.abs(steps[i] - Backend.settings.cardWidth) < Math.abs(steps[best] - Backend.settings.cardWidth)) best = i
+                    return best
+                }
+                function go(d) {
+                    const i = Math.max(0, Math.min(steps.length - 1, index + d))
+                    if (i === index) return
+                    Backend.settings.cardWidth = steps[i]
+                    sc.appRoot.sound("key")
+                }
+                spacing: Ui.gapM
+                Accessible.role: Accessible.Grouping
+                Accessible.name: "Card size, step " + (index + 1) + " of " + steps.length
+                CButton {
+                    icon.name: "list-remove-symbolic"
+                    enabled: sizer.index > 0
+                    Accessible.name: "Smaller cards"
+                    onClicked: sizer.go(-1)
+                }
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Ui.gapS
+                    Repeater {
+                        model: sizer.steps.length
+                        Rectangle {
+                            required property int index
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 10
+                            height: 10
+                            radius: 5
+                            color: index <= sizer.index ? Backend.theme.accent.accent : Qt.alpha(sc.pal.panelText, 0.18)
+                            Behavior on color { ColorAnimation { duration: 100 * Backend.motion } }
+                        }
+                    }
+                }
+                CButton {
+                    icon.name: "list-add-symbolic"
+                    enabled: sizer.index < sizer.steps.length - 1
+                    Accessible.name: "Bigger cards"
+                    onClicked: sizer.go(1)
+                }
             }
             Column {
                 width: parent.width
@@ -175,7 +332,7 @@ Column {
                 CSwitch {
                     width: parent.width
                     text: "Textured plastic"
-                    hint: "A pebbled finish on the hardware"
+                    hint: "The plastic texture on the hardware too"
                     checked: Backend.settings.texturedPlastic
                     onToggled: Backend.settings.texturedPlastic = checked
                 }

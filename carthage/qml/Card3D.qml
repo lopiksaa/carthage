@@ -83,7 +83,7 @@ View3D {
                             height: 720 * Backend.theme.ratio
                             source: "image://gc/back/" + view.edition + "/flat/"
                                     + (view.game.sourceName || "") + "-" + (view.game.extId || "")
-                                    + Backend.theme.texQuery
+                                    + Backend.theme.cardTexQuery
                             sourceSize: Qt.size(width, height)
                         }
                     }
