@@ -48,7 +48,7 @@ QQC2.ApplicationWindow {
     }
     Shortcut {
         sequences: [StandardKey.ZoomIn, "Ctrl+="]
-        onActivated: Backend.settings.cardWidth = Math.min(240, Backend.settings.cardWidth + 18)
+        onActivated: Backend.settings.cardWidth = Math.min(204, Backend.settings.cardWidth + 18)
     }
     Shortcut {
         sequences: [StandardKey.ZoomOut]
