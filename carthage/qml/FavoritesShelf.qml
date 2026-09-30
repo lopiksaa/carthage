@@ -19,20 +19,29 @@ Column {
     readonly property real leftX: tray.contentLeft - tray.leftMargin
     readonly property real rightX: tray.contentRight - tray.leftMargin
 
-    visible: !searching || zone.shelfView.count > 0
+    // Hidden while searching finds none of the favorites (LibraryShelves adds the setting).
+    readonly property bool showable: !searching || zone.shelfView.count > 0
     height: visible ? implicitHeight : 0
     topPadding: Ui.gapL
     spacing: Ui.gapS
 
-    EngravedLabel {
+    readonly property bool collapsed: Backend.settings.favoritesCollapsed && !fs.dragging
+    // As many rows as the favorites need (the shelf wraps like the tray; it never scrolls).
+    readonly property int rows: Math.ceil(zone.shelfView.count / Math.max(1, fs.tray.columns))
+
+    ShelfTitle {
         x: fs.leftX
         text: "Favorites"
+        count: zone.shelfView.count
+        collapsed: fs.collapsed
+        onToggled: Backend.settings.favoritesCollapsed = !Backend.settings.favoritesCollapsed
     }
 
     Item {
         id: zone
+        visible: !fs.collapsed
         width: fs.width
-        height: zone.shelfView.count > 0 ? fs.tray.cellHeight : 96
+        height: !visible ? 0 : zone.shelfView.count > 0 ? fs.rows * fs.tray.cellHeight : 96
 
         Rectangle {
             x: fs.leftX - Ui.gapS
@@ -64,7 +73,7 @@ Column {
             onLoaded: {
                 item.leftMargin = Qt.binding(() => fs.tray.leftMargin)
                 item.rightMargin = Qt.binding(() => fs.tray.rightMargin)
-                item.interactive = Qt.binding(() => item.contentWidth > item.width)
+                item.interactive = false
             }
         }
         readonly property var shelfView: shelfLoader.item || emptyShelf
@@ -129,9 +138,4 @@ Column {
         }
     }
 
-    // Always there, so the layout never shifts under a carried cartridge.
-    EngravedLabel {
-        x: fs.leftX
-        text: "All Games"
-    }
 }

@@ -5,6 +5,9 @@ import Carthage
 
 Item {
     id: app
+    objectName: "app"
+    // The main pieces by name, for the test harness (tools/harness/Commands.qml).
+    readonly property var parts: ({ addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, setupWizard: setupWizard, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
 
     readonly property var pal: Backend.theme.p
     // The desktop's animation-speed factor (KDE setting on Linux; 1 elsewhere); 0 = instant.
@@ -674,7 +677,6 @@ Item {
                     id: dockFade
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.rightMargin: Ui.gridUnit // keep the scrollbar visible
                     anchors.bottom: dock.top
                     height: dock.protrude - dock.lipY + Ui.gridUnit * 2
                     gradient: Gradient {
@@ -861,6 +863,9 @@ Item {
         id: addGameDialog
         appRoot: app
     }
+    function openStoreItem(item, list) {  // a store game from a library shelf (Play Next)
+        storePage.openFor(item, list)
+    }
     function addGame() {
         closeDrawer()
         addGameDialog.start()
@@ -961,252 +966,4 @@ Item {
         z: 1000
     }
 
-    function demo(cmd) {
-        switch (cmd.do) {
-        case "hover": {
-            const c = tray.cellAt(cmd.index)
-            if (c) c.debugHover = cmd.x === undefined ? null : Qt.point(cmd.x, cmd.y)
-            break
-        }
-        case "choose": {
-            const c = tray.cellAt(cmd.index)
-            if (c) {
-                c.debugHover = null
-                choose(c)
-            }
-            break
-        }
-        case "play": // skip the closer look
-        {
-            const c = tray.cellAt(cmd.index)
-            if (c) quickPlay(c)
-            break
-        }
-        case "inspectPlay":
-            inspect.play()
-            break
-        case "dump": { // print every session's title and state
-            const out = []
-            for (let i = 0; i < Backend.sessions.count; i++) {
-                const idx = Backend.sessions.index(i, 0)
-                out.push(Backend.sessions.data(idx, Qt.UserRole + 2) + "=" + Backend.sessions.data(idx, Qt.UserRole + 3))
-            }
-            console.warn("SESSIONS", out.length ? out.join(", ") : "(none)")
-            break
-        }
-        case "quitAll":
-            for (let i = 0; i < Backend.sessions.count; i++)
-                Backend.sessions.quit(Backend.sessions.data(Backend.sessions.index(i, 0), Qt.UserRole + 1))
-            break
-        case "drawerScroll":
-            drawer.scrollToEnd()
-            break
-        case "artPicker": {
-            const c = tray.cellAt(cmd.index)
-            if (c) changeArt(c.gameId, c.title)
-            break
-        }
-        case "crop": {
-            const c = tray.cellAt(cmd.index)
-            if (c) repositionArt(c.gameId, c.title)
-            break
-        }
-        case "pickerKind":
-            artPicker.kind = cmd.value
-            artPicker.load()
-            break
-        case "otherMenu":
-            inspect.openOther()
-            break
-        case "state":
-            console.warn("STATE inspect.open=" + inspect.open + " picker=" + artPicker.opened
-                         + " crop=" + cropEditor.opened + " sessions=" + Backend.sessions.count
-                         + " drawer=" + app.settingsOpen + " storePage=" + storePage.open + " menus=" + Ui.openMenus
-                         + " trayY=" + Math.round(tray.contentY) + " drawerY=" + Math.round(drawer.scrollY))
-            break
-        case "headerPicker": {
-            const c = tray.cellAt(cmd.index)
-            if (c) changeHeader(c.gameId, c.title, c.source)
-            break
-        }
-        case "setHeader": {
-            const c = tray.cellAt(cmd.index)
-            if (c) Backend.setHeader(c.gameId, cmd.value)
-            break
-        }
-        case "pickerSearch":
-            artPicker.searchText(cmd.value)
-            break
-        case "fakeInstall": {
-            const c = tray.cellAt(cmd.index)
-            if (c) Backend.installs.simulate(c.gameId, cmd.value)
-            break
-        }
-        case "finishInstall": {
-            const c = tray.cellAt(cmd.index)
-            if (c) Backend.demoFinishInstall(c.gameId)
-            break
-        }
-        case "search":
-            header.searchField.text = cmd.value
-            break
-        case "storeBrowse":
-            storeView.showCategories()
-            break
-        case "storeCategory":
-            storeView.openCategory(Backend.store.categories[cmd.index])
-            break
-        case "mode":
-            setMode(cmd.value)
-            break
-        case "storeViewer":
-            viewMedia(storePage.media, cmd.index || 0)
-            break
-        case "storeScroll":
-            storePage.scrollDetails(cmd.y)
-            break
-        case "storeOpen": {
-            const s = storeView.sections[cmd.section || 0]
-            if (s) storePage.openFor(s.items[cmd.index || 0], s.items)
-            break
-        }
-        case "storeOpenResult":  // {"index": n} opens a search result
-            if (storeView.results[cmd.index || 0]) storePage.openFor(storeView.results[cmd.index || 0], storeView.results)
-            break
-        case "storeOpenFree":  // {"index": n} opens a game from Free for a Limited Time
-            if (storeView.free[cmd.index || 0]) storePage.openFor(storeView.free[cmd.index || 0], storeView.free)
-            break
-        case "storeShuffle":  // {"dir": 1} turns the store page's cartridge to the next store
-            storePage.shuffle(cmd.dir || 1)
-            break
-        case "confirmDemo":
-            confirmQuit("x", "Clair Obscur: Expedition 33", false)
-            break
-        case "renameDemo": {
-            const c = tray.cellAt(cmd.index || 0)
-            if (c) renameGame(c.gameId, c.title)
-            break
-        }
-        case "processDemo": {
-            const c = tray.cellAt(cmd.index || 0)
-            if (c) linkProcess(c.gameId, c.title)
-            break
-        }
-        case "closeAll":  // every dialog, menu, page and the drawer (each on its own, so one can't stop the rest)
-            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, setupWizard, slotPanel, mediaViewer, colorPicker, whatsNew, feedbackDialog])
-                try { p.close() } catch (e) { console.warn("closeAll:", e) }
-            for (const f of [() => inspect.closeMenus(), () => tray.closeMenus(), () => storePage.close(), () => inspect.close(), () => closeDrawer()])
-                try { f() } catch (e) { console.warn("closeAll:", e) }
-            break
-        case "addDialog":
-            addGameDialog.start()
-            break
-        case "settingsSection":  // {"id": "look"} opens settings on that section
-            openDrawer()
-            drawer.openSection = cmd.id
-            break
-        case "feedbackDialog":  // Send Feedback; optional {"text", "answer": true, "email"}
-            sendFeedback()
-            if (cmd.text) feedbackDialog.text = cmd.text
-            if (cmd.answer) feedbackDialog.wantsAnswer = true
-            if (cmd.email) feedbackDialog.emailText = cmd.email
-            break
-        case "feedbackSend":  // presses Send (test runs never send anything)
-            feedbackDialog.send()
-            break
-        case "feedbackPrompt":  // the one-time feedback toast; {"dismiss": true} closes it
-            if (cmd.dismiss) feedbackPrompt.dismiss()
-            else feedbackPrompt.show()
-            break
-        case "whatsNew":  // the What's new window for this version ({"step": n} to jump)
-            showWhatsNew()
-            if (cmd.step) whatsNew.step = cmd.step
-            break
-        case "setup": // {"step": n} opens the setup wizard on that step
-            setupWizard.start()
-            setupWizard.step = cmd.step || 0
-            break
-        case "dice":
-            rollDice()
-            break
-        case "galleryBack":  // leave gallery mode (closer look or store page)
-            if (storePage.open) storePage.exitGallery()
-            else inspect.exitGallery()
-            break
-        case "colorPicker":  // {"target": "hardware" | "card"}
-            pickColor(cmd.target || "hardware")
-            break
-        case "setting":  // {"key": "testCartridge", "value": false} — test runs never save settings
-            Backend.settings[cmd.key] = cmd.value
-            break
-        case "banner":  // {"name": "CONTROL"} turns the store banner to that game
-            console.warn("BANNER", storeView.showInBanner(cmd.name))
-            break
-        case "inspectScroll":
-            inspect.scrollDetails(cmd.y)
-            break
-        case "step":  // ← / → on the open closer look or store page
-            if (storePage.open) storePage.step(cmd.dir)
-            else inspect.step(cmd.dir)
-            break
-        case "inspectFlip":
-            inspect.flip()
-            break
-        case "drawer":
-            toggleDrawer()
-            break
-        case "inspectClose":
-            inspect.close()
-            break
-        case "quit": {
-            const gid = Backend.sessions.data(Backend.sessions.index(cmd.slot, 0), Qt.UserRole + 1)
-            Backend.sessions.quit(gid)
-            sounds.play("half_click")
-            break
-        }
-        case "edition":
-            Backend.settings.hardware = ({ 0: "black", 1: "white", 2: "black" })[cmd.value] || cmd.value
-            break
-        case "focus":
-            tray.forceActiveFocus()
-            tray.currentIndex = cmd.index
-            break
-        case "cardWidth":
-            Backend.settings.cardWidth = cmd.value
-            break
-        case "set": // {"target": "games" | "settings", "prop": ..., "value": ...}
-            Backend[cmd.target][cmd.prop] = cmd.value
-            break
-        case "key": // keyboard navigation: {"key": "right" | "down" | ...}
-            tray.forceActiveFocus()
-            tray.keyboardNav = true
-            if (cmd.key === "right") tray.moveCurrentIndexRight()
-            else if (cmd.key === "down") tray.moveCurrentIndexDown()
-            break
-        case "scroll":
-            if (mode === "store") storeView.scrollTo(cmd.y)
-            else tray.contentY = cmd.y
-            break
-        case "autoscroll": // performance check: scroll the whole tray over `ms`
-            autoScroll.duration = cmd.ms
-            autoScroll.to = Math.max(0, tray.contentHeight - tray.height)
-            autoScroll.restart()
-            break
-        case "slotpanel": {
-            const s = dock.slotFor(Backend.sessions.data(Backend.sessions.index(cmd.slot, 0), Qt.UserRole + 1))
-            if (s) openSlotPanel(s)
-            break
-        }
-        case "slotmenu": {
-            const s = dock.slotFor(Backend.sessions.data(Backend.sessions.index(cmd.slot, 0), Qt.UserRole + 1))
-            if (s) s.openContextMenu(false)
-            break
-        }
-        case "menu": {
-            const c = tray.cellAt(cmd.index)
-            if (c) c.openMenu(false)
-            break
-        }
-        }
-    }
 }

@@ -17,6 +17,8 @@ Item {
     property string code
     property string extId
     property bool installed: true
+    property bool forSale: false  // a store game you don't own: a shopping bag where the install icon goes
+    property bool forSaleLeft: false  // …in the left corner instead (a discount sticker covers the right one)
     property bool noSlot: false
     // Optional "gameId" or "gameId/off" set in one step by the parent, so a not-installed
     // game's art never loads in color first.
@@ -93,6 +95,16 @@ Item {
             width: 44 * cart.u
             height: width
             source: "download"
+            isMask: true
+            color: cart.pal.headerText
+        }
+        CIcon {
+            visible: cart.forSale
+            x: cart.forSaleLeft ? 18 * cart.u : parent.width - width - 18 * cart.u
+            y: 18 * cart.u
+            width: 52 * cart.u
+            height: width
+            source: "shopping-bag"
             isMask: true
             color: cart.pal.headerText
         }

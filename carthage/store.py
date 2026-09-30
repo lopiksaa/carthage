@@ -417,6 +417,48 @@ class Store(QObject):
         threading.Thread(target=work, daemon=True).start()
 
     offersReady = Signal(str, "QVariantList")  # item key, [offer]
+    playNextPrices = Signal("QVariantMap")  # key → {price, original, discount[, offers]}
+
+    @Slot("QVariantList")
+    def refreshPlayNext(self, entries):
+        """Current prices for Play Next's store games, from the store each was bookmarked on:
+        Steam in one batch, Epic by exact title."""
+        entries = [e for e in entries if isinstance(e, dict)]
+        if not entries:
+            return
+
+        def work():
+            out = {}
+            steam = {int(e["appid"]): e for e in entries
+                     if (e.get("store") or "steam") == "steam" and e.get("appid")}
+            try:
+                info = _batch(list(steam)) if steam else {}
+            except FETCH_ERRORS:
+                info = {}
+            for appid, e in steam.items():
+                i = info.get(appid)
+                if i:
+                    fresh = {"price": i.get("price", ""), "original": i.get("original", ""),
+                             "discount": i.get("discount", 0)}
+                    offers = e.get("offers") or []
+                    if offers and offers[0].get("store") == "steam":
+                        fresh["offers"] = [dict(offers[0], **fresh)] + offers[1:]
+                    out[e.get("key") or f"steam:{appid}"] = fresh
+            for e in entries:
+                if e.get("store") != "epic":
+                    continue
+                try:
+                    o = shops.epic_offer_for(_fetch_json, e.get("name", ""), country(), _money)
+                except FETCH_ERRORS:
+                    o = None
+                if o:
+                    out[e["key"]] = {"price": o["price"], "original": o["original"],
+                                     "discount": o["discount"], "offers": [o]}
+            if out:
+                self.playNextPrices.emit(out)
+
+        threading.Thread(target=work, daemon=True).start()
+
 
     @Slot(str, int, str, "QVariantMap")
     def loadOffers(self, key, appid, title, steam):

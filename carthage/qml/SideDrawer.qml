@@ -49,13 +49,10 @@ FocusScope {
         }
     }
 
-    readonly property real scrollY: flick.contentY
-    function scrollToEnd() {
-        flick.contentY = Math.max(0, flick.contentHeight - flick.height)
-    }
 
     Flickable {
         id: flick
+        objectName: "drawerFlick"  // for the test harness
         anchors.fill: well
         anchors.margins: 2
         contentHeight: content.height + 2 * Ui.gapL

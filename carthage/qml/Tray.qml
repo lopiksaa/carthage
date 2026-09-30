@@ -32,9 +32,6 @@ GridView {
         if (row >= 0) return itemAtIndex(row)
         return shelfItem ? shelfItem.cellFor(gameId) : null
     }
-    function cellAt(index) {
-        return itemAtIndex(index)
-    }
     function isCellVisible(cell) {
         if (!cell) return false
         const p = cell.mapToItem(grid, cell.cardX, cell.cardY)
@@ -52,8 +49,9 @@ GridView {
     rightMargin: Ui.spacingLarge * 2
     topMargin: shelf ? 0 : Ui.spacingLarge
     bottomMargin: shelf ? 0 : bottomClearance + Ui.spacingLarge * 2
-    flow: shelf ? GridView.FlowTopToBottom : GridView.FlowLeftToRight
-    flickableDirection: shelf ? Flickable.HorizontalFlick : Flickable.VerticalFlick
+    // The shelf wraps into rows like the tray itself; it never scrolls on its own.
+    flow: GridView.FlowLeftToRight
+    flickableDirection: Flickable.VerticalFlick
     cellWidth: shelf ? mainTray.cellWidth : Math.floor((width - leftMargin - rightMargin) / columns)
     cellHeight: cardW * Backend.theme.ratio + 2 * pad + Ui.spacingLarge * 3 + titleHeight
     cacheBuffer: cellHeight * 2
@@ -68,19 +66,17 @@ GridView {
     Accessible.name: "Games"
 
     QQC2.ScrollBar.vertical: CScrollBar { visible: !grid.shelf }
-    QQC2.ScrollBar.horizontal: CScrollBar { visible: grid.shelf && grid.contentWidth > grid.width }
 
     WheelAccel {
+        enabled: !grid.shelf  // the shelf leaves the wheel to the tray around it
         flickable: grid
-        horizontal: grid.shelf
-        acceptedModifiers: grid.shelf ? Qt.ShiftModifier : Qt.KeyboardModifierMask
-        step: grid.shelf ? grid.cellWidth : grid.cellHeight * 0.34
+        step: grid.cellHeight * 0.34
     }
 
-    header: grid.shelf || !Backend.settings.favoritesShelf ? null : shelfHeader
+    header: grid.shelf ? null : shelfHeader
     Component {
         id: shelfHeader
-        FavoritesShelf {
+        LibraryShelves {
             width: grid.width - grid.leftMargin - grid.rightMargin
             tray: grid
             appRoot: grid.appRoot
@@ -118,7 +114,6 @@ GridView {
     }
 
     // One shared menu: a menu per card makes scrolling hitch.
-    function closeMenus() { cardMenu.close() }  // demo harness
     function openCardMenu(cell, atPointer) {
         if (shelf) return mainTray.openCardMenu(cell, atPointer)
         cardMenu.cell = cell
@@ -128,6 +123,7 @@ GridView {
 
     CMenu {
         id: cardMenu
+        objectName: "cardMenu"  // for the test harness
         property Item cell: null
         readonly property bool installed: cell ? cell.installed : true
 

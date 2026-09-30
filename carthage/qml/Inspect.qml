@@ -337,11 +337,6 @@ FocusScope {
         if (Math.abs(settleAnim.spinTo - hero.spin) >= 90) appRoot.sound("hover")
     }
 
-    function closeMenus() { otherMenu.close() }  // demo harness
-    function scrollDetails(y) { detailsFlick.contentY = y }  // demo harness
-    function openOther() {  // demo harness
-        otherMenu.popup(otherButton, 0, otherButton.height + 6)
-    }
 
     function flip() {
         if (!open) return
@@ -733,6 +728,16 @@ FocusScope {
                 spacing: Ui.gapM
                 readonly property bool steamGame: inspect.game.source === "steam"
                 CButton {
+                    // Mentioning playNextStore re-checks it whenever Play Next changes.
+                    readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
+                    visible: !!inspect.game.gameId
+                    kind: "scrim"
+                    text: next ? "In Play Next" : "Play Next"
+                    icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+                    Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
+                    onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
+                }
+                CButton {
                     visible: parent.steamGame
                     kind: "scrim"
                     text: "Open Store Page"
@@ -748,6 +753,7 @@ FocusScope {
                 }
                 CButton {
                     id: otherButton
+                    objectName: "inspectOtherButton"  // for the test harness
                     kind: "scrim"
                     text: "Other"
                     icon.name: "overflow-menu-symbolic"
@@ -759,6 +765,7 @@ FocusScope {
 
         Flickable {
             id: detailsFlick
+            objectName: "inspectDetails"  // for the test harness
             y: pinned.height + Ui.gapXL
             width: inspect.panelW + (contentHeight > height ? Ui.gapL : 0)
             height: Math.max(0, Math.min(details.height, detailsPanel.avail - pinned.height - Ui.gapXL))
@@ -812,6 +819,10 @@ FocusScope {
                     info: inspect.info
                     extraChips: inspect.extras.players ? [{ text: inspect.extras.players + " playing now", live: true }] : []
                 }
+                AchievementsSection {
+                    width: parent.width
+                    appid: inspect.game.source === "steam" ? (parseInt(inspect.game.extId) || 0) : 0
+                }
                 FoldSection {
                     width: parent.width
                     title: "About This Game"
@@ -862,6 +873,7 @@ FocusScope {
 
     CMenu {
         id: otherMenu
+        objectName: "inspectOtherMenu"  // for the test harness
         readonly property bool custom: (inspect.game.gameId || "").startsWith("manual_")
         QQC2.Action {
             text: "Change Art…"

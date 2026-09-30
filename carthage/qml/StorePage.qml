@@ -206,7 +206,6 @@ FocusScope {
     Keys.onRightPressed: step(1)
     Keys.onUpPressed: shuffle(-1)
     Keys.onDownPressed: shuffle(1)
-    function scrollDetails(y) { details.contentY = y }  // demo harness
 
     Connections {
         target: Backend.store
@@ -570,6 +569,23 @@ FocusScope {
                 }
             }
             CButton {
+                // Mentioning playNextStore re-checks it whenever Play Next changes.
+                readonly property bool next: Backend.playNextStore, Backend.isPlayNextStore(page.keyOf(page.item), page.item.appid || 0)
+                kind: "scrim"
+                text: next ? "Remove from Play Next" : "Add to Play Next"
+                icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+                // Remembers the store on show (Steam, Epic…) with its offer and price.
+                onClicked: Backend.setPlayNextStore(Object.assign({}, page.item, {
+                    key: page.keyOf(page.item),
+                    store: page.store,
+                    name: page.item.name || page.info.name || "",
+                    price: page.shown.price || page.item.price || "",
+                    original: page.shown.original || "",
+                    discount: page.shown.discount || 0,
+                    offers: page.offer ? [page.offer].concat(page.offers.filter(o => o !== page.offer)) : (page.item.offers || []),
+                }), !next)
+            }
+            CButton {
                 visible: page.steamShown && page.info.owned === true
                 kind: "scrim"
                 text: "Open Store Page in Steam"
@@ -581,6 +597,7 @@ FocusScope {
 
         Flickable {
             id: details
+            objectName: "storePageDetails"  // for the test harness
             y: pinned.height + Ui.gapL
             width: page.panelW + (contentHeight > height ? Ui.gapL : 0)
             height: Math.max(0, Math.min(col.height, detailsPanel.avail - pinned.height - Ui.gapL))

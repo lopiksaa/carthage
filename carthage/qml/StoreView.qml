@@ -63,26 +63,6 @@ Item {
 
     signal chosen(var item, Item cart, var siblings) // siblings: the list it was chosen from (← → on its page)
 
-    signal bannerGo(int i)
-    function showInBanner(name) {  // demo harness: turn the banner to a game by name
-        const match = it => (it.name || "").toLowerCase().includes(name.toLowerCase())
-        let i = view.spotlight.findIndex(match)
-        if (i < 0) {
-            for (const sec of view.sections) {
-                const it = (sec.items || []).find(match)
-                if (it) {
-                    view.spotlight = [Object.assign({}, it, { banner: it.hero || it.header })].concat(view.spotlight)
-                    i = 0
-                    break
-                }
-            }
-        }
-        if (i >= 0) view.bannerGo(i)
-        return i
-    }
-    function scrollTo(y) {  // demo harness
-        shelves.contentY = y - shelves.topMargin
-    }
     function load() {
         if (sections.length === 0) state_ = "loading"
         Backend.store.loadFeatured()
@@ -151,6 +131,7 @@ Item {
 
     ListView {
         id: shelves
+        objectName: "storeShelves"  // for the test harness
         visible: !view.gridMode && !view.browsing && view.state_ === "ready"
         anchors.fill: parent
         topMargin: 18
@@ -166,6 +147,7 @@ Item {
             height: view.spotlight.length ? bannerItem.height + 14 : 0
             StoreBanner {
                 id: bannerItem
+                objectName: "storeBanner"  // for the test harness
                 visible: view.spotlight.length > 0
                 x: 24
                 width: parent.width - 48
@@ -173,10 +155,6 @@ Item {
                 items: view.spotlight
                 appRoot: view.appRoot
                 onChosen: (it) => view.chosen(it, null, view.spotlight)
-                Connections {
-                    target: view
-                    function onBannerGo(i) { bannerItem.go(i) }
-                }
             }
           }
         }

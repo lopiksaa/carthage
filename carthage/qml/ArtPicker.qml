@@ -28,9 +28,6 @@ CDialog {
         open()
         load()
     }
-    function searchText(t) {  // demo harness
-        searchField.text = t
-    }
     function load() {
         items = []
         if (!Backend.artPicker) { error = "Art isn't available here (the demo library has no art source)."; state_ = "error"; return }
@@ -127,6 +124,7 @@ CDialog {
 
         QQC2.TextField {
             id: searchField
+            objectName: "artPickerSearch"  // for the test harness
             anchors.top: top.bottom
             anchors.topMargin: 12
             width: parent.width

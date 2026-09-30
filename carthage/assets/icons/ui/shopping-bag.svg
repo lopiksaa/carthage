@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Carthage's own (no Breeze equivalent): a shopping bag, drawn to match Breeze's 16 px icons. -->
+  <path fill="#232629" d="M3.2 5.5h9.6l-.7 8.1a.6.6 0 0 1-.6.5H4.5a.6.6 0 0 1-.6-.5z"/>
+  <path fill="none" stroke="#232629" stroke-width="1.3" stroke-linecap="round" d="M5.9 7.2V4.6a2.1 2.1 0 0 1 4.2 0v2.6"/>
+</svg>

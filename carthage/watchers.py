@@ -8,7 +8,7 @@ import threading
 import time
 import traceback
 
-from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, Signal
 
 from .library import real_games
 
@@ -138,9 +138,3 @@ class InstallWatch(QObject):
     def progress(self):
         return dict(self._progress)
 
-    @Slot(str, float)
-    def simulate(self, game_id, fraction):
-        """Demo harness only: pretend a game is installing."""
-        self._progress = dict(self._progress, **{game_id: fraction})
-        self._busy = True  # stop real polls from overwriting the simulation
-        self.changed.emit()

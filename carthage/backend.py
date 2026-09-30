@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 
-from .library import GameModel, TrayModel, fake_games, real_games
+from .library import GameModel, TrayModel, real_games
 from .sessions import SessionModel
 from .settings import Settings
 from .theme import PLASTIC_TEXTURE, TEXTURES, Theme
@@ -29,21 +29,28 @@ def _human(size):
 class Backend(QObject):
     libraryError = Signal(str)
     feedbackSent = Signal(bool)  # ok
+    playNextChanged = Signal()
 
-    def __init__(self, fake=False, parent=None):
+    def __init__(self, games=None, parent=None):
+        """`games`: a library to use instead of the real one (the test harness's demo library)."""
         super().__init__(parent)
+        fake = games is not None
         self._fake = fake
         import os
 
         self._test_run = bool(os.environ.get("GC_DEMO")) and not fake
         self._theme = Theme(self)
         self._settings = Settings(self)
-        games = fake_games() if fake else self._load_real()
+        games = games if fake else self._load_real()
         self._library = GameModel(games, self)
         self._tray = TrayModel(self._library, self)
         self._favorites = TrayModel(self._library, self, part="favorites", mirror=self._tray)
+        self._play_next = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        self._play_next_store = []
         st = self._settings
         self._apply_favorites()
+        self._apply_play_next()
+        self._library.modelReset.connect(self._apply_play_next)  # a bought game becomes a library game
         self._shelf_on = st.get("favoritesShelf")
         st.changed.connect(self._shelf_toggled)
         if not fake:
@@ -84,10 +91,15 @@ class Backend(QObject):
                                      if g.source == "steam" and g.ext_id.isdigit()},
                             lambda: self._settings.get("hideAdult"), self,
                             other_stores=lambda: self._settings.get("otherStores"))
+        self._store.playNextPrices.connect(self._play_next_prices)
+        self._store.refreshPlayNext([e for e in self._settings.get("playNext") if isinstance(e, dict)])
         from .keys import Keys
         from .sources import steam
 
         self._keys = Keys(lambda: steam.steam_id64(steam.find_root()) if steam.find_root() else None, self)
+        from .achievements import Achievements
+
+        self._achievements = Achievements(lambda: steam.steam_id64(steam.find_root()) if steam.find_root() else None, self)
         self._art = None
         self._art_rev = {}
         if not fake:
@@ -278,6 +290,102 @@ class Backend(QObject):
         self._tray.set_favorites(ids)
         self._favorites.set_favorites(ids)
 
+    # ── Play Next: bookmarks from the library and the store ─────────────────────────────────
+
+    def _steam_game_id(self, appid):
+        """The library game for a Steam app id, if it's in the library."""
+        appid = str(appid)
+        for g in self._library._games:
+            if g.source == "steam" and g.ext_id == appid:
+                return g.game_id
+        return None
+
+    @staticmethod
+    def _store_key(e):
+        """A store entry's key: the store page's own ("steam:570", "epic:<slug>")."""
+        return e.get("key") or ("steam:" + str(e.get("appid")) if e.get("appid") else "")
+
+    def _apply_play_next(self):
+        ids, store = [], []
+        for e in self._settings.get("playNext"):
+            if isinstance(e, str):
+                ids.append(e)
+            elif isinstance(e, dict) and self._store_key(e):
+                gid = self._steam_game_id(e["appid"]) if e.get("appid") else None
+                if gid:  # bought since: show the library cartridge
+                    ids.append(gid)
+                else:
+                    store.append(dict(e, key=self._store_key(e)))
+        self._play_next.set_play_next(ids)
+        self._play_next_store = store
+        self.playNextChanged.emit()
+
+    @Property(QObject, constant=True)
+    def achievements(self):
+        """Steam achievements for the closer look (achievements.py)."""
+        return self._achievements
+
+    @Property(QObject, constant=True)
+    def playNext(self):
+        """The Play Next shelf's library games, in the order they were added."""
+        return self._play_next
+
+    @Property("QVariantList", notify=playNextChanged)
+    def playNextStore(self):
+        """The Play Next shelf's store games that aren't in the library: each remembers the
+        store it was bookmarked on (store, offers[0]) and its last known price."""
+        return self._play_next_store
+
+    def _set_play_next(self, entries):
+        self._settings.set("playNext", entries)
+        self._apply_play_next()
+
+    @Slot(str, result=bool)
+    def isPlayNext(self, game_id):
+        return game_id in self._settings.get("playNext")
+
+    @Slot(str, bool)
+    def setPlayNext(self, game_id, on):
+        entries = [e for e in self._settings.get("playNext") if e != game_id]
+        if on:
+            entries.append(game_id)
+        self._set_play_next(entries)
+
+    @Slot(str, int, result=bool)
+    def isPlayNextStore(self, key, appid):
+        """Is this store game (store page key, Steam app id or 0) on Play Next?"""
+        gid = self._steam_game_id(appid) if appid else None
+        if gid:
+            return self.isPlayNext(gid)
+        return any(isinstance(e, dict) and self._store_key(e) == key for e in self._settings.get("playNext"))
+
+    @Slot("QVariantMap", bool)
+    def setPlayNextStore(self, item, on):
+        """A store game on or off Play Next, remembering the store it's shown on (`store`, and
+        that store's offer first in `offers`). One that's in the library is saved as that game."""
+        key = self._store_key(item)
+        if not key:
+            return
+        gid = self._steam_game_id(item["appid"]) if item.get("appid") else None
+        if gid:
+            self.setPlayNext(gid, on)
+            return
+        entries = [e for e in self._settings.get("playNext") if not (isinstance(e, dict) and self._store_key(e) == key)]
+        if on:
+            entries.append({k: item.get(k) for k in ("key", "store", "appid", "name", "capsule", "header",
+                                                      "price", "original", "discount", "offers") if item.get(k) is not None})
+            self._store.refreshPlayNext([entries[-1]])
+        self._set_play_next(entries)
+
+    def _play_next_prices(self, prices):
+        """Fresh prices for store entries ({key: {price, original, discount}}), kept for next time."""
+        entries = []
+        for e in self._settings.get("playNext"):
+            if isinstance(e, dict) and self._store_key(e) in prices:
+                e = dict(e, **prices[self._store_key(e)])
+            entries.append(e)
+        self._set_play_next(entries)
+
     @Slot(str, result=bool)
     def isFavorite(self, game_id):
         return self._settings.get("favoritesShelf") and game_id in self._settings.get("favorites")
@@ -430,7 +538,7 @@ class Backend(QObject):
 
     @Slot(result="QVariantMap")
     def whatsNewNotes(self):
-        """This version's notes, always (Menu → What's new, and the demo harness). Its fixes
+        """This version's notes, always (Menu → What's new, and the test harness). Its fixes
         come as one last "Fixes" step, so a fix-only version still has something to show."""
         from .whatsnew import notes_for
 
@@ -513,17 +621,6 @@ class Backend(QObject):
             titles.pop(game_id, None)
         self._settings.set("titles", titles)
         self._library.set_title_override(game_id, title)
-
-    @Slot(str)
-    def demoFinishInstall(self, game_id):
-        """Demo harness only: an install finishes (the library reloads, as with Steam)."""
-        if not self._fake:
-            return
-        games = list(self._library._games)
-        for g in games:
-            if g.game_id == game_id:
-                g.installed = True
-        self._library.reset(games)
 
     @Slot(str, result=bool)
     def isInstalled(self, game_id):

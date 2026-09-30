@@ -1,8 +1,7 @@
 """Games, the library model and the tray's search/filter/sort model.
 
-`real_games()` reads every launcher (sources/). `fake_games()` is the invented demo
-library used by `--fake` and scripted checks; each fake game has a `sim` behavior so
-every dock state can be seen without real launches:
+`real_games()` reads every launcher (sources/). A game with a `sim` behavior is simulated
+instead of launched (the Test Cartridge; the test harness's demo library in tools/harness):
 
     normal    starts, runs, quits after ~1.5 s
     stubborn  ignores Quit, so "isn't responding" appears after 10 s
@@ -112,34 +111,6 @@ class Game:
         self.code = self.code or title_code(self.title)
 
 
-_FAKE = [
-    ("Starfall Odyssey", "steam", True, "normal"),
-    ("Moss & Lantern", "steam", True, "normal"),
-    ("Neon Drift II", "steam", False, "normal"),
-    ("The Quiet Harbor", "steam", True, "normal"),
-    ("Ironbound: Siege of Vael", "steam", True, "stubborn"),
-    ("Pixel Parade", "steam", True, "normal"),
-    ("Hollow Pines", "heroic", True, "handoff"),
-    ("Tidebreaker", "lutris", True, "normal"),
-    ("Garden Sprites", "flatpak", True, "normal"),
-    ("Skyward Postman", "steam", True, "normal"),
-    ("Dungeon Bakery", "steam", False, "normal"),
-    ("Retro Racer DX", "steam", True, "normal"),
-    ("Aurora Protocol", "steam", True, "crash"),
-    ("Cozy Burrow", "steam", True, "normal"),
-    ("Paper Knights", "heroic", True, "handoff"),
-    ("Void Salvage", "steam", False, "normal"),
-    ("Lighthouse Keeper", "steam", True, "normal"),
-    ("Mech Tactics: Frontier", "epic", True, "normal"),
-    ("Harvest Moonlight", "riot", True, "normal"),
-    ("Frostbyte", "lutris", True, "normal"),
-    ("Sunset Arcade", "steam", False, "normal"),
-    ("Clockwork Fox", "steam", True, "normal"),
-    ("Deep Sky Radio", "battlenet", True, "normal"),
-    ("Lantern Launcher", "flatpak", True, "normal"),
-]
-
-
 TEST_CARTRIDGE_ID = "carthage_test"
 
 
@@ -216,30 +187,6 @@ def real_games():
             game_id=g["id"], title=g["name"], source="custom", ext_id=g["short_id"],
             added=g["added"], executable=g["launch"],
         ))
-    return games
-
-
-def fake_games():
-    count = int(os.environ.get("GC_FAKE_COUNT", "0") or 0)
-    now = int(time.time())
-    games = []
-    for i, (title, source, installed, sim) in enumerate(_FAKE):
-        g = Game(
-            game_id=f"fake{i}",
-            title=title,
-            source=source,
-            ext_id=str(1_200_000 + i * 7919) if source == "steam" else title_code(title).lower(),
-            installed=installed,
-            sim=sim,
-            last_played=now - i * 86_400 * 3 if installed else 0,
-            added=now - (len(_FAKE) - i) * 86_400,
-        )
-        if title == "Lantern Launcher":
-            g.no_slot = True
-        games.append(g)
-    # Stress test: GC_FAKE_COUNT=500 pads the library with generated titles.
-    for i in range(len(games), count):
-        games.append(Game(f"fake{i}", f"Test Game {i}", "steam", str(2_000_000 + i), installed=i % 5 != 0, added=now - i))
     return games
 
 
@@ -424,8 +371,10 @@ class TrayModel(QSortFilterProxyModel):
     """Search, filter and sort for the tray.
 
     A cartridge sits in one place: the favorites shelf or the tray. `part` says which this
-    model holds: "tray" (everything but the favorites), "favorites" (only them) or "all".
-    A favorites model given `mirror` (the tray's model) follows its search, filter and sort."""
+    model holds: "tray" (everything but the favorites), "favorites" (only them), "all", or
+    "playnext" (the Play Next bookmarks, in the order they were added; bookmarking doesn't
+    take a game off the tray). A model given `mirror` (the tray's model) follows its search,
+    filter and sort."""
 
     changed = Signal()
 
@@ -437,6 +386,7 @@ class TrayModel(QSortFilterProxyModel):
         self._sort = "recent"
         self._part = part
         self._favorites = set()
+        self._play_next = {}  # game_id → position in the Play Next list
         self._mirror = mirror
         self.setDynamicSortFilter(True)
         self.sort(0)
@@ -455,6 +405,14 @@ class TrayModel(QSortFilterProxyModel):
         if ids != self._favorites:
             self._favorites = ids
             self.invalidateFilter()
+            self.changed.emit()
+
+    def set_play_next(self, ids):
+        order = {g: i for i, g in enumerate(ids)}
+        if order != self._play_next:
+            self._play_next = order
+            self.invalidate()
+            self.sort(0)
             self.changed.emit()
 
     def _opts(self):
@@ -516,6 +474,8 @@ class TrayModel(QSortFilterProxyModel):
         g = m._games[row]
         if g.game_id in m._hidden:
             return False
+        if self._part == "playnext" and g.game_id not in self._play_next:
+            return False
         fav = g.game_id in self._favorites
         if (self._part == "tray" and fav) or (self._part == "favorites" and not fav):
             return False
@@ -547,6 +507,8 @@ class TrayModel(QSortFilterProxyModel):
     def lessThan(self, left, right):
         m = self.sourceModel()
         a, b = m._games[left.row()], m._games[right.row()]
+        if self._part == "playnext":  # first bookmarked, first in line
+            return self._play_next.get(a.game_id, 0) < self._play_next.get(b.game_id, 0)
         o = self._opts()
         if TEST_CARTRIDGE_ID in (a.game_id, b.game_id):  # the Test Cartridge comes first
             return a.game_id == TEST_CARTRIDGE_ID

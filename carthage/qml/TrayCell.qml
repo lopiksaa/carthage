@@ -36,11 +36,8 @@ Item {
     readonly property real cardY: pocketY + pad
 
     readonly property bool keyFocus: GridView.isCurrentItem && GridView.view.activeFocus && GridView.view.keyboardNav
-    property var debugHover: null // demo harness: {x, y} as fractions of the card
-    readonly property bool hovered: (hover.hovered || debugHover !== null) && !out
-    readonly property point pointer: debugHover !== null
-        ? Qt.point(debugHover.x * cardW, debugHover.y * cardH)
-        : hover.point.position
+    readonly property bool hovered: hover.hovered && !out
+    readonly property point pointer: hover.point.position
     readonly property bool tilting: hovered && Backend.settings.tiltEnabled && motion > 0
     readonly property bool spotlit: appRoot ? appRoot.diceSpot === gameId : false
 

@@ -18,7 +18,6 @@ QQC2.ApplicationWindow {
     minimumHeight: 480
 
     property int reloadCount: 0
-    property string demoCommand: ""
     property Item searchField: null
 
     Binding {
@@ -36,7 +35,6 @@ QQC2.ApplicationWindow {
         contentLoader.source = ""
         contentLoader.source = Qt.resolvedUrl("App.qml")
     }
-    onDemoCommandChanged: if (contentLoader.item) contentLoader.item.demo(JSON.parse(demoCommand))
 
     Shortcut {
         sequences: [StandardKey.Find]

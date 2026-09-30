@@ -1,11 +1,14 @@
 // One store game as a cartridge on a shelf.
 import QtQuick
+import QtQuick.Effects
 import Carthage
 
 Item {
     id: card
 
     property var item: ({})
+    // A store game shown among owned ones (Play Next): greyed out, with a shopping bag.
+    property bool forSale: false
     property real cardW: 150
     property Item appRoot
     signal chosen(var item, Item cart)
@@ -54,6 +57,10 @@ Item {
         labelOverride: card.item.price ? card.item.price.toUpperCase() : card.storeName.toUpperCase()
         labelSize: 64
         smoothTransform: lift.value > 0.001
+        layer.enabled: card.forSale
+        layer.effect: MultiEffect { saturation: -1; brightness: -0.08 }
+        forSale: card.forSale
+        forSaleLeft: card.item.discount > 0
         transform: [
             Translate { y: -card.cardW * 0.035 * lift.value },
             Scale {
@@ -190,6 +197,6 @@ Item {
         onTapped: card.chosen(card.item, cart)
     }
     Accessible.role: Accessible.Button
-    Accessible.name: (item.name || "") + ", " + (item.owned ? "in your library" : (item.price || ""))
+    Accessible.name: (item.name || "") + ", " + (item.owned ? "in your library" : (forSale ? "not owned, " : "") + (item.price || ""))
                      + (store !== "steam" ? ", " + storeName : "")
 }

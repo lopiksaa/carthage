@@ -1,9 +1,7 @@
-"""Application startup, dev-mode live reload and the scripted demo/screenshot harness."""
+"""Application startup and dev-mode live reload. (The test harness is tools/harness/, outside the app.)"""
 
-import json
 import os
 import signal
-import time
 import sys
 from pathlib import Path
 
@@ -49,85 +47,9 @@ def _watch_qml(engine, root):
     return watcher, debounce
 
 
-def _run_demo(app, root, script_path):
-    """GC_DEMO=steps.json: timed commands for automated visual checks.
-
-    Each step: {"at": ms, "do": "<command>", ...} or {"at": ms, "shot": "file.png"}.
-    Commands are forwarded to App.qml's demo() function.
-    """
-    from PySide6.QtGui import QGuiApplication
-
-    wanted = os.environ.get("GC_SCREEN", "")
-    screen = next((sc for sc in QGuiApplication.screens() if sc.name() == wanted), None)
-    if screen is not None and os.environ.get("QT_QPA_PLATFORM") != "offscreen":
-        geo = screen.availableGeometry()
-        root.setScreen(screen)
-        root.setPosition(geo.x() + (geo.width() - root.width()) // 2, geo.y() + (geo.height() - root.height()) // 2)
-    elif os.environ.get("QT_QPA_PLATFORM") == "offscreen":
-        # The offscreen screen is small; checks compare shots at the design size.
-        root.setWidth(1180)
-        root.setHeight(820)
-
-    steps = json.loads(Path(script_path).read_text(encoding="utf-8"))
-    timers = []
-    state = {"frames": 0, "t": 0.0, "started": False}
-
-    def fire(step):
-        if step.get("do") == "fps_start":
-            state["frames"] = 0
-            state["worst"] = 0.0
-            state["t"] = state["last"] = time.monotonic()
-        elif step.get("do") == "fps_stop":
-            secs = time.monotonic() - state["t"]
-            print(f"[demo] {state['frames']} frames in {secs:.2f}s = {state['frames'] / secs:.1f} fps, "
-                  f"worst frame {state['worst'] * 1000:.1f} ms", flush=True)
-        elif "shot" in step:
-            root.grabWindow().save(step["shot"])
-            print("[demo] shot", step["shot"], flush=True)
-        elif step.get("do") == "exit":
-            app.quit()
-        elif step.get("do") == "drag":  # press, move in steps, optionally release
-            from PySide6.QtCore import QPoint, Qt
-            from PySide6.QtTest import QTest
-
-            x0, y0, dx, dy = step["x"], step["y"], step["dx"], step.get("dy", 0)
-            QTest.mousePress(root, Qt.LeftButton, Qt.NoModifier, QPoint(x0, y0))
-            for i in range(1, 13):
-                QTest.mouseMove(root, QPoint(int(x0 + dx * i / 12), int(y0 + dy * i / 12)), 12)
-            if step.get("release", True):
-                QTest.mouseRelease(root, Qt.LeftButton, Qt.NoModifier, QPoint(x0 + dx, y0 + dy), 10)
-        elif step.get("do") == "click":  # a real mouse click at window coordinates
-            from PySide6.QtCore import QPoint, Qt
-            from PySide6.QtTest import QTest
-
-            button = Qt.RightButton if step.get("button") == "right" else Qt.LeftButton
-            QTest.mouseClick(root, button, Qt.NoModifier, QPoint(step["x"], step["y"]))
-        else:
-            root.setProperty("demoCommand", json.dumps(step))
-
-    def start():
-        # Step times count from the first frame on screen, not from process start.
-        for step in steps:
-            t = QTimer()
-            t.setSingleShot(True)
-            t.timeout.connect(lambda step=step: fire(step))
-            t.start(step["at"])
-            timers.append(t)
-
-    def on_frame():
-        now = time.monotonic()
-        state["worst"] = max(state.get("worst", 0.0), now - state.get("last", now))
-        state["last"] = now
-        state["frames"] += 1
-        if not state["started"]:
-            state["started"] = True
-            QTimer.singleShot(0, start)
-
-    root.frameSwapped.connect(on_frame)
-    return timers
-
-
-def main(argv=None):
+def start(argv=None, games=None):
+    """Build the app, the backend and the window: (app, engine, root, backend), or None if the
+    window couldn't load. `games`: a library to use instead of the real one (the test harness)."""
     argv = list(sys.argv if argv is None else argv)
     from . import log
 
@@ -159,10 +81,7 @@ def main(argv=None):
     app.setWindowIcon(QIcon(str(Path(__file__).resolve().parent / "assets" / "icons" / "carthage-512.png")))
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-    fake = "--fake" in argv or bool(os.environ.get("GC_FAKE_COUNT")) or (
-        bool(os.environ.get("GC_DEMO")) and not os.environ.get("GC_REAL")
-    )
-    backend = Backend(fake=fake)
+    backend = Backend(games=games)
     chrome.setup(app)
     chrome.apply(app, backend.theme.dark)
     backend.theme.changed.connect(lambda: chrome.apply(app, backend.theme.dark))
@@ -177,13 +96,15 @@ def main(argv=None):
     engine.rootContext().setContextProperty("devMode", dev)
     engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))
     if not engine.rootObjects():
-        return 1
+        return None
     root = engine.rootObjects()[0]
-
-    keep = []
     if dev:
-        keep.append(_watch_qml(engine, root))
-    if os.environ.get("GC_DEMO"):
-        keep.append(_run_demo(app, root, os.environ["GC_DEMO"]))
+        app._dev_watch = _watch_qml(engine, root)  # kept alive with the app
+    return app, engine, root, backend
 
-    return app.exec()
+
+def main(argv=None):
+    started = start(argv)
+    if started is None:
+        return 1
+    return started[0].exec()

@@ -30,6 +30,11 @@ class Settings(QObject):
         "checkUpdates": True, "setupDone": False, "hideAdult": True,
         "favorites": [], "crtEffects": True,
         "favoritesShelf": False,
+        # Library shelves folded shut (their title stays, with the count).
+        "favoritesCollapsed": False,
+        "playNextCollapsed": False,
+        # Play Next bookmarks, in order: a library game id, or a store game {appid, name, capsule, header}.
+        "playNext": [],
         "otherStores": False,
         # Store shelves: "rows" (wrapping, like the library) or "scroll" (one row, sideways).
         "storeLayout": "rows",
@@ -121,6 +126,8 @@ class Settings(QObject):
     usageMinutes = _prop("usageMinutes", int, changed)
     feedbackAsked = _prop("feedbackAsked", bool, changed)
     favoritesShelf = _prop("favoritesShelf", bool, changed)
+    favoritesCollapsed = _prop("favoritesCollapsed", bool, changed)
+    playNextCollapsed = _prop("playNextCollapsed", bool, changed)
     crtEffects = _prop("crtEffects", bool, changed)
     texturedPlastic = _prop("texturedPlastic", bool, changed)
     plasticTexture = _prop("plasticTexture", str, changed)
