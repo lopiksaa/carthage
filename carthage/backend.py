@@ -13,7 +13,10 @@ from .version import VERSION
 from .watchers import InstallWatch, LibraryWatcher
 
 ASSETS = Path(__file__).resolve().parent / "assets"
-FEEDBACK_URL = "https://docs.google.com/forms/d/e/1FAIpQLScqh7yiV38-ZCFqpeUK2DoVs00b-CDBFQp38aocNVy7UVhCjw/viewform"
+# The feedback form (Google Forms, one "Feedback" paragraph field). The app posts to it;
+# the viewform address is the fallback when that fails.
+FEEDBACK_FORM = "https://docs.google.com/forms/d/e/1FAIpQLScqh7yiV38-ZCFqpeUK2DoVs00b-CDBFQp38aocNVy7UVhCjw"
+FEEDBACK_FIELD = "entry.1609768458"
 
 
 def _human(size):
@@ -25,6 +28,7 @@ def _human(size):
 
 class Backend(QObject):
     libraryError = Signal(str)
+    feedbackSent = Signal(bool)  # ok
 
     def __init__(self, fake=False, parent=None):
         super().__init__(parent)
@@ -314,9 +318,46 @@ class Backend(QObject):
     def keys(self):
         return self._keys
 
-    @Property(str, constant=True)
-    def feedbackUrl(self):
-        return FEEDBACK_URL
+    @staticmethod
+    def _feedback_text(text, email):
+        """What's sent: the text, then Carthage's version and the operating system, and the
+        address to answer, if one was given (the form has a single field)."""
+        import platform
+
+        out = f"{text.strip()}\n\n— Carthage {VERSION}, {platform.system()}"
+        return out + f"\n— Reply to: {email.strip()}" if email.strip() else out
+
+    @Slot(str, str)
+    def sendFeedback(self, text, email):
+        """Post the text to the feedback form in the background; feedbackSent says how it went."""
+        import os
+        import urllib.parse
+        import urllib.request
+
+        if os.environ.get("GC_DEMO"):  # test runs never send anything
+            QTimer.singleShot(300, lambda: self.feedbackSent.emit(True))
+            return
+        data = urllib.parse.urlencode({FEEDBACK_FIELD: self._feedback_text(text, email)}).encode()
+
+        def work():
+            ok = False
+            try:
+                req = urllib.request.Request(FEEDBACK_FORM + "/formResponse", data=data,
+                                             headers={"User-Agent": f"Carthage/{VERSION}"})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    ok = 200 <= r.status < 300
+            except (OSError, ValueError):
+                pass
+            self.feedbackSent.emit(ok)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    @Slot(str, str, result=str)
+    def feedbackFormUrl(self, text, email):
+        """The form in a browser, already filled in with the text."""
+        import urllib.parse
+
+        return FEEDBACK_FORM + "/viewform?usp=pp_url&" + urllib.parse.urlencode({FEEDBACK_FIELD: self._feedback_text(text, email)})
 
     @Slot(str)
     def openUrl(self, url):

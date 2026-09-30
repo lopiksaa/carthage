@@ -23,7 +23,7 @@ Item {
     }
     function send() {
         shown = false
-        Backend.openUrl(Backend.feedbackUrl)
+        appRoot.sendFeedback()
     }
 
     // Not answered within a minute: step aside the same way as closing it.

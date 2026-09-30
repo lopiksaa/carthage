@@ -50,7 +50,7 @@ Item {
                                       || headerPicker.opened || textPrompt.opened || processPicker.opened
                                       || storePage.open || mediaViewer.opened
                                       || addGameDialog.opened || slotPanel.opened || inspect.open
-                                      || colorPicker.opened || whatsNew.opened
+                                      || colorPicker.opened || whatsNew.opened || feedbackDialog.opened
                                       || app.settingsOpen || Ui.openMenus > 0
 
     // gameId → true while the cartridge is out of its recess (inspected, flying or docked).
@@ -921,8 +921,10 @@ Item {
             }
         }
     }
+    FeedbackDialog { id: feedbackDialog; appRoot: app }
     function sendFeedback() {
-        Backend.openUrl(Backend.feedbackUrl)
+        closeDrawer()
+        feedbackDialog.start()
     }
 
     NumberAnimation {
@@ -1091,7 +1093,7 @@ Item {
             break
         }
         case "closeAll":  // every dialog, menu, page and the drawer (each on its own, so one can't stop the rest)
-            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, setupWizard, slotPanel, mediaViewer, colorPicker, whatsNew])
+            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, setupWizard, slotPanel, mediaViewer, colorPicker, whatsNew, feedbackDialog])
                 try { p.close() } catch (e) { console.warn("closeAll:", e) }
             for (const f of [() => inspect.closeMenus(), () => tray.closeMenus(), () => storePage.close(), () => inspect.close(), () => closeDrawer()])
                 try { f() } catch (e) { console.warn("closeAll:", e) }
@@ -1102,6 +1104,15 @@ Item {
         case "settingsSection":  // {"id": "look"} opens settings on that section
             openDrawer()
             drawer.openSection = cmd.id
+            break
+        case "feedbackDialog":  // Send Feedback; optional {"text", "answer": true, "email"}
+            sendFeedback()
+            if (cmd.text) feedbackDialog.text = cmd.text
+            if (cmd.answer) feedbackDialog.wantsAnswer = true
+            if (cmd.email) feedbackDialog.emailText = cmd.email
+            break
+        case "feedbackSend":  // presses Send (test runs never send anything)
+            feedbackDialog.send()
             break
         case "feedbackPrompt":  // the one-time feedback toast; {"dismiss": true} closes it
             if (cmd.dismiss) feedbackPrompt.dismiss()
