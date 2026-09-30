@@ -30,7 +30,7 @@ Column {
     Text {
         text: "MORE ABOUT THIS GAME"
         color: Ui.onScrimDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Black
         font.pixelSize: Ui.textCaption
         font.letterSpacing: 2
@@ -57,7 +57,7 @@ Column {
                         anchors.verticalCenter: parent.verticalCenter
                         text: tag.modelData.text
                         color: Ui.onScrim
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Bold
                         font.pixelSize: Ui.textCaption
                     }
@@ -65,7 +65,7 @@ Column {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "↗"
                         color: Ui.onScrimDim
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Bold
                         font.pixelSize: Ui.textCaption
                     }

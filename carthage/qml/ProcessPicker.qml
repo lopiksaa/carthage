@@ -31,7 +31,7 @@ CDialog {
         Text {
             text: "Link Game Process"
             color: picker.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Ui.textTitle
         }
@@ -39,14 +39,14 @@ CDialog {
             width: parent.width
             text: "If " + picker.gameTitle + " starts through a launcher, pick the actual game below. Carthage will then track it, show it as playing and quit it — every time."
             color: picker.pal.panelTextDim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.pixelSize: Ui.textBody
             wrapMode: Text.Wrap
         }
         Text {
             text: "Started since launch"
             color: picker.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textBody
             topPadding: 4
@@ -87,7 +87,7 @@ CDialog {
                     anchors.centerIn: parent
                     text: "Nothing new has started yet."
                     color: picker.pal.panelTextDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.pixelSize: Ui.textBody
                 }
             }
@@ -95,7 +95,7 @@ CDialog {
         Text {
             text: "Or type the program name"
             color: picker.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textBody
             topPadding: 4

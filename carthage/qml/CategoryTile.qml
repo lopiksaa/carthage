@@ -80,7 +80,7 @@ Item {
             width: parent.width - 2 * Ui.gapL
             text: tile.name
             color: "#ffffff"
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: tile.compact ? Ui.textLead + 2 : Ui.textTitle + 2
             wrapMode: Text.Wrap

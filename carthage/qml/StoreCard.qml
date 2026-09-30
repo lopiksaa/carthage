@@ -77,7 +77,7 @@ Item {
                 anchors.centerIn: parent
                 text: "IN LIBRARY"
                 color: "#ffffff"
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Black
                 font.pixelSize: Math.max(8, card.cardW * 0.07)
                 font.letterSpacing: 1
@@ -107,7 +107,7 @@ Item {
             anchors.centerIn: parent
             text: "-" + card.item.discount + "%"
             color: "#ffffff"
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Math.max(12, card.cardW * 0.12)
             renderType: Text.CurveRendering  // rotated with the sticker: no subpixel color fringes
@@ -123,7 +123,7 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         text: card.item.name || ""
         color: card.pal.trayText
-        font.family: "Nunito"
+        font.family: Ui.fontTitles
         font.pixelSize: Ui.textBody
         lineHeight: 1.1
         wrapMode: Text.Wrap
@@ -139,7 +139,7 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         text: (card.item.players || "") + " playing now"
         color: card.pal.trayTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Bold
         font.pixelSize: Ui.textCaption
     }
@@ -165,7 +165,7 @@ Item {
             anchors.centerIn: parent
             text: "#" + rankBadge.rank
             color: rankBadge.rank >= 1 && rankBadge.rank <= 3 ? "#1d1a14" : "#ffffff"
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Math.max(11, card.cardW * 0.1)
             renderType: Text.QtRendering

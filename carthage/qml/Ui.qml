@@ -2,10 +2,29 @@
 
 pragma Singleton
 import QtQuick
+import Carthage
 
 QtObject {
     // Open menus (CMenu counts them); input behind is blocked while any is open.
     property int openMenus: 0
+
+    // Interface fonts, one per kind of text, chosen in Settings → Appearance (all bundled).
+    // The codes and labels printed on cartridges keep their own fonts.
+    readonly property var labelFonts: ["Nunito", "Chakra Petch", "Michroma", "Bai Jamjuree", "Sora",
+        "Red Hat Display", "Instrument Sans", "Orbitron", "Audiowide", "Jura", "Righteous"]
+    readonly property var calmFonts: ["Manrope", "Figtree", "Onest", "Plus Jakarta Sans", "Lexend",
+        "Hanken Grotesk", "Albert Sans", "Urbanist"]
+    readonly property var titleFonts: labelFonts.concat(calmFonts)
+    readonly property var buttonFonts: titleFonts
+    // Only fonts that stay easy to read at small sizes.
+    readonly property var textFonts: ["Nunito", "Sora", "Red Hat Display", "Instrument Sans",
+        "Bai Jamjuree", "Chakra Petch"].concat(calmFonts)
+
+    function _pick(choices, saved, fallback) { return choices.indexOf(saved) >= 0 ? saved : fallback }
+    readonly property string fontLabels: _pick(labelFonts, Backend.settings.fontLabels, "Orbitron")     // logo, LIBRARY / STORE, engraved titles
+    readonly property string fontTitles: _pick(titleFonts, Backend.settings.fontTitles, "Red Hat Display") // game names
+    readonly property string fontButtons: _pick(buttonFonts, Backend.settings.fontButtons, "Chakra Petch")
+    readonly property string fontText: _pick(textFonts, Backend.settings.fontText, "Red Hat Display")     // everything else
 
     readonly property int textCaption: 12   // hints, counts, small labels
     readonly property int textBody: 14      // body text, buttons, menu items

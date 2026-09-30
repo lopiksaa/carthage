@@ -31,7 +31,7 @@ Column {
         horizontalAlignment: Text.AlignHCenter
         text: ph.text
         color: ph.pal.trayText
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Bold
         font.pixelSize: Ui.textTitle
         wrapMode: Text.Wrap
@@ -42,7 +42,7 @@ Column {
         horizontalAlignment: Text.AlignHCenter
         text: ph.explanation
         color: ph.pal.trayTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.pixelSize: Ui.textBody
         wrapMode: Text.Wrap
     }

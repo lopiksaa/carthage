@@ -37,7 +37,7 @@ CDialog {
     component Title_: Text {
         width: parent.width
         color: wiz.pal.panelText
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Black
         font.pixelSize: Ui.textTitle
         wrapMode: Text.Wrap
@@ -45,7 +45,7 @@ CDialog {
     component Body_: Text {
         width: parent.width
         color: wiz.pal.panelTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.pixelSize: Ui.textBody
         wrapMode: Text.Wrap
     }
@@ -106,7 +106,7 @@ CDialog {
                         Text {
                             text: modelData.name + "  ·  " + modelData.count + (modelData.count === 1 ? " game" : " games")
                             color: wiz.pal.panelText
-                            font.family: "Nunito"
+                            font.family: Ui.fontText
                             font.weight: Font.Bold
                             font.pixelSize: Ui.textBody
                         }

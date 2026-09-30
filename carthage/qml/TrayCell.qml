@@ -136,7 +136,7 @@ Item {
                 id: engraved
                 width: parent.width
                 text: cell.title.toUpperCase()
-                font.family: "Nunito"
+                font.family: Ui.fontTitles
                 font.weight: Font.ExtraBold
                 font.pixelSize: Math.max(8, cell.cardW * 0.085)
                 font.letterSpacing: 1

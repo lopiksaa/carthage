@@ -47,7 +47,7 @@ CDialog {
         Text {
             text: "Cartridge Header"
             color: picker.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Ui.textTitle
         }
@@ -56,7 +56,7 @@ CDialog {
             bottomPadding: 6
             text: picker.gameTitle
             color: picker.pal.panelTextDim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.pixelSize: Ui.textBody
             elide: Text.ElideRight
         }
@@ -123,7 +123,7 @@ CDialog {
                         Text {
                             text: opt.modelData.text
                             color: picker.pal.panelText
-                            font.family: "Nunito"
+                            font.family: Ui.fontText
                             font.weight: opt.selected ? Font.Black : Font.Bold
                             font.pixelSize: Ui.textBody
                         }
@@ -131,7 +131,7 @@ CDialog {
                             width: parent.width
                             text: opt.modelData.hint
                             color: picker.pal.panelTextDim
-                            font.family: "Nunito"
+                            font.family: Ui.fontText
                             font.pixelSize: Ui.textCaption
                             wrapMode: Text.Wrap
                             maximumLineCount: 2

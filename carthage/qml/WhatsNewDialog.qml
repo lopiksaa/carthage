@@ -1,7 +1,6 @@
 // What's new after an update, one step per change. The notes come from whatsnew.py.
 import QtQuick
 import Carthage
-import QtQuick.Controls as QQC2
 
 CDialog {
     id: dlg
@@ -37,7 +36,7 @@ CDialog {
     component Title_: Text {
         width: parent.width
         color: dlg.pal.panelText
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Black
         font.pixelSize: Ui.textTitle
         wrapMode: Text.Wrap
@@ -45,7 +44,7 @@ CDialog {
     component Body_: Text {
         width: parent.width
         color: dlg.pal.panelTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.pixelSize: Ui.textBody
         wrapMode: Text.Wrap
     }
@@ -86,7 +85,7 @@ CDialog {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "WHAT'S NEW IN " + (dlg.notes.version || "")
                 color: dlg.pal.panelTextDim
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Black
                 font.pixelSize: Ui.textCaption
                 font.letterSpacing: 1.6
@@ -212,7 +211,7 @@ CDialog {
                         anchors.centerIn: parent
                         text: dlg.cur.kind === "new" ? "NEW" : dlg.cur.kind === "changed" ? "CHANGED" : "FIXED"
                         color: Qt.darker(dlg.tileColor(dlg.cur.kind), 1.35)
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Black
                         font.pixelSize: Ui.textCaption
                         font.letterSpacing: 1.2

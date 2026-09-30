@@ -670,7 +670,7 @@ FocusScope {
                 Text {
                     text: (inspect.game.sourceName || "").toUpperCase()
                     color: Ui.onScrimDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontLabels
                     font.weight: Font.Black
                     font.pixelSize: Ui.textBody
                     font.letterSpacing: 2.5
@@ -679,7 +679,7 @@ FocusScope {
                     width: parent.width
                     text: inspect.game.title || ""
                     color: Ui.onScrim
-                    font.family: "Nunito"
+                    font.family: Ui.fontTitles
                     font.weight: Font.Black
                     font.pixelSize: Ui.textDisplay
                     lineHeight: 0.95
@@ -701,7 +701,7 @@ FocusScope {
                     onLinkActivated: (url) => Backend.openUrl(url)
                     HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
                     color: Ui.onScrimDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Bold
                     font.pixelSize: Ui.textLead
                     wrapMode: Text.Wrap
@@ -799,7 +799,7 @@ FocusScope {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.text
                                 color: Ui.onScrim
-                                font.family: "Nunito"
+                                font.family: Ui.fontText
                                 font.weight: Font.DemiBold
                                 font.pixelSize: Ui.textLead
                             }

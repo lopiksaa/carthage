@@ -33,7 +33,7 @@ CDialog {
         rightPadding: 12
         color: dlg.pal.panelText
         placeholderTextColor: dlg.pal.panelTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.DemiBold
         font.pixelSize: Ui.textBody
         selectByMouse: true
@@ -46,7 +46,7 @@ CDialog {
     }
     component Label_: Text {
         color: dlg.pal.panelText
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Bold
         font.pixelSize: Ui.textBody
     }
@@ -59,7 +59,7 @@ CDialog {
         Text {
             text: "Add a Game"
             color: dlg.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Ui.textTitle
         }
@@ -67,7 +67,7 @@ CDialog {
             width: parent.width
             text: "For games no launcher knows about. Steam, Heroic, Lutris and installed apps show up on their own."
             color: dlg.pal.panelTextDim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.pixelSize: Ui.textBody
             wrapMode: Text.Wrap
         }
@@ -105,7 +105,7 @@ CDialog {
             width: parent.width
             text: dlg.error
             color: dlg.pal.dangerText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textBody
             wrapMode: Text.Wrap

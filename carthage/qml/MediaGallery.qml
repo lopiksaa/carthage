@@ -1,6 +1,7 @@
 // A game's trailers and screenshots, full width, one under another. Fed with a store details
 // object (store.py loadDetails).
 import QtQuick
+import Carthage
 
 Column {
     id: gallery
@@ -30,7 +31,7 @@ Column {
         visible: gallery.showTitle
         text: gallery.hasVideo ? "Trailers & Screenshots" : "Screenshots"
         color: Ui.onScrim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.weight: Font.Black
         font.pixelSize: Ui.textLead
     }

@@ -31,7 +31,7 @@ Flow {
             anchors.centerIn: parent
             text: (badges.info.reviews || "") + "  ·  " + badges.info.reviewPct + "% of " + (badges.info.reviewCount || "")
             color: Ui.onScrim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textBody
         }
@@ -47,7 +47,7 @@ Flow {
             anchors.centerIn: parent
             text: badges.info.metacritic || ""
             color: "#000000"
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Ui.textBody
         }
@@ -82,7 +82,7 @@ Flow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: modelData.text
                     color: Ui.onScrim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Bold
                     font.pixelSize: Ui.textBody
                 }

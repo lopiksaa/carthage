@@ -59,7 +59,7 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     text: opt.modelData.text
                     color: opt.selected ? Backend.theme.accent.accentText : seg.pal.panelText
-                    font.family: "Nunito"
+                    font.family: Ui.fontButtons
                     font.weight: opt.selected ? Font.Black : Font.Bold
                     font.pixelSize: Ui.textBody
                     elide: Text.ElideRight

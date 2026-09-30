@@ -25,7 +25,7 @@ Item {
         id: cut
         text: label.text.toUpperCase()
         color: label.pal.trayTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontLabels
         font.weight: Font.Black
         font.pixelSize: label.pixelSize
         font.letterSpacing: label.pixelSize >= Ui.textTitle ? 3 : 2

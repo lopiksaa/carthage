@@ -1,5 +1,6 @@
 // Text folded to a few lines until opened.
 import QtQuick
+import Carthage
 
 Column {
     id: sec
@@ -19,7 +20,7 @@ Column {
         Text {
             text: sec.title
             color: Ui.onScrim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Ui.textLead
         }
@@ -40,7 +41,7 @@ Column {
         width: parent.width
         text: sec.text
         color: Ui.onScrimDim
-        font.family: "Nunito"
+        font.family: Ui.fontText
         font.pixelSize: Ui.textBody
         lineHeight: 1.15
         wrapMode: Text.Wrap

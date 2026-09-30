@@ -34,7 +34,7 @@ FocusScope {
         property bool on: false
         property string choice
         color: on ? sw.pal.dockText : sw.pal.dockTextDim
-        font.family: "Nunito"
+        font.family: Ui.fontLabels
         font.weight: Font.Black
         font.pixelSize: 11
         font.letterSpacing: 1.6

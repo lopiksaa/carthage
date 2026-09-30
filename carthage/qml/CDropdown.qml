@@ -31,7 +31,7 @@ CButton {
                 anchors.verticalCenter: parent.verticalCenter
                 text: dd.label
                 color: dd.isKey ? Qt.alpha(dd.fg, 0.62) : dd.pal.panelTextDim
-                font.family: "Nunito"
+                font.family: Ui.fontButtons
                 font.weight: Font.Bold
                 font.pixelSize: Ui.textCaption
             }
@@ -39,7 +39,7 @@ CButton {
                 anchors.verticalCenter: parent.verticalCenter
                 text: dd.currentText
                 color: dd.fg
-                font.family: "Nunito"
+                font.family: Ui.fontButtons
                 font.weight: Font.Black
                 font.pixelSize: Ui.textBody
             }

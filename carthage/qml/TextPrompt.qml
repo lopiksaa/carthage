@@ -38,7 +38,7 @@ CDialog {
         Text {
             text: dlg.title
             color: dlg.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Ui.textTitle
         }
@@ -47,7 +47,7 @@ CDialog {
             width: parent.width
             text: dlg.hint
             color: dlg.pal.panelTextDim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.pixelSize: Ui.textBody
             wrapMode: Text.Wrap
         }
@@ -58,7 +58,7 @@ CDialog {
             leftPadding: 12
             rightPadding: 12
             color: dlg.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.DemiBold
             font.pixelSize: Ui.textLead
             selectByMouse: true

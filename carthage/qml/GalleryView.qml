@@ -1,5 +1,6 @@
 // Gallery mode for a game view: a bar over the game's trailers and screenshots at full size.
 import QtQuick
+import Carthage
 import QtQuick.Controls as QQC2
 
 Item {
@@ -48,7 +49,7 @@ Item {
                 width: parent.width
                 text: gv.title
                 color: Ui.onScrim
-                font.family: "Nunito"
+                font.family: Ui.fontTitles
                 font.weight: Font.Black
                 font.pixelSize: Ui.textTitle
                 elide: Text.ElideRight
@@ -58,7 +59,7 @@ Item {
                 width: parent.width
                 text: gv.subtitle
                 color: Ui.onScrimDim
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Bold
                 font.pixelSize: Ui.textCaption
                 elide: Text.ElideRight

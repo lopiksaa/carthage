@@ -120,7 +120,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: drag.hint
                 color: Backend.theme.accent.accentText
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Black
                 font.pixelSize: Ui.textCaption
             }

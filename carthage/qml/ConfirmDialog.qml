@@ -34,7 +34,7 @@ CDialog {
                 width: parent.width
                 text: dlg.title
                 color: dlg.pal.panelText
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Black
                 font.pixelSize: Ui.textTitle
                 wrapMode: Text.Wrap
@@ -43,7 +43,7 @@ CDialog {
                 width: parent.width
                 text: dlg.message
                 color: dlg.pal.panelTextDim
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.DemiBold
                 font.pixelSize: Ui.textBody
                 wrapMode: Text.Wrap

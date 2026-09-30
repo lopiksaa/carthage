@@ -40,7 +40,7 @@ CDialog {
             Text {
                 text: "Reposition Art"
                 color: ed.pal.panelText
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.weight: Font.Black
                 font.pixelSize: Ui.textTitle
             }
@@ -48,7 +48,7 @@ CDialog {
                 width: parent.width
                 text: ed.gameTitle + " · drag to move, scroll to zoom"
                 color: ed.pal.panelTextDim
-                font.family: "Nunito"
+                font.family: Ui.fontText
                 font.pixelSize: Ui.textBody
                 elide: Text.ElideRight
             }

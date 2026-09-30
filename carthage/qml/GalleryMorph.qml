@@ -135,7 +135,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: m.button ? m.button.text : ""
                 color: Backend.theme.accent.accentText
-                font.family: "Nunito"
+                font.family: Ui.fontButtons
                 font.weight: Font.Black
                 font.pixelSize: m.lerp(Ui.textLead + 2, Ui.textBody, m.level)
             }

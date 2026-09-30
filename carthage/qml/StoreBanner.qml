@@ -76,7 +76,7 @@ Item {
             Text {
                 text: "SPOTLIGHT"
                 color: Qt.rgba(1, 1, 1, 0.75)
-                font.family: "Nunito"
+                font.family: Ui.fontLabels
                 font.weight: Font.Black
                 font.pixelSize: Ui.textCaption
                 font.letterSpacing: 2
@@ -85,7 +85,7 @@ Item {
                 width: parent.width
                 text: banner.cur.name || ""
                 color: "#ffffff"
-                font.family: "Nunito"
+                font.family: Ui.fontTitles
                 font.weight: Font.Black
                 font.pixelSize: Math.max(20, banner.height * 0.1)
                 wrapMode: Text.Wrap
@@ -107,7 +107,7 @@ Item {
                         anchors.centerIn: parent
                         text: "-" + (banner.cur.discount || 0) + "%"
                         color: "#ffffff"
-                        font.family: "Nunito"
+                        font.family: Ui.fontText
                         font.weight: Font.Black
                         font.pixelSize: Ui.textLead
                     }
@@ -117,7 +117,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: banner.cur.original || ""
                     color: Qt.rgba(1, 1, 1, 0.6)
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Bold
                     font.pixelSize: Ui.textLead
                     font.strikeout: true
@@ -126,7 +126,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: banner.cur.owned ? "In your library" : (banner.cur.price || "")
                     color: "#ffffff"
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Black
                     font.pixelSize: Ui.textTitle
                 }

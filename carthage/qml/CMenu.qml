@@ -67,7 +67,7 @@ QQC2.Menu {
                 text: item.text
                 color: item.fg
                 opacity: item.enabled ? 1 : 0.45
-                font.family: "Nunito"
+                font.family: Ui.fontButtons
                 font.weight: Font.Bold
                 font.pixelSize: Ui.textBody
                 elide: Text.ElideRight

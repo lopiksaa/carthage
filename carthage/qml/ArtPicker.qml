@@ -88,7 +88,7 @@ CDialog {
                 Text {
                     text: "Choose Art"
                     color: picker.pal.panelText
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.Black
                     font.pixelSize: Ui.textTitle
                 }
@@ -96,7 +96,7 @@ CDialog {
                     width: parent.width
                     text: picker.gameTitle + " · from SteamGridDB" + (picker.matchName ? " (" + picker.matchName + ")" : "")
                     color: picker.pal.panelTextDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.pixelSize: Ui.textBody
                     elide: Text.ElideRight
                 }
@@ -135,7 +135,7 @@ CDialog {
             placeholderText: "Search SteamGridDB for another game…"
             placeholderTextColor: picker.pal.panelTextDim
             color: picker.pal.panelText
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.DemiBold
             font.pixelSize: Ui.textBody
             selectByMouse: true
@@ -216,7 +216,7 @@ CDialog {
             horizontalAlignment: Text.AlignHCenter
             text: picker.state_ === "loading" ? "Looking for art…" : picker.error
             color: picker.pal.panelTextDim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.weight: Font.Bold
             font.pixelSize: Ui.textLead
             wrapMode: Text.Wrap

@@ -71,7 +71,7 @@ QQC2.Popup {
                 width: parent.width
                 text: panel.slot ? panel.slot.title : ""
                 color: panel.pal.panelText
-                font.family: "Nunito"
+                font.family: Ui.fontTitles
                 font.weight: Font.Black
                 font.pixelSize: Ui.textLead
                 wrapMode: Text.Wrap
@@ -89,7 +89,7 @@ QQC2.Popup {
                 Text {
                     text: panel.slot ? panel.slot.statusText : ""
                     color: panel.pal.panelTextDim
-                    font.family: "Nunito"
+                    font.family: Ui.fontText
                     font.weight: Font.DemiBold
                     font.pixelSize: Ui.textBody
                 }
@@ -172,7 +172,7 @@ QQC2.Popup {
             width: parent.width
             text: "Carthage can't see when games started through another launcher close. Eject the card when you're done."
             color: panel.pal.panelTextDim
-            font.family: "Nunito"
+            font.family: Ui.fontText
             font.pixelSize: Ui.textCaption
             wrapMode: Text.Wrap
         }
