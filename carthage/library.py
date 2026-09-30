@@ -520,6 +520,8 @@ class TrayModel(QSortFilterProxyModel):
         if (self._part == "tray" and fav) or (self._part == "favorites" and not fav):
             return False
         o = self._opts()
+        if g.game_id == TEST_CARTRIDGE_ID:  # a test tool: shown whatever the filter
+            return not o._text or o._text.casefold() in g.title.casefold()
         if o._filter == "installed" and not g.installed:
             return False
         if o._filter == "notinstalled" and g.installed:
@@ -546,6 +548,8 @@ class TrayModel(QSortFilterProxyModel):
         m = self.sourceModel()
         a, b = m._games[left.row()], m._games[right.row()]
         o = self._opts()
+        if TEST_CARTRIDGE_ID in (a.game_id, b.game_id):  # the Test Cartridge comes first
+            return a.game_id == TEST_CARTRIDGE_ID
         if o._installed_first and a.installed != b.installed:
             return a.installed
         if o._sort == "az":
