@@ -70,10 +70,17 @@ FocusScope {
     readonly property real motion: appRoot ? appRoot.motion : 1
     readonly property var pal: Backend.theme.p
 
-    readonly property real panelW: Math.min(Ui.detailsWidth, width - 64)
-    readonly property bool wide: width >= 300 + 56 + panelW + 96
-    readonly property real heroH: wide ? Math.min(height * 0.68, 540) : Math.min(height * 0.38, 330)
+    // Wide: the cartridge at the top left, the details using the rest of the width (up to a
+    // readable 860), both from the top (like the closer look). Narrow: the cartridge above.
+    readonly property real sideM: 76  // room for the ← → keys
+    readonly property bool wide: width >= 300 + 56 + Ui.detailsWidth + 96
+    // Wide, the cartridge gives way first: the details always get their full width.
+    readonly property real heroH: wide ? Math.min(height * 0.6, 500, (width - 2 * sideM - 56 - Ui.detailsWidth) * Backend.theme.ratio)
+                                       : Math.min(height * 0.38, 330)
     readonly property real heroW: Math.round(heroH / Backend.theme.ratio)
+    readonly property real heroTop: Math.max(56, Math.round(height * 0.08))
+    readonly property real panelW: wide ? Math.min(860, width - sideM - heroW - 56 - sideM)
+                                        : Math.min(Ui.detailsWidth, width - 64)
 
     visible: level > 0.001 || open
 
@@ -242,6 +249,7 @@ FocusScope {
     ShaderEffectSource {
         id: src
         sourceItem: page.stage
+        sourceRect: Qt.rect(page.x, page.y, page.width, page.height)  // the part behind
         live: page.visible
         visible: false
     }
@@ -253,6 +261,12 @@ FocusScope {
         blur: 1.0
         blurMax: 48
         autoPaddingEnabled: false
+    }
+    // The game's art under the scrim (at most 55%: white text stays readable over any art).
+    GameBackdrop {
+        anchors.fill: parent
+        level: page.level * 0.55 * (1 - page.galleryLevel)
+        source: page.info.background || page.item.hero || ""
     }
     Rectangle {
         anchors.fill: parent
@@ -270,9 +284,8 @@ FocusScope {
 
     Card3D {
         id: card
-        x: page.wide ? Math.round((page.width - (page.heroW + 56 + page.panelW)) / 2) - (width - page.heroW) / 2
-                     : Math.round((page.width - width) / 2)
-        y: page.wide ? Math.round((page.height - height) / 2) : 20 - (height - page.heroH) / 2 + page.heroH * 0.1
+        x: page.wide ? page.sideM - (width - page.heroW) / 2 : Math.round((page.width - width) / 2)
+        y: page.wide ? page.heroTop - (height - page.heroH) / 2 : 20 - (height - page.heroH) / 2 + page.heroH * 0.1
         width: page.heroW * 2.1
         height: page.heroH * 1.35
         cardHeight: page.heroH
@@ -440,9 +453,9 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: page.wide ? page.height - 80 : page.height - (20 + page.heroH + 24) - 20
+        readonly property real avail: page.wide ? page.height - page.heroTop - 40 : page.height - (20 + page.heroH + 24) - 20
         x: page.panelBaseX - page.galleryLevel * 40
-        y: page.wide ? Math.round((page.height - height) / 2) : 20 + page.heroH + 24
+        y: page.wide ? page.heroTop : 20 + page.heroH + 24
         width: details.width
         height: pinned.height + Ui.gapL + details.height
         opacity: page.level * page.swapFade * morph.detailsOpacity

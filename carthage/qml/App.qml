@@ -93,12 +93,13 @@ Item {
     }
     // True while any window/panel sits on top of the tray and dock: they then ignore input,
     // because Qt's tap handlers can still see clicks underneath a modal popup.
-    readonly property bool modalOpen: artPicker.opened || cropEditor.opened || confirm.opened
-                                      || headerPicker.opened || textPrompt.opened || processPicker.opened
-                                      || storePage.open || mediaViewer.opened
-                                      || addGameDialog.opened || slotPanel.opened || inspect.open
-                                      || colorPicker.opened || whatsNew.opened || feedbackDialog.opened
-                                      || app.settingsOpen || Ui.openMenus > 0
+    readonly property bool modalOpen: dialogOpen || storePage.open || inspect.open || app.settingsOpen
+    // Dialogs, panels and menus: these block the sidebar too (a game's view doesn't).
+    readonly property bool dialogOpen: artPicker.opened || cropEditor.opened || confirm.opened
+                                       || headerPicker.opened || textPrompt.opened || processPicker.opened
+                                       || mediaViewer.opened || addGameDialog.opened || slotPanel.opened
+                                       || colorPicker.opened || whatsNew.opened || feedbackDialog.opened
+                                       || Ui.openMenus > 0
 
     // gameId → true while the cartridge is out of its recess (inspected, flying or docked).
     property var hiddenCards: ({})
@@ -669,7 +670,7 @@ Item {
 
             Sidebar {
                 id: sidebar
-                enabled: !app.modalOpen
+                enabled: !app.dialogOpen
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
@@ -912,6 +913,7 @@ Item {
         StorePage {
             id: storePage
             anchors.fill: parent
+            anchors.leftMargin: sidebar.width  // a game's view covers the main area, not the sidebar
             appRoot: app
             stage: stage
             z: 50
@@ -920,6 +922,7 @@ Item {
         Inspect {
             id: inspect
             anchors.fill: parent
+            anchors.leftMargin: sidebar.width
             appRoot: app
             stage: stage
             z: 50

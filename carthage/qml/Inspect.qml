@@ -43,13 +43,19 @@ FocusScope {
         }
     }
 
-    readonly property real panelW: Math.min(Ui.detailsWidth, width - 64)
+    // Wide: the cartridge at the top left, the details using the rest of the width (up to a
+    // readable 860), both from the top. Narrow: the cartridge above the details.
     readonly property real gap: 56
-    readonly property bool wide: width >= 300 + gap + panelW + 96
-    readonly property real heroH: wide ? Math.min(height * 0.72, 560) : Math.min(height * 0.42, 360)
+    readonly property real sideM: 76  // room for the ← → keys
+    readonly property bool wide: width >= 300 + gap + Ui.detailsWidth + 96
+    // Wide, the cartridge gives way first: the details always get their full width.
+    readonly property real heroH: wide ? Math.min(height * 0.6, 500, (width - 2 * sideM - gap - Ui.detailsWidth) * ratio)
+                                       : Math.min(height * 0.42, 360)
     readonly property real heroW: Math.round(heroH / ratio)
-    readonly property real heroX: wide ? Math.round((width - (heroW + gap + panelW)) / 2) : Math.round((width - heroW) / 2)
-    readonly property real heroY: wide ? Math.round((height - heroH) / 2) : 28
+    readonly property real heroX: wide ? sideM : Math.round((width - heroW) / 2)
+    readonly property real heroY: wide ? Math.max(56, Math.round(height * 0.08)) : 28
+    readonly property real panelW: wide ? Math.min(860, width - heroX - heroW - gap - sideM)
+                                        : Math.min(Ui.detailsWidth, width - 64)
 
     visible: level > 0.001 || open || closeAnim.running || warming
 
@@ -384,6 +390,7 @@ FocusScope {
     ShaderEffectSource {
         id: stageSource
         sourceItem: inspect.stage
+        sourceRect: Qt.rect(inspect.x, inspect.y, inspect.width, inspect.height)  // the part behind
         live: inspect.visible
         visible: false
     }
@@ -396,6 +403,12 @@ FocusScope {
         blur: 1.0
         blurMax: 48
         autoPaddingEnabled: false
+    }
+    // The game's art under the scrim (at most 55%: white text stays ≥4.5:1 over any art).
+    GameBackdrop {
+        anchors.fill: parent
+        level: inspect.level * 0.55 * (1 - inspect.galleryLevel)
+        source: inspect.info.background || ""
     }
     // Dark enough for the white text in both editions (≥4.5:1).
     Rectangle {
@@ -640,12 +653,10 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: inspect.wide ? inspect.height - 2 * Ui.gapXL
+        readonly property real avail: inspect.wide ? inspect.height - inspect.heroY - Ui.gapXL
                                                    : inspect.height - (inspect.heroY + inspect.heroH + 28) - 20
         x: inspect.panelBaseX - inspect.galleryLevel * 40
-        y: inspect.wide ? Math.max(Ui.gapXL, Math.min(Math.round(inspect.heroY + (inspect.heroH - height) / 2),
-                                                      inspect.height - height - Ui.gapXL))
-                        : inspect.heroY + inspect.heroH + 28
+        y: inspect.wide ? inspect.heroY : inspect.heroY + inspect.heroH + 28
         width: detailsFlick.width
         height: pinned.height + Ui.gapXL + detailsFlick.height
         opacity: inspect.panelLevel * morph.detailsOpacity
@@ -780,8 +791,9 @@ FocusScope {
                 id: details
                 width: inspect.panelW
                 spacing: Ui.gapXL
-                Column {
-                    spacing: Ui.gapS
+                Flow {  // the facts, side by side
+                    width: parent.width
+                    spacing: Ui.gapXL
                     Repeater {
                         model: [
                             { icon: "view-calendar-symbolic", text: inspect.lastPlayedText(inspect.game.lastPlayed) },

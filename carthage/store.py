@@ -808,6 +808,7 @@ class Store(QObject):
                 "original": po.get("initial_formatted", "") if po.get("discount_percent") else "",
                 "discount": int(po.get("discount_percent") or 0),
                 "description": _strip_html(data.get("short_description", "")),
+                "background": data.get("background_raw") or data.get("background") or "",
                 "genres": [g.get("description", "") for g in data.get("genres") or []][:4],
                 "linux": bool((data.get("platforms") or {}).get("linux")),
                 "screenshots": [s.get("path_thumbnail", "") for s in data.get("screenshots") or []][:12],
