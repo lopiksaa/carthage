@@ -7,7 +7,7 @@ Item {
     id: app
     objectName: "app"
     // The main pieces by name, for the test harness (tools/harness/Commands.qml).
-    readonly property var parts: ({ addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, setupWizard: setupWizard, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
+    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, setupWizard: setupWizard, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
 
     readonly property var pal: Backend.theme.p
     // The desktop's animation-speed factor (KDE setting on Linux; 1 elsewhere); 0 = instant.
@@ -22,13 +22,57 @@ Item {
         function onCountChanged() { app.updatePresence() }
     }
     Timer { running: true; interval: 800; onTriggered: app.updatePresence() }
-    function setMode(m) {
-        if (m === mode) return
+    function setMode(m) { navigate(m === "store" ? "store:discover" : "library:all") }
+
+    // The sidebar layout concept: one page at a time in the main area, picked in the sidebar.
+    //   library:all · library:source:<launcher> · library:playnext · library:favorites
+    //   store:discover · store:deals · store:free · store:genres · store:wishlist · search · settings
+    property string page: "library:all"
+    property var pageHistory: []
+    readonly property bool libraryGrid: page === "library:all" || page.startsWith("library:source:")
+    readonly property bool listPageShown: page === "library:playnext" || page === "library:favorites"
+    readonly property string pageTitle: {
+        if (page.startsWith("library:source:")) {
+            const l = Backend.games.launchers.find(x => "library:" + x.value === page)
+            return l ? l.text : "Library"
+        }
+        return ({ "library:all": "All Games", "library:playnext": "Play Next", "library:favorites": "Favorites",
+                  "store:discover": "Discover", "store:deals": "Deals", "store:free": "Free Now",
+                  "store:genres": "Genres", "store:wishlist": "Wishlist", "search": "Search",
+                  "settings": "Settings" })[page] || ""
+    }
+    property var deals: []
+    function navigate(p, back) {
         if (inspect.open) inspect.close()
-        mode = m
-        header.searchField.text = ""
+        if (storePage.open) storePage.close()
+        if (p === page) return
+        if (!back) pageHistory = pageHistory.concat([page]).slice(-20)
+        page = p
+        const m = p.startsWith("store:") ? "store" : "library"
+        if (m !== mode) mode = m
+        if (p.startsWith("library:source:")) Backend.games.filterMode = p.slice(8)
+        else if (Backend.games.filterMode.startsWith("source:")) Backend.games.filterMode = "all"
         if (m === "store") storeView.load()
-        else focusTray()
+        if (p === "store:genres") storeView.showCategories()
+        else if (p === "store:discover") storeView.backToStore()
+        if (p === "store:deals" && deals.length === 0) Backend.store.loadDeals()
+        if (p === "search") Qt.callLater(searchPage.focusField)
+        else if (p.startsWith("library:")) focusTray()
+    }
+    function navigateBack() {
+        const h = pageHistory
+        if (!h.length) return navigate("library:all", true)
+        pageHistory = h.slice(0, -1)
+        navigate(h[h.length - 1], true)
+    }
+    function searchGenre(tag) {
+        navigate("search")
+        searchPage.clear()
+        searchPage.setGenres([tag])
+    }
+    Connections {
+        target: Backend.store
+        function onDealsReady(list) { app.deals = list }
     }
     function search(text) {
         if (mode === "store") storeView.query = text
@@ -169,7 +213,7 @@ Item {
         })
         copyCard(data, f.cart)
         const seat = dock.seatPos(Backend.sessions.indexOf(gid))
-        const target = dock.mapToItem(flightLayer, seat.x, seat.y - dock.riseHeight)
+        const target = dock.mapToItem(flightLayer, seat.x, seat.y - dock.riseHeight - dock.hideY)
         f.launch(target.x, target.y, dock.cartW / start.cardWidth, function () {
             delete app.pendingSeat[gid]
             const s = dock.slotFor(gid)
@@ -558,7 +602,7 @@ Item {
     }
 
     Component.onCompleted: {
-        Window.window.searchField = header.searchField
+        Window.window.searchField = null  // the concept's search is a page (Ctrl+F below)
         const problems = Backend.libraryProblems()
         if (problems) notify("Couldn't read " + problems + ". Details are in " + Backend.logFile(), "long")
         // Cartridges already in the dock (startup or live reload) are out of their recesses.
@@ -572,11 +616,14 @@ Item {
 
     property real drawerProgress: 0
     property bool settingsOpen: false  // where it's heading
+    // Settings is a page in the sidebar concept; the old drawer stays closed.
     function toggleDrawer() {
-        if (settingsOpen) closeDrawer()
-        else openDrawer()
+        if (page === "settings") navigateBack()
+        else navigate("settings")
     }
-    function openDrawer() {
+    function openDrawer() { navigate("settings") }
+    function closeDrawer() {}
+    function openDrawerOld() {
         if (inspect.open) inspect.close()
         settingsOpen = true
         drawerAnim.to = 1
@@ -585,7 +632,7 @@ Item {
         drawerAnim.restart()
         drawer.focusFirst()
     }
-    function closeDrawer() {
+    function closeDrawerOld() {
         if (!settingsOpen) return
         settingsOpen = false
         drawerAnim.to = 0
@@ -620,13 +667,26 @@ Item {
             id: stage
             anchors.fill: parent
 
+            Sidebar {
+                id: sidebar
+                enabled: !app.modalOpen
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                appRoot: app
+                page: app.page
+                onNavigate: (p) => app.navigate(p)
+                onSearchRequested: app.navigate("search")
+                z: 3
+            }
+
             Item {
                 id: body
                 // One rule for the whole app: while anything sits on top (closer look, store
                 // page, dialog, menu, drawer), nothing behind it takes clicks, hover or scroll.
                 enabled: !app.modalOpen
-                anchors.top: header.bottom
-                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.left: sidebar.right
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
 
@@ -644,37 +704,140 @@ Item {
 
                 LibraryBar {
                     id: libraryBar
-                    visible: app.mode === "library"
+                    visible: app.libraryGrid || app.listPageShown
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
                     tray: tray
                     appRoot: app
+                    title: app.pageTitle
+                    withSources: false
+                    sourcePage: app.page.startsWith("library:source:")
+                    count: app.listPageShown ? listPage.count : -1
+                }
+                // The other pages' title row (the store, search, settings).
+                Item {
+                    id: pageBar
+                    visible: !libraryBar.visible && app.page !== "search"
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: visible ? 52 : 0
+                    Row {
+                        x: app.page === "store:deals" || app.page === "store:free" ? 24 : 28
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Ui.gapM
+                        EngravedLabel {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: app.pageTitle
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: app.page === "store:deals" ? "Steam and Epic together: each game once, at its best price"
+                                : app.page === "store:free" ? "Free to keep for a limited time, on Steam and Epic"
+                                : app.page === "store:discover" ? "Picked from what you play" : ""
+                            color: app.pal.trayTextDim
+                            font.family: Ui.fontText
+                            font.weight: Font.Bold
+                            font.pixelSize: Ui.textCaption
+                        }
+                    }
                 }
                 Tray {
                     id: tray
                     appRoot: app
-                    visible: app.mode === "library"
+                    visible: app.libraryGrid
+                    showShelves: false
                     anchors.top: libraryBar.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.bottom: dock.top
-                    bottomClearance: dock.protrude - dock.lipY + Ui.spacingLarge
+                    anchors.bottom: parent.bottom
+                    bottomClearance: dock.clearance
+                }
+                ListPage {
+                    id: listPage
+                    visible: app.listPageShown
+                    anchors.top: libraryBar.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    bottomMargin: dock.clearance
+                    tray: tray
+                    appRoot: app
+                    listModel: app.page === "library:favorites" ? Backend.favoritesList : Backend.playNext
+                    storeItems: app.page === "library:favorites" ? [] : Backend.playNextStore
+                    emptyText: app.page === "library:favorites" ? "No favorites yet" : "Nothing to play next"
+                    emptyHint: app.page === "library:favorites" ? "Right-click a cartridge › Add to Favorites."
+                        : "Add games from their page: Play Next. Store games can go here too."
                 }
                 StoreView {
                     id: storeView
                     appRoot: app
-                    visible: app.mode === "store"
-                    anchors.top: parent.top
+                    visible: app.page === "store:discover" || app.page === "store:genres"
+                    showBar: false
+                    onGenre: (c) => app.searchGenre(c.tag)
+                    anchors.top: pageBar.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.bottom: dock.top
-                    bottomClearance: dock.protrude - dock.lipY + Ui.spacingLarge
+                    anchors.bottom: parent.bottom
+                    bottomClearance: dock.clearance
                     onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                }
+                StoreListPage {
+                    id: dealsPage
+                    visible: app.page === "store:deals"
+                    anchors.top: pageBar.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    appRoot: app
+                    items: app.deals
+                    emptyText: "Gathering the deals…"
+                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                }
+                StoreListPage {
+                    id: freePage
+                    visible: app.page === "store:free"
+                    anchors.top: pageBar.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    appRoot: app
+                    items: storeView.free
+                    emptyText: "Looking for free games…"
+                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                }
+                CPlaceholder {
+                    visible: app.page === "store:wishlist"
+                    anchors.centerIn: parent
+                    width: parent.width - 80
+                    iconName: "bookmark-filled"
+                    text: "Your Steam wishlist goes here"
+                    explanation: "Coming next: the games you wishlisted on Steam, with the best price from every store and a note when one goes on sale."
+                }
+                SearchPage {
+                    id: searchPage
+                    visible: app.page === "search"
+                    anchors.fill: parent
+                    tray: tray
+                    appRoot: app
+                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                }
+                SideDrawer {
+                    id: settingsPage
+                    visible: app.page === "settings"
+                    appRoot: app
+                    anchors.top: pageBar.bottom
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: Ui.gapL
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.min(parent.width - 48, 640)
+                    onCloseRequested: app.navigateBack()
                 }
 
                 Rectangle {
                     id: dockFade
+                    visible: false  // the floating dock has no edge to fade into
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: dock.top
@@ -690,9 +853,9 @@ Item {
                 // reaches the cards behind it — so aiming for a docked cartridge can't start another
                 // game. Scrolling still passes through.
                 MouseArea {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.rightMargin: Ui.gridUnit
+                    visible: dock.wanted
+                    anchors.left: dock.left
+                    anchors.right: dock.right
                     anchors.bottom: dock.top
                     height: dock.protrude - dock.lipY + 10
                     hoverEnabled: true
@@ -704,7 +867,7 @@ Item {
                     anchors.centerIn: tray
                     width: tray.width - Ui.gridUnit * 4
                     readonly property string filter: Backend.games.filterMode
-                    visible: Backend.games.count + Backend.favorites.count === 0 && app.mode === "library"
+                    visible: Backend.games.count + Backend.favorites.count === 0 && app.libraryGrid
                     iconName: Backend.games.filterText ? "search" : "applications-games"
                     text: Backend.games.filterText ? "No games match “" + Backend.games.filterText + "”"
                         : filter === "installed" ? "No installed games"
@@ -718,9 +881,16 @@ Item {
                 Dock {
                     id: dock
                     appRoot: app
-                    anchors.left: parent.left
-                    anchors.right: parent.right
+                    floating: true
+                    // Shown only while it has something: a game in it, an install, a drag.
+                    readonly property bool wanted: Backend.sessions.count > 0 || app.dragging || installing !== null
+                    readonly property real clearance: wanted ? height + protrude - lipY + 30 : Ui.spacingLarge
+                    hideY: wanted ? 0 : height + protrude + 40
+                    Behavior on hideY { NumberAnimation { duration: 240 * app.motion; easing.type: Easing.OutCubic } }
+                    width: Math.min(parent.width - 48, 640)
+                    anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 18
                     onClicked: {
                         sounds.play("click_in")
                         dock.bump()
@@ -730,6 +900,7 @@ Item {
 
             Header {
                 id: header
+                visible: false  // the sidebar concept: the sidebar replaces the header
                 appRoot: app
                 anchors.top: parent.top
                 anchors.left: parent.left
@@ -947,6 +1118,14 @@ Item {
         Flyer {}
     }
 
+    Shortcut {
+        sequences: [StandardKey.Find]
+        onActivated: app.navigate("search")
+    }
+    Shortcut {
+        sequence: "Ctrl+B"
+        onActivated: sidebar.collapsed = !sidebar.collapsed
+    }
     Shortcut {
         sequence: "F10"
         onActivated: app.toggleDrawer()

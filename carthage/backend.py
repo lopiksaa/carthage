@@ -48,6 +48,10 @@ class Backend(QObject):
         self._tray = TrayModel(self._library, self)
         self._favorites = TrayModel(self._library, self, part="favorites", mirror=self._tray)
         self._play_next = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        # Favorites as a list (the sidebar concept): like Play Next, they stay in the tray too.
+        self._favorites_list = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        # The search page's library results: its own text and genres, not the tray's.
+        self._search_library = TrayModel(self._library, self, part="all")
         self._play_next_store = []
         st = self._settings
         self._apply_favorites()
@@ -294,7 +298,8 @@ class Backend(QObject):
             self._apply_favorites()
 
     def _apply_favorites(self):
-        ids = self._settings.get("favorites") if self._settings.get("favoritesShelf") else []
+        self._favorites_list.set_play_next(self._settings.get("favorites"))
+        ids = []  # the sidebar concept: favorites are a list page, not a shelf above the tray
         self._tray.set_favorites(ids)
         self._favorites.set_favorites(ids)
 
@@ -323,13 +328,30 @@ class Backend(QObject):
         self._genres_busy = False
         if not result:
             return
-        for m in (self._tray, self._favorites, self._play_next):
+        for m in (self._tray, self._favorites, self._play_next, self._search_library):
             m.set_genres(result)
         from .store import Store
 
         present = {t for tags in result.values() for t in tags}
         self._genre_options = [{"value": t, "text": n} for n, t in Store.CATEGORIES if t in present]
+        counts = {}
+        for tags in result.values():
+            for t in tags:
+                counts[t] = counts.get(t, 0) + 1
+        names = dict((t, n) for n, t in Store.CATEGORIES)
+        self._top_genres = [{"value": t, "text": names[t], "count": c}
+                            for t, c in sorted(counts.items(), key=lambda kv: -kv[1]) if t in names]
         self.genresChanged.emit()
+
+    @Property("QVariantList", notify=genresChanged)
+    def topGenres(self):
+        """The library's genres, most games first: [{value: tag, text, count}]."""
+        return getattr(self, "_top_genres", [])
+
+    @Property(QObject, constant=True)
+    def searchLibrary(self):
+        """The search page's library results (own text and genreList)."""
+        return self._search_library
 
     @Property("QVariantList", notify=genresChanged)
     def genreOptions(self):
@@ -370,6 +392,11 @@ class Backend(QObject):
     def achievements(self):
         """Steam achievements for the closer look (achievements.py)."""
         return self._achievements
+
+    @Property(QObject, constant=True)
+    def favoritesList(self):
+        """Every favorite, in the order added, without taking them off the tray (the sidebar's list)."""
+        return self._favorites_list
 
     @Property(QObject, constant=True)
     def playNext(self):
@@ -444,7 +471,7 @@ class Backend(QObject):
 
     @Slot(str, result=bool)
     def isFavorite(self, game_id):
-        return self._settings.get("favoritesShelf") and game_id in self._settings.get("favorites")
+        return game_id in self._settings.get("favorites")
 
     @Slot(str, bool)
     def setFavorite(self, game_id, on):

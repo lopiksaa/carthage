@@ -34,7 +34,19 @@ Item {
         category = null
         browsing = false
     }
+    // The sidebar concept: no filter bar; a genre opens the search page; shelves for the
+    // library's top genres ("Because you play …", games you don't own).
+    property bool showBar: true
+    property var onGenre: null
+    property var because: []  // [{key, title, items}]
+    readonly property var topGenres: Backend.topGenres.slice(0, 2)
+    function loadBecause() {
+        for (const g of topGenres) Backend.store.browse("because:" + g.value, { tags: [g.value], sort: "rated" })
+    }
+    onTopGenresChanged: if (!showBar) loadBecause()
+    onBecauseChanged: shelfSettle.restart()
     function openCategory(c) {
+        if (onGenre) { onGenre(c); return }
         category = c
         categoryItems = []
         reloadCategory()
@@ -58,6 +70,7 @@ Item {
     onFilterGenreChanged: rebuildShelves()
     function rebuildShelves() {
         shelfModel = sections.slice(0, 1)
+            .concat(because)
             .concat(free.length ? [{ key: "free", title: "Free for a Limited Time", items: free }] : [])
             .concat(charts.length ? [{ key: "charts", title: "Most Played Right Now", items: charts }] : [])
             .concat(sections.slice(1))
@@ -84,6 +97,7 @@ Item {
         Backend.store.loadCharts()
         Backend.store.loadFree()
         Backend.store.loadAllCategoryArt()
+        if (!showBar && because.length === 0) loadBecause()
     }
     readonly property bool hideAdult: Backend.settings.hideAdult
     onHideAdultChanged: {
@@ -127,6 +141,16 @@ Item {
         function onSearchFailed(term) {
             if (term === view.query.trim()) view.gridState = "error"
         }
+        function onBrowseReady(key, list) {
+            if (!key.startsWith("because:")) return
+            const tag = parseInt(key.slice(8))
+            const g = view.topGenres.find(x => x.value === tag)
+            if (!g) return
+            const sec = { key: key, title: "Because You Play " + g.text, items: list.filter(it => !it.owned).slice(0, 14) }
+            view.because = view.because.filter(s => s.key !== key).concat([sec])
+                .sort((a, b) => view.topGenres.findIndex(x => "because:" + x.value === a.key)
+                              - view.topGenres.findIndex(x => "because:" + x.value === b.key))
+        }
         function onChartsReady(list) { view.charts = list }
         function onFreeReady(list) { view.free = list }
         function onSearchReady(term, list) {
@@ -146,7 +170,7 @@ Item {
     // The store bar: like the library's, with the store's filters.
     Item {
         id: storeBar
-        visible: !view.browsing
+        visible: !view.browsing && view.showBar
         width: parent.width
         height: visible ? 52 : 0
         EngravedLabel {
@@ -355,7 +379,8 @@ Item {
         QQC2.ScrollBar.vertical: CScrollBar {}
         WheelAccel { flickable: browseGrid; step: 110 }
         header: Row {
-            height: 60
+            visible: view.showBar  // the sidebar concept has its own title and no "back"
+            height: visible ? 60 : 0
             spacing: Ui.gapL
             CButton {
                 anchors.verticalCenter: parent.verticalCenter

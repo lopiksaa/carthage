@@ -7,13 +7,17 @@ Item {
 
     property Item tray
     property Item appRoot
+    property string title: "Library"
+    property bool withSources: true  // launchers in Show (the sidebar concept lists them itself)
+    property bool sourcePage: false  // one launcher's games: no Show menu
+    property int count: -1           // shown instead of the library's count (a list page)
     readonly property var pal: Backend.theme.p
 
     readonly property var showOptions: [
         { value: "all", text: "All" },
         { value: "installed", text: "Installed" },
         { value: "notinstalled", text: "Not Installed" },
-    ].concat(Backend.games.launchers.length > 1 ? Backend.games.launchers : [])
+    ].concat(withSources && Backend.games.launchers.length > 1 ? Backend.games.launchers : [])
     readonly property var sortOptions: [
         { value: "recent", text: "Recently Played" },
         { value: "playtime", text: "Most Played" },
@@ -30,11 +34,11 @@ Item {
         spacing: Ui.gapM
         EngravedLabel {
             anchors.verticalCenter: parent.verticalCenter
-            text: "Library"
+            text: bar.title
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            readonly property int n: Backend.games.count + Backend.favorites.count
+            readonly property int n: bar.count >= 0 ? bar.count : Backend.games.count + Backend.favorites.count
             text: n + " "
                   + (Backend.games.filterText !== "" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games"))
             color: bar.pal.trayTextDim
@@ -50,6 +54,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Ui.gapS
         CDropdown {
+            visible: !bar.sourcePage
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
             label: "Show"

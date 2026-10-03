@@ -388,6 +388,7 @@ class TrayModel(QSortFilterProxyModel):
         self._favorites = set()
         self._play_next = {}  # game_id → position in the Play Next list
         self._genre = 0       # a genre's Steam tag (genres.py); 0 = every genre
+        self._genre_all = []  # several genres, all required (the search page)
         self._genres = {}     # game_id → {tag, …}
         self._mirror = mirror
         self.setDynamicSortFilter(True)
@@ -454,10 +455,22 @@ class TrayModel(QSortFilterProxyModel):
 
     genre = Property(int, _get_genre, _set_genre, notify=changed)
 
+    def _get_genre_list(self):
+        return self._genre_all
+
+    def _set_genre_list(self, value):
+        value = [int(v) for v in value or []]
+        if value != self._genre_all:
+            self._genre_all = value
+            self.invalidateFilter()
+            self.changed.emit()
+
+    genreList = Property("QVariantList", _get_genre_list, _set_genre_list, notify=changed)
+
     def set_genres(self, genres):
         """{game_id: [tag, …]} from genres.lookup()."""
         self._genres = {g: set(t) for g, t in genres.items()}
-        if self._opts()._genre:
+        if self._opts()._genre or self._opts()._genre_all:
             self.invalidateFilter()
 
     def _get_sort(self):
@@ -485,8 +498,8 @@ class TrayModel(QSortFilterProxyModel):
         for g in m._games:
             if g.game_id not in m._hidden and g.source != "carthage":
                 counts[g.source] = counts.get(g.source, 0) + 1
-        return [{"value": "source:" + s, "text": source_label(s)}
-                for s, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+        return [{"value": "source:" + s, "text": source_label(s), "count": n}
+                for s, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
 
     def filterAcceptsRow(self, row, parent):
         m = self.sourceModel()
@@ -508,6 +521,8 @@ class TrayModel(QSortFilterProxyModel):
         if o._filter.startswith("source:") and g.source != o._filter[7:]:
             return False
         if o._genre and o._genre not in self._genres.get(g.game_id, ()):
+            return False
+        if o._genre_all and not set(o._genre_all) <= self._genres.get(g.game_id, set()):
             return False
         return not o._text or o._text.casefold() in g.title.casefold()
 

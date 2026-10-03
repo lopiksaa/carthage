@@ -73,7 +73,8 @@ GridView {
         step: grid.cellHeight * 0.34
     }
 
-    header: grid.shelf ? null : shelfHeader
+    property bool showShelves: true  // Favorites and Play Next above the games (not in the sidebar concept)
+    header: grid.shelf || !showShelves ? null : shelfHeader
     Component {
         id: shelfHeader
         LibraryShelves {
@@ -138,9 +139,7 @@ GridView {
             onTriggered: grid.appRoot.choose(cardMenu.cell)
         }
         QQC2.Action {
-            readonly property bool fav: cardMenu.cell !== null && Backend.favorites.rowOf(cardMenu.cell.gameId) >= 0
-            objectName: "optional"
-            enabled: Backend.settings.favoritesShelf
+            readonly property bool fav: cardMenu.cell !== null && Backend.favoritesList.rowOf(cardMenu.cell.gameId) >= 0
             text: fav ? "Remove from Favorites" : "Add to Favorites"
             icon.name: "starred-symbolic"
             onTriggered: Backend.setFavorite(cardMenu.cell.gameId, !fav)

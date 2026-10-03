@@ -175,6 +175,7 @@ def _batch(appids):
                 "price": price,
                 "original": b.get("formatted_original_price") or "" if b.get("discount_pct") else "",
                 "discount": int(b.get("discount_pct") or 0),
+                "cents": int(b.get("final_price_in_cents") or 0) if b else 0,
                 "capsule": _asset_url(assets, "library_capsule", "library_capsule_2x"),
                 "capsuleLarge": _asset_url(assets, "library_capsule_2x", "library_capsule"),
                 "header": _asset_url(assets, "header_2x", "header"),
@@ -578,6 +579,115 @@ class Store(QObject):
                 ids.append(int(m.group(1)))
         info = _batch(ids)
         return [info[i] for i in ids if i in info]
+
+    # The search panel and the store pages (sidebar layout concept).
+    browseReady = Signal(str, "QVariantList")  # request key, items
+    browseFailed = Signal(str)
+    dealsReady = Signal("QVariantList")
+    SORTS = {"top": "topsellers", "new": "Released_DESC", "rated": "Reviews_DESC", "price": "Price_ASC"}
+
+    def _steam_query(self, term="", tags=(), sale=False, max_price="", sort="top", count=CATEGORY_SIZE):
+        """Steam's store search with filters: text, genres (all of them), on sale, a price cap
+        ("free", or euros/dollars as a number), sorted. None if it failed."""
+        q = {"query": "", "start": 0, "count": count, "category1": GAMES_ONLY, "json": 1,
+             "cc": country(), "l": "english"}
+        if term:
+            q["term"] = term
+        if tags:
+            q["tags"] = ",".join(str(int(t)) for t in tags)
+        if sale:
+            q["specials"] = 1
+        if max_price:
+            q["maxprice"] = max_price
+        s = self.SORTS.get(sort, "topsellers")
+        if s == "topsellers":
+            if not term:
+                q["filter"] = "topsellers"
+        else:
+            q["sort_by"] = s
+        try:
+            raw = _fetch_json("https://store.steampowered.com/search/results/", q).get("items", [])
+        except FETCH_ERRORS:
+            return None
+        ids = [int(m.group(1)) for it in raw
+               if (m := re.search(r"/apps/(\d+)/", it.get("logo", ""))) and not HARDWARE.match(it.get("name", ""))]
+        info = _batch(ids)
+        return [info[i] for i in ids if i in info]
+
+    @Slot(str, "QVariantMap")
+    def browse(self, key, req):
+        """Store games for the search panel: {term, tags, sale, maxPrice, sort, store}. Steam
+        does the filtering; a text search also asks Epic (games Steam doesn't sell)."""
+        term = (req.get("term") or "").strip()
+        tags = [int(t) for t in req.get("tags") or []]
+        only = req.get("store") or "all"
+
+        def work():
+            items = []
+            if only in ("all", "steam"):
+                got = self._steam_query(term, tags, bool(req.get("sale")), req.get("maxPrice") or "", req.get("sort") or "top")
+                if got is None:
+                    self.browseFailed.emit(key)
+                    return
+                items = got
+            if term and only in ("all", "epic") and not tags:
+                try:
+                    epic = shops.epic_search(_fetch_json, term, country(), _money)
+                except FETCH_ERRORS:
+                    epic = []
+                seen = {shops.norm_title(i["name"]) for i in items}
+                for el in epic:
+                    it = shops.epic_item(el, _money)
+                    if shops.norm_title(it["name"]) in seen:
+                        continue
+                    if req.get("sale") and not it["discount"]:
+                        continue
+                    if req.get("maxPrice") == "free" and it["price"] != "Free":
+                        continue
+                    items.append(it)
+            self.browseReady.emit(key, self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    @Slot()
+    def loadDeals(self):
+        """Deals from every store, together: Steam's best-selling discounts, each compared with
+        Epic's price (the cheaper one shows, with its store), then Epic's own discounts."""
+        def work():
+            from concurrent.futures import ThreadPoolExecutor
+            steam = self._steam_query(sale=True, count=36) or []
+
+            def best(it):
+                try:
+                    o = shops.epic_offer_for(_fetch_json, it["name"], country(), _money)
+                except FETCH_ERRORS:
+                    o = None
+                if o and o["discount"] and it.get("cents") and o["cents"] < it["cents"]:
+                    return dict(it, store="epic", price=o["price"], original=o["original"],
+                                discount=o["discount"], dealUrl=o["url"], alsoOn="Steam")
+                return dict(it, alsoOn="Epic" if o else "")
+
+            with ThreadPoolExecutor(6) as pool:
+                items = list(pool.map(best, steam))
+            seen = {shops.norm_title(i["name"]) for i in items}
+            v = {"keywords": "", "count": 24, "country": country(), "locale": "en-US",
+                 "category": shops.EPIC_CATEGORY, "withPrice": True, "onSale": True,
+                 "sortBy": "currentPrice", "sortDir": "DESC"}
+            try:
+                url = shops.EPIC_GRAPHQL + "?" + urllib.parse.urlencode({
+                    "operationName": "searchStoreQuery", "variables": json.dumps(v),
+                    "extensions": json.dumps({"persistedQuery": {"version": 1, "sha256Hash": shops.EPIC_SEARCH_HASH}})})
+                els = (((_fetch_json(url).get("data") or {}).get("Catalog") or {}).get("searchStore") or {}).get("elements") or []
+            except FETCH_ERRORS:
+                els = []
+            for el in els:
+                it = shops.epic_item(el, _money)
+                if it["discount"] and shops.norm_title(it["name"]) not in seen:
+                    seen.add(shops.norm_title(it["name"]))
+                    items.append(it)
+            self.dealsReady.emit(self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
 
     @Slot(int)
     def loadCategory(self, tag):

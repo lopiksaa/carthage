@@ -39,6 +39,7 @@ QQC2.ApplicationWindow {
 
     Shortcut {
         sequences: [StandardKey.Find]
+        enabled: root.searchField !== null  // App.qml may handle it itself
         onActivated: if (root.searchField) root.searchField.forceActiveFocus()
     }
     Shortcut {

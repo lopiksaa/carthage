@@ -6,6 +6,10 @@ Item {
     id: dock
 
     property Item appRoot
+    // Floating (the sidebar layout concept): a rounded console base in the middle, no menu key
+    // (Settings is in the sidebar); the window places it and shows it only when needed.
+    property bool floating: false
+    property real hideY: 0  // slid down out of sight by this much (the floating dock at rest)
 
     readonly property var pal: Backend.theme.p
     readonly property real motion: appRoot ? appRoot.motion : 1
@@ -64,11 +68,14 @@ Item {
         NumberAnimation { target: dock; property: "bumpY"; to: 2; duration: 40 * dock.motion; easing.type: Easing.OutQuad }
         NumberAnimation { target: dock; property: "bumpY"; to: 0; duration: 80 * dock.motion; easing.type: Easing.OutBack }
     }
-    transform: Translate { y: dock.bumpY }
+    transform: Translate { y: dock.bumpY + dock.hideY }
 
     Plastic {
         anchors.fill: parent
-        anchors.bottomMargin: -4 // hide the bump gap at the window's bottom edge
+        anchors.bottomMargin: dock.floating ? 0 : -4 // hide the bump gap at the window's bottom edge
+        radius: dock.floating ? 22 : 0
+        border.width: dock.floating ? 1 : 0
+        border.color: dock.pal.dockSeam
     }
 
     property Item activeSlot: null
@@ -166,6 +173,7 @@ Item {
 
     Item {
         id: menuKey
+        visible: !dock.floating
         anchors.right: parent.right
         anchors.rightMargin: 23
         anchors.verticalCenter: parent.verticalCenter
@@ -223,6 +231,7 @@ Item {
     }
 
     Rectangle {
+        visible: !dock.floating
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -230,6 +239,7 @@ Item {
         color: dock.pal.dockSeam
     }
     Rectangle {
+        visible: !dock.floating
         anchors.left: parent.left
         anchors.right: parent.right
         y: 1
@@ -237,6 +247,7 @@ Item {
         color: dock.pal.dockHi
     }
     Rectangle {
+        visible: !dock.floating
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom

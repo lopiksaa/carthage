@@ -147,6 +147,14 @@ QtObject {
             if (cmd.store !== undefined) storeView.filterStore = cmd.store
             if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
             break
+        case "navigate":  // {"page": "store:deals"} (the sidebar layout concept)
+            app.navigate(cmd.page)
+            break
+        case "searchPage":  // {"text": "…", "genres": [tag], "sale": bool}
+            if (cmd.text !== undefined) app.parts.searchPage.text = cmd.text
+            if (cmd.genres !== undefined) app.parts.searchPage.setGenres(cmd.genres)
+            if (cmd.sale !== undefined) app.parts.searchPage.sale = cmd.sale
+            break
         case "storeBrowse":
             storeView.showCategories()
             break
