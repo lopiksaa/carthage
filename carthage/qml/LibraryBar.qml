@@ -58,6 +58,16 @@ Item {
             onPicked: (v) => Backend.games.filterMode = v
         }
         CDropdown {
+            visible: Backend.genreOptions.length > 0  // once the genres have loaded
+            anchors.verticalCenter: parent.verticalCenter
+            kind: "key"
+            label: "Genre"
+            chipColumns: 3
+            value: Backend.games.genre
+            options: [{ value: 0, text: "All" }].concat(Backend.genreOptions)
+            onPicked: (v) => Backend.games.genre = v
+        }
+        CDropdown {
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
             label: "Sort"

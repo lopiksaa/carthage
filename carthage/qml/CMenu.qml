@@ -7,12 +7,21 @@ import Carthage
 import QtQuick.Controls as QQC2
 
 QQC2.Menu {
-    id: menu
+    id: cmenu  // not `menu`: each MenuItem has its own `menu` property, empty once it's removed
 
     readonly property var pal: Backend.theme.p
 
-    onOpened: Ui.openMenus++
-    onClosed: Ui.openMenus = Math.max(0, Ui.openMenus - 1)
+    // Counted while open (input behind is blocked meanwhile). A menu removed while open never
+    // says "closed", so it also gives its count back when it's destroyed.
+    property bool counted: false
+    function release() {
+        if (!counted) return
+        counted = false
+        Ui.openMenus = Math.max(0, Ui.openMenus - 1)
+    }
+    onOpened: if (!counted) { counted = true; Ui.openMenus++ }
+    onClosed: release()
+    Component.onDestruction: release()
 
     padding: 6
     margins: 8
@@ -40,9 +49,9 @@ QQC2.Menu {
         readonly property bool danger: action !== null && action.objectName === "danger"
         readonly property bool hiddenOptional: action !== null && action.objectName === "optional" && !action.enabled
         visible: !hiddenOptional
-        readonly property color fg: danger ? menu.pal.dangerText : menu.pal.panelText
+        readonly property color fg: danger ? cmenu.pal.dangerText : cmenu.pal.panelText
 
-        implicitWidth: 230 - menu.leftPadding - menu.rightPadding
+        implicitWidth: 230 - cmenu.leftPadding - cmenu.rightPadding
         implicitHeight: hiddenOptional ? 0 : 38
         leftPadding: 12
         rightPadding: 12
@@ -82,7 +91,7 @@ QQC2.Menu {
                 radius: Ui.radiusTiny
                 color: item.checked ? Backend.theme.accent.accent : "transparent"
                 border.width: item.checked ? 0 : 1.5
-                border.color: menu.pal.panelTextDim
+                border.color: cmenu.pal.panelTextDim
                 CIcon {
                     visible: item.checked
                     anchors.centerIn: parent
@@ -98,7 +107,7 @@ QQC2.Menu {
         arrow: Item {}
         background: Rectangle {
             radius: Ui.radiusSmall
-            color: item.highlighted ? menu.pal.panelHover : "transparent"
+            color: item.highlighted ? cmenu.pal.panelHover : "transparent"
         }
     }
 }

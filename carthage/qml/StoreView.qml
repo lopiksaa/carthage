@@ -44,11 +44,25 @@ Item {
     // Rebuilt once the lists settle (they arrive one by one): resetting the view while it's
     // still creating shelves destroys them.
     property var shelfModel: []
+    // Filters (the store bar): which store sells it, a genre (a category's Steam tag).
+    // Shelves that end up empty are left out; the banner isn't filtered.
+    property string filterStore: "all"
+    property int filterGenre: 0
+    readonly property bool filtering: filterStore !== "all" || filterGenre !== 0
+    function passes(it) {
+        return (filterStore === "all" || (it.store || "steam") === filterStore)
+            && (filterGenre === 0 || (it.tags || []).indexOf(filterGenre) >= 0)
+    }
+    function filtered(list) { return filtering ? (list || []).filter(passes) : (list || []) }
+    onFilterStoreChanged: rebuildShelves()
+    onFilterGenreChanged: rebuildShelves()
     function rebuildShelves() {
         shelfModel = sections.slice(0, 1)
             .concat(free.length ? [{ key: "free", title: "Free for a Limited Time", items: free }] : [])
             .concat(charts.length ? [{ key: "charts", title: "Most Played Right Now", items: charts }] : [])
             .concat(sections.slice(1))
+            .map(sec => Object.assign({}, sec, { items: filtered(sec.items) }))
+            .filter(sec => sec.items.length > 0)
     }
     Timer { id: shelfSettle; interval: 150; onTriggered: view.rebuildShelves() }
     onSectionsChanged: shelfSettle.restart()
@@ -129,11 +143,48 @@ Item {
         }
     }
 
+    // The store bar: like the library's, with the store's filters.
+    Item {
+        id: storeBar
+        visible: !view.browsing
+        width: parent.width
+        height: visible ? 52 : 0
+        EngravedLabel {
+            x: 28
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Store"
+        }
+        Row {
+            anchors.right: parent.right
+            anchors.rightMargin: 24
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Ui.gapS
+            CDropdown {
+                anchors.verticalCenter: parent.verticalCenter
+                kind: "key"
+                label: "Store"
+                value: view.filterStore
+                options: [{ value: "all", text: "All" }, { value: "steam", text: "Steam" }, { value: "epic", text: "Epic Games" }]
+                onPicked: (v) => view.filterStore = v
+            }
+            CDropdown {
+                anchors.verticalCenter: parent.verticalCenter
+                kind: "key"
+                label: "Genre"
+                chipColumns: 3
+                value: view.filterGenre
+                options: [{ value: 0, text: "All" }].concat(Backend.store.categories.map(c => ({ value: c.tag, text: c.name })))
+                onPicked: (v) => view.filterGenre = v
+            }
+        }
+    }
+
     ListView {
         id: shelves
         objectName: "storeShelves"  // for the test harness
         visible: !view.gridMode && !view.browsing && view.state_ === "ready"
         anchors.fill: parent
+        anchors.topMargin: storeBar.height
         topMargin: 18
         bottomMargin: view.bottomClearance + Ui.gapXXL
         spacing: Ui.gapXL
@@ -290,6 +341,7 @@ Item {
         id: browseGrid
         visible: view.browsing && !view.gridMode
         anchors.fill: parent
+        anchors.topMargin: storeBar.height
         leftMargin: 24
         rightMargin: 24
         topMargin: 18
@@ -335,12 +387,13 @@ Item {
         id: resultsGrid
         visible: view.gridMode
         anchors.fill: parent
+        anchors.topMargin: storeBar.height
         bottomMargin: view.bottomClearance + Ui.gapXXL
         leftMargin: 24
         rightMargin: 24
         topMargin: 18
         clip: true
-        model: view.query.trim().length >= 2 ? view.results : view.categoryItems
+        model: view.filtered(view.query.trim().length >= 2 ? view.results : view.categoryItems)
         header: Column {
             visible: view.category !== null && view.query.trim().length < 2
             width: resultsGrid.width - 48
@@ -402,6 +455,16 @@ Item {
         }
     }
 
+    CPlaceholder {
+        anchors.centerIn: parent
+        width: parent.width - 80
+        visible: !view.gridMode && !view.browsing && view.state_ === "ready" && view.filtering
+                 && view.shelfModel.length === 0
+        iconName: "search"
+        text: "Nothing on the shelves matches these filters"
+        actionText: "Clear Filters"
+        onAction: { view.filterStore = "all"; view.filterGenre = 0 }
+    }
     CPlaceholder {
         anchors.centerIn: parent
         width: parent.width - 80

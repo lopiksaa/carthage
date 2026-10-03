@@ -143,6 +143,10 @@ QtObject {
         case "search":
             header.searchField.text = cmd.value
             break
+        case "storeFilter":  // {"store": "steam"|"epic"|"all", "genre": tag}
+            if (cmd.store !== undefined) storeView.filterStore = cmd.store
+            if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
+            break
         case "storeBrowse":
             storeView.showCategories()
             break

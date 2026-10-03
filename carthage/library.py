@@ -387,6 +387,8 @@ class TrayModel(QSortFilterProxyModel):
         self._part = part
         self._favorites = set()
         self._play_next = {}  # game_id → position in the Play Next list
+        self._genre = 0       # a genre's Steam tag (genres.py); 0 = every genre
+        self._genres = {}     # game_id → {tag, …}
         self._mirror = mirror
         self.setDynamicSortFilter(True)
         self.sort(0)
@@ -441,6 +443,23 @@ class TrayModel(QSortFilterProxyModel):
 
     filterMode = Property(str, _get_filter, _set_filter, notify=changed)
 
+    def _get_genre(self):
+        return self._genre
+
+    def _set_genre(self, value):
+        if value != self._genre:
+            self._genre = value
+            self.invalidateFilter()
+            self.changed.emit()
+
+    genre = Property(int, _get_genre, _set_genre, notify=changed)
+
+    def set_genres(self, genres):
+        """{game_id: [tag, …]} from genres.lookup()."""
+        self._genres = {g: set(t) for g, t in genres.items()}
+        if self._opts()._genre:
+            self.invalidateFilter()
+
     def _get_sort(self):
         return self._sort
 
@@ -487,6 +506,8 @@ class TrayModel(QSortFilterProxyModel):
         if o._filter == "notinstalled" and g.installed:
             return False
         if o._filter.startswith("source:") and g.source != o._filter[7:]:
+            return False
+        if o._genre and o._genre not in self._genres.get(g.game_id, ()):
             return False
         return not o._text or o._text.casefold() in g.title.casefold()
 

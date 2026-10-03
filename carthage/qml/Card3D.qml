@@ -14,8 +14,10 @@ View3D {
     property real tiltY: 0
     property real cardHeight: 400 // on-screen height of the card at rest, in pixels
 
-    readonly property var pal: Backend.theme.cp
-    readonly property string edition: Backend.theme.cardEdition
+    // The game's own cartridge color (Cartridge Color…), else the usual one.
+    readonly property string ownColor: view.game.gameId ? (Backend.settings.gameColors[view.game.gameId] || "") : ""
+    readonly property var pal: ownColor ? Backend.theme.paletteFor(edition) : Backend.theme.cp
+    readonly property string edition: ownColor ? Backend.theme.editionFor(ownColor) : Backend.theme.cardEdition
     readonly property real fov: 20
     // Camera distance that makes the 878-unit-tall card exactly cardHeight pixels tall.
     readonly property real distance: (439 / Math.tan(fov * Math.PI / 360)) * (height / cardHeight)

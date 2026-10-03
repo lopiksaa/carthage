@@ -877,6 +877,9 @@ Item {
     function pickColor(target) {  // "hardware" or "card"
         colorPicker.openFor(target)
     }
+    function pickGameColor(gameId, title) {  // one game's own cartridge color
+        colorPicker.openFor("game", gameId, title)
+    }
     SetupWizard {
         id: setupWizard
         appRoot: app

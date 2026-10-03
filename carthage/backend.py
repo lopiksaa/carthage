@@ -30,6 +30,8 @@ class Backend(QObject):
     libraryError = Signal(str)
     feedbackSent = Signal(bool)  # ok
     playNextChanged = Signal()
+    genresChanged = Signal()
+    _genresReady = Signal("QVariantMap")  # worker → UI thread
 
     def __init__(self, games=None, parent=None):
         """`games`: a library to use instead of the real one (the test harness's demo library)."""
@@ -51,6 +53,12 @@ class Backend(QObject):
         self._apply_favorites()
         self._apply_play_next()
         self._library.modelReset.connect(self._apply_play_next)  # a bought game becomes a library game
+        self._genre_options = []
+        self._genres_busy = False
+        self._genresReady.connect(self._apply_genres)
+        if not fake:
+            self._library.modelReset.connect(self._load_genres)
+            QTimer.singleShot(1500, self._load_genres)
         self._shelf_on = st.get("favoritesShelf")
         st.changed.connect(self._shelf_toggled)
         if not fake:
@@ -290,6 +298,44 @@ class Backend(QObject):
         self._tray.set_favorites(ids)
         self._favorites.set_favorites(ids)
 
+    # ── Genres: the store's categories for library games (genres.py) ────────────────────────
+
+    def _load_genres(self):
+        if self._genres_busy:
+            return
+        self._genres_busy = True
+        games = [(g.game_id, g.source, g.ext_id, g.title) for g in self._library._games]
+
+        def work():
+            import logging
+
+            from . import genres
+
+            try:
+                self._genresReady.emit(genres.lookup(games))
+            except Exception:  # never let a lookup problem reach the UI
+                logging.getLogger("carthage").exception("Genre lookup failed")
+                self._genresReady.emit({})
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _apply_genres(self, result):
+        self._genres_busy = False
+        if not result:
+            return
+        for m in (self._tray, self._favorites, self._play_next):
+            m.set_genres(result)
+        from .store import Store
+
+        present = {t for tags in result.values() for t in tags}
+        self._genre_options = [{"value": t, "text": n} for n, t in Store.CATEGORIES if t in present]
+        self.genresChanged.emit()
+
+    @Property("QVariantList", notify=genresChanged)
+    def genreOptions(self):
+        """The genres the library's games have, in the store's order: [{value: tag, text}]."""
+        return self._genre_options
+
     # ── Play Next: bookmarks from the library and the store ─────────────────────────────────
 
     def _steam_game_id(self, appid):
@@ -385,6 +431,16 @@ class Backend(QObject):
                 e = dict(e, **prices[self._store_key(e)])
             entries.append(e)
         self._set_play_next(entries)
+
+    @Slot(str, str)
+    def setGameColor(self, game_id, value):
+        """One game's own cartridge color ("" = back to the usual one)."""
+        colors = dict(self._settings.get("gameColors"))
+        if value:
+            colors[game_id] = value
+        else:
+            colors.pop(game_id, None)
+        self._settings.set("gameColors", colors)
 
     @Slot(str, result=bool)
     def isFavorite(self, game_id):

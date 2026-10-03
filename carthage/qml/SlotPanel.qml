@@ -199,7 +199,7 @@ QQC2.Popup {
         }
         QQC2.Action {
             text: "Change Header…"
-            icon.name: "view-media-title-symbolic"
+            icon.name: "tag-symbolic"
             onTriggered: editMenu.run(s => panel.appRoot.changeHeader(s.gameId, s.title, s.source))
         }
         QQC2.Action {

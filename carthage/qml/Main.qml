@@ -32,6 +32,7 @@ QQC2.ApplicationWindow {
     }
 
     onReloadCountChanged: {
+        Ui.openMenus = 0  // the old content's menus are gone, open or not
         contentLoader.source = ""
         contentLoader.source = Qt.resolvedUrl("App.qml")
     }

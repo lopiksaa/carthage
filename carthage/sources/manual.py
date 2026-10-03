@@ -11,7 +11,7 @@ import uuid
 
 
 def path():
-    # chrome.py redirects XDG_CONFIG_HOME for the UI toolkit; use the real one.
+    # The user's config folder (XDG_CONFIG_HOME, else ~/.config).
     from ..chrome import CONFIG_HOME
 
     return CONFIG_HOME / "carthage" / "games.json"

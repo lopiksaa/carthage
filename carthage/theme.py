@@ -313,6 +313,16 @@ class Theme(QObject):
         """The cartridges' plastic: the hardware's, unless a separate card color is chosen."""
         return edition_of(self._hardware) if self._card == "same" else edition_of(self._card)
 
+    @Slot(str, result=str)
+    def editionFor(self, value):
+        """The cartridge edition for a color setting value ("" or unknown: the usual one)."""
+        return edition_of(value) or self.cardEdition
+
+    @Slot(str, result="QVariantMap")
+    def paletteFor(self, edition):
+        """A cartridge palette (like cp) for any edition."""
+        return EDITIONS.get(edition) or EDITIONS[self.cardEdition]
+
     @Property("QVariantMap", notify=changed)
     def cp(self):
         """Palette for cartridge surfaces (shell, sticker, labels)."""

@@ -5,7 +5,7 @@ and checks. Not part of the app or the downloads (the build packs only the carth
     python tools/harness/run.py steps.json --real     # your real library (launches still blocked)
 
 Each step: {"at": ms, "do": "<command>", ...} or {"at": ms, "shot": "file.png"}. Times count
-from the first frame. Commands here: fps_start, fps_stop, exit, drag, click, move; every other
+from the first frame. Commands here: fps_start, fps_stop, exit, drag, click, move, genres; every other
 command goes to Commands.qml. QT_QPA_PLATFORM=offscreen runs without a window (at the design
 size); GC_SCREEN=<screen name> opens it on that screen.
 
@@ -133,6 +133,8 @@ def main():
             app.quit()
         elif step.get("do") == "drag":  # press, move in steps, optionally release
             drag(step)
+        elif step.get("do") == "genres":  # {"map": {gameId: [tag, …]}} as if the genre lookup finished
+            backend._apply_genres(step["map"])
         elif step.get("do") == "move":  # the real pointer to window coordinates
             QTest.mouseMove(root, QPoint(step["x"], step["y"]))
         elif step.get("do") == "click":  # a real mouse click at window coordinates

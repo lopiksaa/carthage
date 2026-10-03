@@ -35,6 +35,8 @@ class Settings(QObject):
         "playNextCollapsed": False,
         # Play Next bookmarks, in order: a library game id, or a store game {appid, name, capsule, header}.
         "playNext": [],
+        # Cartridge colors for single games (game id → a preset name or "c_rrggbb").
+        "gameColors": {},
         "otherStores": False,
         # Store shelves: "rows" (wrapping, like the library) or "scroll" (one row, sideways).
         "storeLayout": "rows",
@@ -112,6 +114,7 @@ class Settings(QObject):
     soundVolume = _prop("soundVolume", float, changed)
     hardware = _prop("hardware", str, changed)
     cardColor = _prop("cardColor", str, changed)
+    gameColors = _prop("gameColors", "QVariantMap", changed)
     fontLabels = _prop("fontLabels", str, changed)
     fontTitles = _prop("fontTitles", str, changed)
     fontButtons = _prop("fontButtons", str, changed)

@@ -1,5 +1,5 @@
 // A custom plastic color: a saturation/brightness square, a hue slider and a hex field.
-//   colorPicker.openFor("hardware")  // or "card"
+//   colorPicker.openFor("hardware")  // or "card", or ("game", gameId, title) for one game
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -7,7 +7,10 @@ import QtQuick.Controls as QQC2
 CDialog {
     id: dlg
 
-    property string target: "hardware" // or "card"
+    property string target: "hardware" // or "card", or "game" (one game: gameId)
+    property string gameId: ""
+    property string gameTitle: ""
+    readonly property string ownColor: target === "game" ? (Backend.settings.gameColors[gameId] || "") : ""
     property real hue: 0.6   // 0–1
     property real sat: 0.5   // 0–1, left to right
     property real val: 0.8   // 0–1, bottom to top
@@ -22,9 +25,12 @@ CDialog {
         sat = c.hsvSaturation
         val = c.hsvValue
     }
-    function openFor(t) {
+    function openFor(t, id, title) {
         target = t
-        const current = t === "card" ? Backend.settings.cardColor : Backend.settings.hardware
+        gameId = id || ""
+        gameTitle = title || ""
+        let current = t === "card" ? Backend.settings.cardColor : Backend.settings.hardware
+        if (t === "game") current = ownColor || Backend.settings.cardColor
         const plastic = Backend.theme.plasticOf(current === "same" ? Backend.settings.hardware : current)
         setFrom(plastic || "#5b6ee1")
         hexField.text = pickedHex
@@ -32,7 +38,8 @@ CDialog {
     }
     function apply() {
         const v = Backend.theme.customValue(pickedHex)
-        if (target === "card") Backend.settings.cardColor = v
+        if (target === "game") Backend.setGameColor(gameId, v)
+        else if (target === "card") Backend.settings.cardColor = v
         else Backend.settings.hardware = v
         close()
     }
@@ -47,11 +54,20 @@ CDialog {
 
         Text {
             id: title
-            text: dlg.target === "card" ? "Cartridge Color" : "Hardware Color"
+            text: dlg.target === "hardware" ? "Hardware Color" : "Cartridge Color"
             color: dlg.pal.panelText
             font.family: Ui.fontText
             font.weight: Font.Black
             font.pixelSize: Ui.textTitle
+        }
+        Text {
+            visible: dlg.target === "game"
+            width: parent.width
+            text: dlg.gameTitle
+            color: dlg.pal.panelTextDim
+            font.family: Ui.fontText
+            font.pixelSize: Ui.textBody
+            elide: Text.ElideRight
         }
 
         // Saturation (left → right) and brightness (bottom → top) for the current hue.
@@ -197,17 +213,28 @@ CDialog {
             }
         }
 
-        Row {
-            anchors.right: parent.right
-            spacing: Ui.gapM
+        Item {
+            width: parent.width
+            height: buttons.height
             CButton {
-                text: "Cancel"
-                onClicked: dlg.close()
+                visible: dlg.ownColor !== ""
+                text: "Default"
+                Accessible.name: "Use the usual cartridge color"
+                onClicked: { Backend.setGameColor(dlg.gameId, ""); dlg.close() }
             }
-            CButton {
-                kind: "primary"
-                text: "Use Color"
-                onClicked: dlg.apply()
+            Row {
+                id: buttons
+                anchors.right: parent.right
+                spacing: Ui.gapM
+                CButton {
+                    text: "Cancel"
+                    onClicked: dlg.close()
+                }
+                CButton {
+                    kind: "primary"
+                    text: "Use Color"
+                    onClicked: dlg.apply()
+                }
             }
         }
     }

@@ -40,9 +40,11 @@ Item {
     property point glarePoint: Qt.point(width * 0.3, height * 0.2)
     property real glareStrength: 0
 
-    readonly property var pal: Backend.theme.cp
+    // A game's own cartridge color (Cartridge Color…), else the usual one.
+    readonly property string ownColor: cart.gameId ? (Backend.settings.gameColors[cart.gameId] || "") : ""
+    readonly property var pal: ownColor ? Backend.theme.paletteFor(edition) : Backend.theme.cp
     readonly property var geo: Backend.theme.geo
-    readonly property string edition: Backend.theme.cardEdition
+    readonly property string edition: ownColor ? Backend.theme.editionFor(ownColor) : Backend.theme.cardEdition
     readonly property real u: width / 600
     // Offscreen (as the 3D card's texture) there is no screen: fall back to 1.
     readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1

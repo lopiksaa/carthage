@@ -183,6 +183,7 @@ def _batch(appids):
                 "releaseText": _release_text(rel),
                 "adult": bool(ADULT_DESCRIPTORS & set(it.get("content_descriptorids") or []))
                          or len(ADULT_TAGS & tags) >= 2,
+                "tags": sorted(t for t in tags if t),
             }
     return out
 
@@ -230,6 +231,7 @@ def _with_art(items):
             i["header"] = "|".join(u for u in (e["header"], i.get("header", "")) if u)
             i["hero"] = e["hero"]
             i["adult"] = e["adult"]
+            i["tags"] = e.get("tags", [])
             if e.get("comingSoon"):
                 # Not out yet: Steam lists a price of 0, which read as "Free".
                 i["price"] = e["releaseText"]

@@ -886,6 +886,11 @@ FocusScope {
             }
         }
         QQC2.Action {
+            text: "Cartridge Color…"
+            icon.name: "color-picker-symbolic"
+            onTriggered: inspect.appRoot.pickGameColor(inspect.game.gameId, inspect.game.title)
+        }
+        QQC2.Action {
             text: "Reposition Art…"
             icon.name: "transform-move-symbolic"
             enabled: !Backend.fake
@@ -897,7 +902,7 @@ FocusScope {
         }
         QQC2.Action {
             text: "Change Header…"
-            icon.name: "view-media-title-symbolic"
+            icon.name: "tag-symbolic"
             onTriggered: {
                 const g = inspect.game
                 inspect.close()

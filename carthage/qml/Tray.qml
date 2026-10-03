@@ -152,6 +152,11 @@ GridView {
             onTriggered: grid.appRoot.changeArt(cardMenu.cell.gameId, cardMenu.cell.title)
         }
         QQC2.Action {
+            text: "Cartridge Color…"
+            icon.name: "color-picker-symbolic"
+            onTriggered: grid.appRoot.pickGameColor(cardMenu.cell.gameId, cardMenu.cell.title)
+        }
+        QQC2.Action {
             text: "Reposition Art…"
             icon.name: "transform-move-symbolic"
             enabled: !Backend.fake
@@ -159,7 +164,7 @@ GridView {
         }
         QQC2.Action {
             text: "Change Header…"
-            icon.name: "view-media-title-symbolic"
+            icon.name: "tag-symbolic"
             onTriggered: grid.appRoot.changeHeader(cardMenu.cell.gameId, cardMenu.cell.title, cardMenu.cell.source)
         }
         QQC2.Action {
