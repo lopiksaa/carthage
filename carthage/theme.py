@@ -285,6 +285,7 @@ class Theme(QObject):
         self._hardware = "black"
         self._texture = PLASTIC_TEXTURE
         self._card_texture = PLASTIC_TEXTURE
+        self._strength = TEXTURE_STRENGTH
 
     def _get_hardware(self):
         return self._hardware
@@ -358,6 +359,12 @@ class Theme(QObject):
 
     texture = Property(str, _get_texture, _set_texture, notify=changed)
 
+    def set_texture_strength(self, value):
+        value = round(min(1.2, max(0.0, float(value))), 2)
+        if value != self._strength:
+            self._strength = value
+            self.changed.emit()
+
     def set_card_texture(self, value):
         if value != self._card_texture:
             self._card_texture = value
@@ -370,13 +377,13 @@ class Theme(QObject):
     @Property(str, notify=changed)
     def texQuery(self):
         """Appended to image ids so every textured image re-renders when this changes."""
-        return f"?tex={self._texture}&size={TEXTURE_GRAIN}&s={TEXTURE_STRENGTH:g}"
+        return f"?tex={self._texture}&size={TEXTURE_GRAIN}&s={self._strength:g}"
 
     @Property(str, notify=changed)
     def cardTexQuery(self):
         """The same for cartridges, which are always textured ("Textured plastic" is the
         hardware's finish only)."""
-        return f"?tex={self._card_texture}&size={TEXTURE_GRAIN}&s={TEXTURE_STRENGTH:g}"
+        return f"?tex={self._card_texture}&size={TEXTURE_GRAIN}&s={self._strength:g}"
 
     @Property(str, notify=changed)
     def edition(self):

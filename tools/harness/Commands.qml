@@ -147,6 +147,9 @@ QtObject {
             if (cmd.store !== undefined) storeView.filterStore = cmd.store
             if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
             break
+        case "setting":  // {"key": "textureStrength", "value": 1.2} (test runs never save settings)
+            Backend.settings[cmd.key] = cmd.value
+            break
         case "sidebar":  // {"collapsed": bool}
             Backend.settings.sidebarCollapsed = cmd.collapsed
             break
@@ -210,8 +213,8 @@ QtObject {
             addGameDialog.start()
             break
         case "settingsSection":  // {"id": "look"} opens settings on that section
-            openDrawer()
-            drawer.openSection = cmd.id
+            app.navigate("settings")
+            app.parts.settingsPage.section = cmd.id
             break
         case "feedbackDialog":  // Send Feedback; optional {"text", "answer": true, "email"}
             sendFeedback()

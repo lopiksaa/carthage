@@ -79,6 +79,7 @@ class Backend(QObject):
             tex = st.get("plasticTexture")
             tex = tex if tex in dict(TEXTURES) else PLASTIC_TEXTURE
             self._theme.set_card_texture(tex)
+            self._theme.set_texture_strength(st.get("textureStrength"))
             self._theme.texture = tex if st.get("texturedPlastic") else "none"
 
         apply_texture()

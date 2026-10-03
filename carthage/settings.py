@@ -24,6 +24,7 @@ class Settings(QObject):
         "soundVolume": 0.3, "hardware": "black", "texturedPlastic": True, "preferOfficialArt": False,
         # The plastic texture (theme.TEXTURES), on hardware and cartridges.
         "plasticTexture": "Plastic012A",
+        "textureStrength": 0.6,  # 0 (smooth) to 1.2 (deep)
         "sortMode": "recent", "filterMode": "all", "hidden": [], "noSlot": [],
         "titles": {}, "headers": {}, "headerTexts": {}, "sgdbIds": {},
         "cardColor": "same", "testCartridge": False, "related": {}, "installedFirst": False,
@@ -135,6 +136,7 @@ class Settings(QObject):
     sidebarCollapsed = _prop("sidebarCollapsed", bool, changed)
     crtEffects = _prop("crtEffects", bool, changed)
     texturedPlastic = _prop("texturedPlastic", bool, changed)
+    textureStrength = _prop("textureStrength", float, changed)
     plasticTexture = _prop("plasticTexture", str, changed)
     preferOfficialArt = _prop("preferOfficialArt", bool, changed)
     del _prop

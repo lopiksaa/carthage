@@ -7,7 +7,7 @@ Item {
     id: app
     objectName: "app"
     // The main pieces by name, for the test harness (tools/harness/Commands.qml).
-    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, setupWizard: setupWizard, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
+    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, settingsPage: settingsPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, setupWizard: setupWizard, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
 
     readonly property var pal: Backend.theme.p
     // The desktop's animation-speed factor (KDE setting on Linux; 1 elsewhere); 0 = instant.
@@ -824,15 +824,17 @@ Item {
                     appRoot: app
                     onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
                 }
-                SideDrawer {
+                SettingsPage {
                     id: settingsPage
                     visible: app.page === "settings"
                     appRoot: app
                     anchors.top: pageBar.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: Ui.gapL
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: Math.min(parent.width - 48, 640)
+                    anchors.leftMargin: 24
+                    anchors.rightMargin: 24
+                    anchors.bottomMargin: 24
                     onCloseRequested: app.navigateBack()
                 }
 
