@@ -8,6 +8,16 @@ user needs to know. Newest version first.
 """
 
 NOTES = {
+    "0.3.8": [
+        {"kind": "new", "icon": "bookmark", "title": "Play Next",
+         "text": "Bookmark games to play soon from their page, store games too: they wait greyed out with a shopping bag and their price. Play Next sits above the library."},
+        {"kind": "new", "icon": "tag", "title": "Genres and filters",
+         "text": "Filter the library by genre (from Steam's tags, for other launchers' games too) and the store by store and genre."},
+        {"kind": "new", "icon": "color-picker", "title": "A color for one game",
+         "text": "Right-click a cartridge › Cartridge Color… gives that game its own color."},
+        {"kind": "new", "icon": "starred", "title": "Achievements and folding shelves",
+         "text": "Steam games show your achievements on their page (with a Steam key). Favorites wrap into rows, and Favorites and Play Next fold shut from their title."},
+    ],
     "0.3.7": [
         {"kind": "new", "icon": "color-picker", "title": "Fonts, colors and textures",
          "text": "Settings → Appearance has font choices, eight new hardware colors, five plastic textures and a new color picker."},
