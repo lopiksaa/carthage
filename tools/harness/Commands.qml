@@ -147,6 +147,9 @@ QtObject {
             if (cmd.store !== undefined) storeView.filterStore = cmd.store
             if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
             break
+        case "sidebar":  // {"collapsed": bool}
+            Backend.settings.sidebarCollapsed = cmd.collapsed
+            break
         case "navigate":  // {"page": "store:deals"} (the sidebar layout concept)
             app.navigate(cmd.page)
             break

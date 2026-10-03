@@ -1125,7 +1125,7 @@ Item {
     }
     Shortcut {
         sequence: "Ctrl+B"
-        onActivated: sidebar.collapsed = !sidebar.collapsed
+        onActivated: sidebar.toggle()
     }
     Shortcut {
         sequence: "F10"

@@ -33,6 +33,7 @@ class Settings(QObject):
         # Library shelves folded shut (their title stays, with the count).
         "favoritesCollapsed": False,
         "playNextCollapsed": False,
+        "sidebarCollapsed": False,
         # Play Next bookmarks, in order: a library game id, or a store game {appid, name, capsule, header}.
         "playNext": [],
         # Cartridge colors for single games (game id → a preset name or "c_rrggbb").
@@ -131,6 +132,7 @@ class Settings(QObject):
     favoritesShelf = _prop("favoritesShelf", bool, changed)
     favoritesCollapsed = _prop("favoritesCollapsed", bool, changed)
     playNextCollapsed = _prop("playNextCollapsed", bool, changed)
+    sidebarCollapsed = _prop("sidebarCollapsed", bool, changed)
     crtEffects = _prop("crtEffects", bool, changed)
     texturedPlastic = _prop("texturedPlastic", bool, changed)
     plasticTexture = _prop("plasticTexture", str, changed)

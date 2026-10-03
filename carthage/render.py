@@ -422,6 +422,47 @@ def _tint(img, color):
     return img
 
 
+# A launcher's mark alone, for small one-color uses (the sidebar's sources). Steam's file is
+# the wordmark: only its round mark is used.
+LAUNCHER_MARKS = {"steam": (0, 0, 92, 90.5)}
+# Many-colored marks turn into a blob in one color: these become a stencil instead (dark parts
+# cut out, light parts kept).
+STENCIL_MARKS = {"lutris", "heroic"}
+
+
+def _stencil(img):
+    import numpy as np
+
+    img = img.convertToFormat(QImage.Format.Format_ARGB32)
+    a = np.frombuffer(img.constBits(), np.uint8).reshape(img.height(), img.bytesPerLine() // 4, 4)[:, :img.width()]
+    b, g, r, alpha = (a[..., i].astype(np.float32) for i in range(4))
+    lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255  # (converted to straight alpha above)
+    keep = np.clip((lum - 0.3) / 0.15, 0, 1) * alpha
+    out = np.zeros_like(a)
+    out[..., 3] = keep.astype(np.uint8)
+    res = QImage(out.tobytes(), img.width(), img.height(), img.width() * 4, QImage.Format.Format_ARGB32)
+    return res.copy()
+
+
+def render_launcher(w, h, source, color):
+    """A launcher's mark in one color, fitted and centered; a generic game icon if none."""
+    spec = HEADER_LOGOS.get(source) or {}
+    if not spec.get("file"):
+        return render_icon(w, h, "applications-games", color)
+    vb = LAUNCHER_MARKS.get(source) or spec.get("viewBox")
+    a = _svg_aspect(spec["file"], vb)
+    iw, ih = (w, max(1, round(w / a))) if a >= w / h else (max(1, round(h * a)), h)
+    mark = _render_svg(spec["file"], iw, ih, vb)
+    if source in STENCIL_MARKS:
+        mark = _stencil(mark)
+    mark = _tint(mark, QColor("#" + color))
+    img = _img(w, h)
+    p = QPainter(img)
+    p.drawImage((w - iw) // 2, (h - ih) // 2, mark)
+    p.end()
+    return img
+
+
 UI_ICONS = Path(__file__).resolve().parent / "assets" / "icons" / "ui"
 _ICON_ALIASES = {"image": "insert-image"}
 
@@ -653,6 +694,8 @@ class ImageProvider(QQuickImageProvider):
                 return render_header_mode(w, h, mode, source, edition, title,
                                           logo, self._library.source_name(source))
             return render_header(w, h, parts[1], parts[2], self._library.source_name(parts[1]))
+        if kind == "launcher":  # launcher/<source>/<rrggbb[aa]>: a launcher's mark, tinted
+            return render_launcher(w, h, parts[1], parts[2] if len(parts) > 2 else "000000")
         if kind == "icon":  # icon/<name>/<rrggbb[aa]>: a bundled UI icon, tinted
             return render_icon(w, h, parts[1], parts[2] if len(parts) > 2 else "000000")
         if kind == "grain":  # grain/<edition>?tex=…: the tileable overlay itself
