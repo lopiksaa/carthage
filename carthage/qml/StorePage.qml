@@ -79,7 +79,7 @@ FocusScope {
                                        : Math.min(height * 0.38, 330)
     readonly property real heroW: Math.round(heroH / Backend.theme.ratio)
     readonly property real heroTop: Math.max(56, Math.round(height * 0.08))
-    readonly property real panelW: wide ? Math.min(860, width - sideM - heroW - 56 - sideM)
+    readonly property real panelW: wide ? Math.min(720, width - sideM - heroW - 56 - sideM)
                                         : Math.min(Ui.detailsWidth, width - 64)
 
     visible: level > 0.001 || open
@@ -471,7 +471,7 @@ FocusScope {
                 width: parent.width
                 spacing: Ui.gapS
                 Text {
-                    text: [page.storeName].concat(page.info.genres || []).join("  ·  ").toUpperCase()
+                    text: page.storeName.toUpperCase()
                     color: Ui.onScrimDim
                     font.family: Ui.fontLabels
                     font.weight: Font.Black
@@ -561,9 +561,13 @@ FocusScope {
                 }
             }
 
+            // One row of actions: Buy, then Play Next as a small key beside it.
+            Row {
+              width: parent.width
+              spacing: Ui.gapM
             CButton {
                 id: buyButton
-                width: parent.width
+                width: parent.width - nextKey.width - Ui.gapM
                 big: true
                 kind: "primary"
                 opacity: morph.morphing ? 0 : 1
@@ -582,11 +586,17 @@ FocusScope {
                 }
             }
             CButton {
+                id: nextKey
                 // Mentioning playNextStore re-checks it whenever Play Next changes.
                 readonly property bool next: Backend.playNextStore, Backend.isPlayNextStore(page.keyOf(page.item), page.item.appid || 0)
                 kind: "scrim"
-                text: next ? "Remove from Play Next" : "Add to Play Next"
+                width: buyButton.height
+                height: buyButton.height
                 icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+                Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
+                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.text: Accessible.name
+                QQC2.ToolTip.delay: 300
                 // Remembers the store on show (Steam, Epic…) with its offer and price.
                 onClicked: Backend.setPlayNextStore(Object.assign({}, page.item, {
                     key: page.keyOf(page.item),
@@ -597,6 +607,7 @@ FocusScope {
                     discount: page.shown.discount || 0,
                     offers: page.offer ? [page.offer].concat(page.offers.filter(o => o !== page.offer)) : (page.item.offers || []),
                 }), !next)
+            }
             }
             CButton {
                 visible: page.steamShown && page.info.owned === true
@@ -640,43 +651,21 @@ FocusScope {
                     wrapMode: Text.Wrap
                 }
 
-                Flow {
-                    width: parent.width
-                    spacing: Ui.gapS
-                    Repeater {
-                        model: [
-                            page.info.controller || "",
-                            page.info.achievements ? page.info.achievements + " achievements" : "",
-                            page.info.dlcCount ? page.info.dlcCount + " DLC" : "",
-                            (page.info.languages || []).length ? (page.info.languages || []).length + " languages" : "",
-                            page.info.linux ? "Native Linux" : "",
-                            page.info.ageRating ? page.info.ageRating + "+" : "",
-                        ].filter(x => x)
-                        delegate: Rectangle {
-                            required property var modelData
-                            height: 28
-                            width: chipText.implicitWidth + 18
-                            radius: 14
-                            color: Ui.scrimControl
-                            Text {
-                                id: chipText
-                                anchors.centerIn: parent
-                                text: modelData
-                                color: Ui.onScrim
-                                font.family: Ui.fontText
-                                font.weight: Font.Bold
-                                font.pixelSize: Ui.textCaption
-                            }
-                        }
-                    }
-                }
 
                 Repeater {
+                    // Two folds: the long description, and everything else in one place.
                     model: [
                         { title: "About This Game", text: page.info.about || "" },
-                        { title: "Features", text: (page.info.features || []).join("  ·  ") },
-                        { title: "Languages", text: (page.info.languages || []).map(x => x.trim()).join(", ") },
-                        { title: "Minimum Requirements", text: page.info.requirements || "" },
+                        { title: "Details", text: [
+                            [page.info.controller || "",
+                             page.info.achievements ? page.info.achievements + (page.info.achievements === 1 ? " achievement" : " achievements") : "",
+                             page.info.dlcCount ? page.info.dlcCount + " DLC" : "",
+                             page.info.linux ? "Runs natively on Linux" : "",
+                             page.info.ageRating ? "Rated " + page.info.ageRating + "+" : ""].filter(x => x).join("  ·  "),
+                            (page.info.features || []).length ? "Features: " + page.info.features.join(", ") : "",
+                            (page.info.languages || []).length ? "Languages: " + page.info.languages.map(x => x.trim()).join(", ") : "",
+                            page.info.requirements ? "Minimum requirements: " + page.info.requirements : "",
+                          ].filter(x => x).join("\n\n") },
                     ].filter(x => x.text)
                     delegate: FoldSection {
                         required property var modelData

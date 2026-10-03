@@ -670,7 +670,7 @@ Item {
 
             Sidebar {
                 id: sidebar
-                enabled: !app.dialogOpen
+                enabled: !app.modalOpen
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
@@ -913,7 +913,6 @@ Item {
         StorePage {
             id: storePage
             anchors.fill: parent
-            anchors.leftMargin: sidebar.width  // a game's view covers the main area, not the sidebar
             appRoot: app
             stage: stage
             z: 50
@@ -922,7 +921,6 @@ Item {
         Inspect {
             id: inspect
             anchors.fill: parent
-            anchors.leftMargin: sidebar.width
             appRoot: app
             stage: stage
             z: 50

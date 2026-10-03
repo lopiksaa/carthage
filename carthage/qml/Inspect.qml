@@ -54,7 +54,7 @@ FocusScope {
     readonly property real heroW: Math.round(heroH / ratio)
     readonly property real heroX: wide ? sideM : Math.round((width - heroW) / 2)
     readonly property real heroY: wide ? Math.max(56, Math.round(height * 0.08)) : 28
-    readonly property real panelW: wide ? Math.min(860, width - heroX - heroW - gap - sideM)
+    readonly property real panelW: wide ? Math.min(720, width - heroX - heroW - gap - sideM)
                                         : Math.min(Ui.detailsWidth, width - 64)
 
     visible: level > 0.001 || open || closeAnim.running || warming
@@ -716,9 +716,13 @@ FocusScope {
                 }
             }
 
+            // One row of actions: Play, then Play Next and More as small keys beside it.
+            Row {
+              width: parent.width
+              spacing: Ui.gapM
             CButton {
                 id: playButton
-                width: parent.width
+                width: parent.width - 2 * (height + Ui.gapM)
                 big: true
                 kind: "primary"
                 opacity: morph.morphing ? 0 : 1
@@ -734,42 +738,32 @@ FocusScope {
                 Keys.onEnterPressed: inspect.play()
             }
 
-            Flow {
-                width: parent.width
-                spacing: Ui.gapM
-                readonly property bool steamGame: inspect.game.source === "steam"
-                CButton {
-                    // Mentioning playNextStore re-checks it whenever Play Next changes.
-                    readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
-                    visible: !!inspect.game.gameId
-                    kind: "scrim"
-                    text: next ? "In Play Next" : "Play Next"
-                    icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
-                    Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
-                    onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
-                }
-                CButton {
-                    visible: parent.steamGame
-                    kind: "scrim"
-                    text: "Open Store Page"
-                    icon.name: "internet-services-symbolic"
-                    onClicked: Backend.openUrl("steam://store/" + inspect.game.extId)
-                }
-                CButton {
-                    visible: parent.steamGame
-                    kind: "scrim"
-                    text: "Show in Library"
-                    icon.name: "view-list-icons-symbolic"
-                    onClicked: Backend.openUrl("steam://nav/games/details/" + inspect.game.extId)
-                }
-                CButton {
-                    id: otherButton
-                    objectName: "inspectOtherButton"  // for the test harness
-                    kind: "scrim"
-                    text: "Other"
-                    icon.name: "overflow-menu-symbolic"
-                    onClicked: otherMenu.popup(otherButton, 0, otherButton.height + 6)
-                }
+            CButton {
+                // Mentioning playNextStore re-checks it whenever Play Next changes.
+                readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
+                kind: "scrim"
+                width: playButton.height
+                height: playButton.height
+                icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+                Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
+                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.text: Accessible.name
+                QQC2.ToolTip.delay: 300
+                onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
+            }
+            CButton {
+                id: otherButton
+                objectName: "inspectOtherButton"  // for the test harness
+                kind: "scrim"
+                width: playButton.height
+                height: playButton.height
+                icon.name: "overflow-menu-symbolic"
+                Accessible.name: "More for this game"
+                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.text: "More"
+                QQC2.ToolTip.delay: 300
+                onClicked: otherMenu.popup(otherButton, 0, otherButton.height + 6)
+            }
             }
 
         }
@@ -887,6 +881,25 @@ FocusScope {
         id: otherMenu
         objectName: "inspectOtherMenu"  // for the test harness
         readonly property bool custom: (inspect.game.gameId || "").startsWith("manual_")
+        readonly property bool steamGame: inspect.game.source === "steam"
+        QQC2.Action {
+            objectName: "optional"
+            text: "Open Store Page"
+            icon.name: "internet-services-symbolic"
+            enabled: otherMenu.steamGame
+            onTriggered: Backend.openUrl("steam://store/" + inspect.game.extId)
+        }
+        QQC2.Action {
+            objectName: "optional"
+            text: "Show in Steam Library"
+            icon.name: "view-list-icons-symbolic"
+            enabled: otherMenu.steamGame
+            onTriggered: Backend.openUrl("steam://nav/games/details/" + inspect.game.extId)
+        }
+        CMenuSeparator {
+            visible: otherMenu.steamGame
+            height: visible ? implicitHeight : 0
+        }
         QQC2.Action {
             text: "Change Art…"
             icon.name: "insert-image-symbolic"

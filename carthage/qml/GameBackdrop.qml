@@ -1,6 +1,8 @@
-// The game's wide art behind the closer look and the store page, fading out downwards. The
-// views keep their dark scrim on top, so the text stays readable (≥4.5:1).
+// The game's wide art behind the closer look and the store page. The image itself fades out
+// towards the bottom (a gradient mask), so it melts into whatever is below with no edge.
+// The views keep their dark scrim on top, so the text stays readable.
 import QtQuick
+import QtQuick.Effects
 import Carthage
 
 Item {
@@ -10,29 +12,35 @@ Item {
 
     Image {
         id: img
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        height: Math.max(parent.height * 0.75, width * 0.42)
+        anchors.fill: parent
         source: bd.source
         fillMode: Image.PreserveAspectCrop
         verticalAlignment: Image.AlignTop
         asynchronous: true
         cache: true
-        sourceSize.width: 1280
-        opacity: status === Image.Ready ? bd.level : 0
-        Behavior on opacity { NumberAnimation { duration: 260 * Backend.motion } }
+        sourceSize.width: 1600
+        visible: false
     }
-    // Fade the art into the backdrop below it.
     Rectangle {
-        anchors.left: img.left
-        anchors.right: img.right
-        anchors.bottom: img.bottom
-        height: img.height * 0.6
-        opacity: img.opacity
+        id: fade
+        anchors.fill: parent
+        visible: false
+        layer.enabled: true
         gradient: Gradient {
-            GradientStop { position: 0; color: "transparent" }
-            GradientStop { position: 1; color: Qt.rgba(0.04, 0.04, 0.05, 1) }
+            GradientStop { position: 0.0; color: "white" }
+            GradientStop { position: 0.35; color: "white" }
+            GradientStop { position: 0.9; color: "transparent" }
         }
+    }
+    MultiEffect {
+        anchors.fill: parent
+        source: img
+        visible: img.status === Image.Ready && opacity > 0.01
+        opacity: img.status === Image.Ready ? bd.level : 0
+        Behavior on opacity { NumberAnimation { duration: 260 * Backend.motion } }
+        maskEnabled: true
+        maskSource: fade
+        maskThresholdMin: 0.0
+        maskSpreadAtMin: 1.0
     }
 }
