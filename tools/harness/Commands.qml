@@ -205,6 +205,9 @@ QtObject {
         case "listPicker":
             app.addToList(cmd.id, cmd.title || "")
             break
+        case "focus":  // prints what has the keyboard focus
+            console.warn("FOCUS", app.Window.window.activeFocusItem, app.Window.window.activeFocusItem ? app.Window.window.activeFocusItem.objectName : "")
+            break
         case "toggleSidebar":
             app.toggleSidebar()
             break

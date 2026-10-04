@@ -43,6 +43,16 @@ CDialog {
                 elide: Text.ElideRight
             }
         }
+        // No lists yet: say so, and make a new one the obvious next step.
+        Text {
+            visible: Backend.lists.length === 0
+            width: parent.width
+            text: "You don't have any lists yet. Make one, and this game goes straight in."
+            wrapMode: Text.Wrap
+            color: dlg.pal.panelTextDim
+            font.family: Ui.fontText
+            font.pixelSize: Ui.textBody
+        }
         Column {
             width: parent.width
             spacing: 2
@@ -116,17 +126,27 @@ CDialog {
         Item {
             width: parent.width
             height: done.height
+            readonly property bool none: Backend.lists.length === 0
             CButton {
+                visible: !parent.none
                 text: "New List…"
                 icon.name: "list-add-symbolic"
                 onClicked: dlg.appRoot.newList(dlg.gameId)
             }
-            CButton {
-                id: done
+            Row {
                 anchors.right: parent.right
-                kind: "primary"
-                text: "Done"
-                onClicked: dlg.close()
+                spacing: Ui.gapM
+                CButton {
+                    visible: parent.parent.none
+                    text: "Cancel"
+                    onClicked: dlg.close()
+                }
+                CButton {
+                    id: done
+                    kind: "primary"
+                    text: parent.parent.none ? "New List…" : "Done"
+                    onClicked: parent.parent.none ? dlg.appRoot.newList(dlg.gameId) : dlg.close()
+                }
             }
         }
     }

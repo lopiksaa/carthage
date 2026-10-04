@@ -93,7 +93,9 @@ FocusScope {
     property real swapFade: 1 // dips while stepping to the next game
     property int swapDir: 1   // which way the details move meanwhile (with the card's turn)
 
+    property double openedAt: 0
     function openFor(it, list) {
+        openedAt = Date.now()
         siblings = list || []
         show(it)
         open = true
@@ -286,7 +288,7 @@ FocusScope {
         enabled: page.open
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons
-        onClicked: page.close()
+        onClicked: if (Date.now() - page.openedAt > 450) page.close()  // (not the double-click's second click)
         onWheel: (w) => w.accepted = true
     }
 

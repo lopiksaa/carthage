@@ -124,8 +124,12 @@ FocusScope {
         function onDataChanged() { inspect.refreshInstalled() }
     }
 
+    // The second click of a double-click lands on the backdrop of the view the first one just
+    // opened: it mustn't close it again.
+    property double openedAt: 0
     function openFor(cell) {
         if (open) return
+        openedAt = Date.now()
         // Build the whole object before assigning it: bindings only see a new `game`, not
         // later changes to its fields.
         const g = appRoot.cardData(cell)
@@ -458,7 +462,7 @@ FocusScope {
         enabled: inspect.open
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons
-        onClicked: inspect.close()
+        onClicked: if (Date.now() - inspect.openedAt > 450) inspect.close()
         onWheel: (wheel) => wheel.accepted = true
     }
 

@@ -139,6 +139,7 @@ GridView {
             icon.name: "zoom-in-symbolic"
             onTriggered: grid.appRoot.choose(cardMenu.cell)
         }
+        CMenuSeparator {}
         QQC2.Action {
             readonly property bool fav: cardMenu.cell !== null && Backend.favoritesList.rowOf(cardMenu.cell.gameId) >= 0
             text: fav ? "Remove from Favorites" : "Add to Favorites"
@@ -150,6 +151,7 @@ GridView {
             icon.name: "view-list-icons-symbolic"
             onTriggered: grid.appRoot.addToList(cardMenu.cell.gameId, cardMenu.cell.title)
         }
+        CMenuSeparator {}
         QQC2.Action {
             text: "Change Art…"
             icon.name: "insert-image-symbolic"

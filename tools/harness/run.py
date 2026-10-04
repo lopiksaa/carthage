@@ -142,6 +142,53 @@ def main():
         elif step.get("do") == "click":  # a real mouse click at window coordinates
             button = Qt.RightButton if step.get("button") == "right" else Qt.LeftButton
             QTest.mouseClick(root, button, Qt.NoModifier, QPoint(step["x"], step["y"]))
+        elif step.get("do") == "dblclick":
+            QTest.mouseDClick(root, Qt.LeftButton, Qt.NoModifier, QPoint(step["x"], step["y"]))
+        elif step.get("do") == "key":  # {"key": "Escape", "mods": "ctrl+shift"} a real key press
+            mods = Qt.NoModifier
+            for m in (step.get("mods") or "").split("+"):
+                mods |= {"ctrl": Qt.ControlModifier, "shift": Qt.ShiftModifier, "alt": Qt.AltModifier}.get(m, Qt.NoModifier)
+            key = getattr(Qt, "Key_" + step["key"])
+            QTest.keyClick(root, key, mods)
+        elif step.get("do") == "type":  # {"text": "hollow"} types into whatever has focus
+            for ch in step["text"]:
+                QTest.keyClick(root, ch)
+        elif step.get("do") == "wheel":  # {"x", "y", "dy": -120 per notch down}
+            from PySide6.QtCore import QPointF
+            from PySide6.QtGui import QWheelEvent
+            pos = QPointF(step["x"], step["y"])
+            for _ in range(step.get("notches", 1)):
+                ev = QWheelEvent(pos, root.mapToGlobal(pos), QPoint(0, 0), QPoint(0, step.get("dy", -120)),
+                                 Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False)
+                QGuiApplication.sendEvent(root, ev)
+        elif step.get("do") in ("clickText", "hoverText", "rightClickText"):  # {"text": "Play", "nth": 0}
+            hits = []
+
+            def walk(item):
+                if not item.isVisible() or item.opacity() <= 0.01:
+                    return
+                t = item.property("text")
+                if isinstance(t, str) and t.strip() == step["text"]:
+                    r = item.mapRectToScene(item.boundingRect())
+                    if r.width() > 0 and 0 <= r.center().x() < root.width() and 0 <= r.center().y() < root.height():
+                        hits.append(r.center())
+                for c in item.childItems():
+                    walk(c)
+
+            walk(root.contentItem())
+            for popup_root in root.contentItem().childItems():
+                pass
+            n = step.get("nth", 0)
+            if len(hits) > n:
+                pt = QPoint(int(hits[n].x()), int(hits[n].y()))
+                QTest.mouseMove(root, pt)
+                if step["do"] == "clickText":
+                    QTest.mouseClick(root, Qt.LeftButton, Qt.NoModifier, pt)
+                elif step["do"] == "rightClickText":
+                    QTest.mouseClick(root, Qt.RightButton, Qt.NoModifier, pt)
+                print(f"[harness] {step['do']} {step['text']!r} at {pt.x()},{pt.y()}", flush=True)
+            else:
+                print(f"[harness] MISSING {step['text']!r} ({len(hits)} found)", flush=True)
         elif commands is not None:
             QMetaObject.invokeMethod(commands, "run", Qt.DirectConnection, Q_ARG("QVariant", step))
 
