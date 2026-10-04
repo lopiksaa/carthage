@@ -55,10 +55,9 @@ FocusScope {
     // The cartridge and the details as one group, centered on a wide screen.
     readonly property real heroX: wide ? Math.max(sideM, Math.round((width - (heroW + gap + panelW)) / 2))
                                        : Math.round((width - heroW) / 2)
-    // Short details: the cartridge and the details centered as a group (balanced). Long ones
-    // (they scroll): both from the top.
-    readonly property real panelNaturalH: pinned.height + Ui.gapXL + details.height
-    readonly property real heroY: wide ? Math.max(56, Math.round((height - Math.max(heroH, panelNaturalH)) / 2)) : 28
+    // The cartridge sits in the middle of the window's height; the details center on it
+    // (and stay inside the window when they're long and scroll).
+    readonly property real heroY: wide ? Math.round((height - heroH) / 2) : 28
     // Once the cartridge has arrived, it follows its place when the place moves (the window is
     // resized, the details arrive and the group re-centers).
     readonly property bool settled: open && !openAnim.running && !closeAnim.running && !stepAnim.running
@@ -423,7 +422,7 @@ FocusScope {
     // The game's art under the scrim (at most 55%: white text stays ≥4.5:1 over any art).
     GameBackdrop {
         anchors.fill: parent
-        level: inspect.level * 0.55 * (1 - inspect.galleryLevel)
+        level: inspect.level * 0.55 * (1 - inspect.galleryLevel)  // (the backdrop cross-fades its own art)
         source: inspect.info.background || ""
     }
     // Dark enough for the white text in both editions (≥4.5:1).
@@ -669,10 +668,12 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: inspect.wide ? inspect.height - inspect.heroY - Ui.gapXL
+        readonly property real avail: inspect.wide ? inspect.height - 2 * Ui.gapXL
                                                    : inspect.height - (inspect.heroY + inspect.heroH + 28) - 20
         x: inspect.panelBaseX - inspect.galleryLevel * 40
-        y: inspect.wide ? inspect.heroY : inspect.heroY + inspect.heroH + 28
+        y: inspect.wide ? Math.max(Ui.gapXL, Math.min(Math.round(inspect.heroY + (inspect.heroH - height) / 2),
+                                                      inspect.height - height - Ui.gapXL))
+                        : inspect.heroY + inspect.heroH + 28
         Behavior on y {
             enabled: inspect.settled
             NumberAnimation { duration: 200 * inspect.motion; easing.type: Easing.OutCubic }

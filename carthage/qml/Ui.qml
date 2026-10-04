@@ -44,6 +44,12 @@ QtObject {
     readonly property int motionMedium: 200  // menus, chips, small moves, exits
     readonly property int motionSlow: 300    // panels and dialogs entering
 
+    // Card sizes (the tray's zoom): 78 to 312 px wide in steps of 18. Ctrl+= / Ctrl+- and
+    // Settings → Appearance → Card size use the same range.
+    readonly property int cardMin: 78
+    readonly property int cardMax: 312
+    readonly property int cardStep: 18
+
     readonly property int gapXS: 4
     readonly property int gapS: 8
     readonly property int gapM: 12

@@ -745,16 +745,6 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: app.pageTitle
                             }
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: app.page === "store:deals" ? "Steam and Epic together: each game once, at its best price"
-                                    : app.page === "store:free" ? "Free to keep for a limited time, on Steam and Epic"
-                                    : app.page === "store:discover" ? "Picked from what you play" : ""
-                                color: app.pal.trayTextDim
-                                font.family: Ui.fontText
-                                font.weight: Font.Bold
-                                font.pixelSize: Ui.textCaption
-                            }
                         }
                     }
                     Tray {

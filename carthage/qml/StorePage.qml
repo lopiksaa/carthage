@@ -78,10 +78,9 @@ FocusScope {
     readonly property real heroH: wide ? Math.min(height * 0.56, 470, (width - 2 * sideM - 56 - Ui.detailsWidth) * Backend.theme.ratio)
                                        : Math.min(height * 0.38, 330)
     readonly property real heroW: Math.round(heroH / Backend.theme.ratio)
-    // Short details: the cartridge (with its store chips) and the details centered as a group;
-    // long ones (they scroll): both from the top.
-    readonly property real panelNaturalH: pinned.height + Ui.gapL + col.height
-    readonly property real heroTop: Math.max(56, Math.round((height - Math.max(heroH + 60, panelNaturalH)) / 2))
+    // The cartridge sits in the middle of the window's height; the details center on it (and
+    // stay inside the window when they're long and scroll).
+    readonly property real heroTop: Math.round((height - heroH) / 2)
     readonly property real panelW: wide ? Math.min(720, width - sideM - heroW - 56 - sideM)
                                         : Math.min(Ui.detailsWidth, width - 64)
     // The cartridge and the details as one group, centered on a wide screen.
@@ -462,9 +461,10 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: page.wide ? page.height - page.heroTop - 40 : page.height - (20 + page.heroH + 24) - 20
+        readonly property real avail: page.wide ? page.height - 80 : page.height - (20 + page.heroH + 24) - 20
         x: page.panelBaseX - page.galleryLevel * 40
-        y: page.wide ? page.heroTop : 20 + page.heroH + 24
+        y: page.wide ? Math.max(40, Math.min(Math.round(page.heroTop + (page.heroH - height) / 2), page.height - height - 40))
+                     : 20 + page.heroH + 24
         Behavior on y {
             enabled: page.open
             NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }

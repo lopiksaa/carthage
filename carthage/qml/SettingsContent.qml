@@ -323,9 +323,13 @@ Column {
                 }
             }
             Label_ { text: "Card size" }
-            Row { // − ● ● ● ○ ○ ○ +  : card widths in steps of 18 px (the old presets are steps 2, 3 and 5)
+            Row { // − ● ● ● ○ ○ ○ +  : card widths from Ui.cardMin to Ui.cardMax in steps of Ui.cardStep
                 id: sizer
-                readonly property var steps: [114, 132, 150, 168, 186, 204]
+                readonly property var steps: {
+                    const out = []
+                    for (let w = Ui.cardMin; w <= Ui.cardMax; w += Ui.cardStep) out.push(w)
+                    return out
+                }
                 // The step nearest the saved width (an older saved size may fall between steps).
                 readonly property int index: {
                     let best = 0
@@ -356,9 +360,9 @@ Column {
                         Rectangle {
                             required property int index
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 10
-                            height: 10
-                            radius: 5
+                            width: 8
+                            height: 8
+                            radius: 4
                             color: index <= sizer.index ? Backend.theme.accent.accent : Qt.alpha(sc.pal.panelText, 0.18)
                             Behavior on color { ColorAnimation { duration: 100 * Backend.motion } }
                         }
