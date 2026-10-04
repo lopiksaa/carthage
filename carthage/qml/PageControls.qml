@@ -9,6 +9,7 @@ Item {
     property bool shown: false
     property bool arrows: true
     property bool dice: false
+    property real arrowY: -1  // the center line for ‹ › (the cartridge's); -1: the middle
     signal step(int dir)
     signal close()
     signal roll()
@@ -18,7 +19,7 @@ Item {
         CButton {
             required property int modelData
             x: modelData < 0 ? Ui.gapL : pc.width - width - Ui.gapL
-            anchors.verticalCenter: parent.verticalCenter
+            y: Math.round((pc.arrowY >= 0 ? pc.arrowY : pc.height / 2) - height / 2)
             kind: "scrim"
             icon.name: modelData < 0 ? "go-previous-symbolic" : "go-next-symbolic"
             Accessible.name: modelData < 0 ? "Previous game" : "Next game"

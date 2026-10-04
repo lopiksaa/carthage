@@ -75,10 +75,13 @@ FocusScope {
     readonly property real sideM: 76  // room for the ← → keys
     readonly property bool wide: width >= 300 + 56 + Ui.detailsWidth + 96
     // Wide, the cartridge gives way first: the details always get their full width.
-    readonly property real heroH: wide ? Math.min(height * 0.6, 500, (width - 2 * sideM - 56 - Ui.detailsWidth) * Backend.theme.ratio)
+    readonly property real heroH: wide ? Math.min(height * 0.56, 470, (width - 2 * sideM - 56 - Ui.detailsWidth) * Backend.theme.ratio)
                                        : Math.min(height * 0.38, 330)
     readonly property real heroW: Math.round(heroH / Backend.theme.ratio)
-    readonly property real heroTop: Math.max(56, Math.round(height * 0.08))
+    // Short details: the cartridge (with its store chips) and the details centered as a group;
+    // long ones (they scroll): both from the top.
+    readonly property real panelNaturalH: pinned.height + Ui.gapL + col.height
+    readonly property real heroTop: Math.max(56, Math.round((height - Math.max(heroH + 60, panelNaturalH)) / 2))
     readonly property real panelW: wide ? Math.min(720, width - sideM - heroW - 56 - sideM)
                                         : Math.min(Ui.detailsWidth, width - 64)
     // The cartridge and the details as one group, centered on a wide screen.
@@ -288,6 +291,10 @@ FocusScope {
         id: card
         x: page.wide ? page.heroLeft - (width - page.heroW) / 2 : Math.round((page.width - width) / 2)
         y: page.wide ? page.heroTop - (height - page.heroH) / 2 : 20 - (height - page.heroH) / 2 + page.heroH * 0.1
+        Behavior on y {  // re-centering when the details arrive
+            enabled: page.open
+            NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }
+        }
         width: page.heroW * 2.1
         height: page.heroH * 1.35
         cardHeight: page.heroH
@@ -458,6 +465,10 @@ FocusScope {
         readonly property real avail: page.wide ? page.height - page.heroTop - 40 : page.height - (20 + page.heroH + 24) - 20
         x: page.panelBaseX - page.galleryLevel * 40
         y: page.wide ? page.heroTop : 20 + page.heroH + 24
+        Behavior on y {
+            enabled: page.open
+            NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }
+        }
         width: details.width
         height: pinned.height + Ui.gapL + details.height
         opacity: page.level * page.swapFade * morph.detailsOpacity
@@ -714,6 +725,7 @@ FocusScope {
         shown: page.open
         arrows: page.wide && page.siblings.length > 1
         opacity: page.level
+        arrowY: page.wide ? card.y + card.height / 2 : -1
         onStep: (dir) => page.step(dir)
         onClose: page.close()
     }

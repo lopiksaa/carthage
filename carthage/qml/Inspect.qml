@@ -49,13 +49,27 @@ FocusScope {
     readonly property real sideM: 76  // room for the ← → keys
     readonly property bool wide: width >= 300 + gap + Ui.detailsWidth + 96
     // Wide, the cartridge gives way first: the details always get their full width.
-    readonly property real heroH: wide ? Math.min(height * 0.6, 500, (width - 2 * sideM - gap - Ui.detailsWidth) * ratio)
+    readonly property real heroH: wide ? Math.min(height * 0.56, 470, (width - 2 * sideM - gap - Ui.detailsWidth) * ratio)
                                        : Math.min(height * 0.42, 360)
     readonly property real heroW: Math.round(heroH / ratio)
     // The cartridge and the details as one group, centered on a wide screen.
     readonly property real heroX: wide ? Math.max(sideM, Math.round((width - (heroW + gap + panelW)) / 2))
                                        : Math.round((width - heroW) / 2)
-    readonly property real heroY: wide ? Math.max(56, Math.round(height * 0.08)) : 28
+    // Short details: the cartridge and the details centered as a group (balanced). Long ones
+    // (they scroll): both from the top.
+    readonly property real panelNaturalH: pinned.height + Ui.gapXL + details.height
+    readonly property real heroY: wide ? Math.max(56, Math.round((height - Math.max(heroH, panelNaturalH)) / 2)) : 28
+    // Once the cartridge has arrived, it follows its place when the place moves (the window is
+    // resized, the details arrive and the group re-centers).
+    readonly property bool settled: open && !openAnim.running && !closeAnim.running && !stepAnim.running
+                                    && !settleAnim.running && !flipAnim.running
+    onHeroXChanged: if (settled) follow.restart()
+    onHeroYChanged: if (settled) follow.restart()
+    ParallelAnimation {
+        id: follow
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
+        NumberAnimation { target: hero; property: "y"; to: inspect.heroY; duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
+    }
     readonly property real panelW: wide ? Math.min(720, width - 2 * sideM - heroW - gap)
                                         : Math.min(Ui.detailsWidth, width - 64)
 
@@ -659,6 +673,10 @@ FocusScope {
                                                    : inspect.height - (inspect.heroY + inspect.heroH + 28) - 20
         x: inspect.panelBaseX - inspect.galleryLevel * 40
         y: inspect.wide ? inspect.heroY : inspect.heroY + inspect.heroH + 28
+        Behavior on y {
+            enabled: inspect.settled
+            NumberAnimation { duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
+        }
         width: detailsFlick.width
         height: pinned.height + Ui.gapXL + detailsFlick.height
         opacity: inspect.panelLevel * morph.detailsOpacity
@@ -868,6 +886,7 @@ FocusScope {
     }
 
     PageControls {
+        arrowY: inspect.wide ? hero.y + hero.height * hero.scale / 2 : -1
         anchors.fill: parent
         z: 1
         shown: inspect.open
