@@ -218,8 +218,23 @@ FocusScope {
     }
     property bool rolling: false
     property var rollFaces: []
+    // Rolling while scrolled down (looking at screenshots): back to the top first, then roll.
+    Timer {
+        id: rollAfterReset
+        property string gid
+        property var pool
+        interval: 240 * Math.max(inspect.motion, 0.01)
+        onTriggered: inspect.rollTo(gid, pool)
+    }
     function rollTo(gid, pool) {
         if (!open || openAnim.running || closeAnim.running || stepAnim.running || rolling) return
+        if (detailsFlick.contentY > 1 && motion > 0) {
+            detailsWheel.glideTo(0, 220 * motion)
+            rollAfterReset.gid = gid
+            rollAfterReset.pool = pool
+            rollAfterReset.restart()
+            return
+        }
         otherMenu.close()
         settleAnim.stop()
         flipAnim.stop()
@@ -325,11 +340,16 @@ FocusScope {
             closeAnim.toOpacity = 1
             closeAnim.toSpin = Math.round(hero.spin / 360) * 360
         } else {
+            // Its slot isn't on screen: the card slides away toward it (up if the slot is above
+            // the visible tray, otherwise down).
+            const row = Backend.games.rowOf(game.gameId)
+            const top = appRoot.firstVisibleRow()
+            const up = row >= 0 && top >= 0 && row < top
             closeAnim.toSpin = Math.round(hero.spin / 360) * 360
             closeAnim.toX = hero.x
-            closeAnim.toY = hero.y + 40
-            closeAnim.toScale = hero.scale * 0.9
-            closeAnim.toOpacity = 0
+            closeAnim.toY = up ? -heroH * 1.4 : inspect.height + 40
+            closeAnim.toScale = hero.scale
+            closeAnim.toOpacity = 1
         }
         if (motion <= 0) {
             finishClose()
@@ -406,7 +426,9 @@ FocusScope {
         id: stageSource
         sourceItem: inspect.stage
         sourceRect: Qt.rect(inspect.x, inspect.y, inspect.width, inspect.height)  // the part behind
-        live: inspect.visible
+        // Frozen while the view is open (cartridges going in and out of the tray while rolling
+        // would show through); live while it opens and closes.
+        live: inspect.visible && (!inspect.open || openAnim.running || closeAnim.running)
         visible: false
     }
     MultiEffect {
@@ -882,7 +904,7 @@ FocusScope {
         gallery: mediaGallery
         view: galleryView
         button: playButton
-        active: inspect.open && inspect.wide
+        active: false  // full view only when a screenshot is clicked (scrolling just scrolls)
         motion: inspect.motion
         onEntered: galleryView.forceActiveFocus()
     }

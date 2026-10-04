@@ -92,6 +92,10 @@ Item {
         searchPage.text = text
         if (text !== "" && page !== "search") navigate("search")
     }
+    // The first game row showing in the tray (for a card sliding away toward its slot).
+    function firstVisibleRow() {
+        return tray.indexAt(tray.contentX + tray.width / 2, tray.contentY + 10)
+    }
     function showOwned(gid) {
         setMode("library")
         Backend.games.filterText = ""
@@ -399,6 +403,7 @@ Item {
     property string diceSpot: ""  // the card the light is on
     function rollDice() {
         if (diceTimer.running || diceScroll.running) return
+        if (mediaViewer.opened) mediaViewer.close()  // back from a full-size screenshot first
         const current = inspect.open ? inspect.game.gameId : ""
         const pool = []
         for (const m of [Backend.favorites, Backend.games])

@@ -715,7 +715,7 @@ FocusScope {
         gallery: mediaGallery
         view: galleryView
         button: buyButton
-        active: page.open && page.wide
+        active: false  // full view only when a screenshot is clicked (scrolling just scrolls)
         motion: page.motion
         onEntered: galleryView.forceActiveFocus()
     }
