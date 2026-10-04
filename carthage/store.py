@@ -246,11 +246,26 @@ def _compact(n):
 
 def _strip_html(html):
     text = re.sub(r"<br\s*/?>", "\n", html or "")
+    # Headings, paragraphs and list items start their own line (not glued to the text before).
+    text = re.sub(r"<li\b[^>]*>", "\n• ", text, flags=re.I)
+    text = re.sub(r"</li>", "", text, flags=re.I)
+    text = re.sub(r"</?(h[1-6]|p|ul|ol|div)\b[^>]*>", "\n", text, flags=re.I)
+    text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"<[^>]+>", "", text)
     from html import unescape  # (the argument is also called html)
 
     # Steam's text keeps HTML entities (&amp;, &quot;, &#39;…): turn them back into characters.
     return re.sub(r"\n{3,}", "\n\n", unescape(text)).strip()
+
+
+def _about_without(about, short):
+    """About This Game without its first paragraph when that's just the short description again
+    (it's already shown above it)."""
+    a, s = about.strip(), short.strip()
+    if s and a.startswith(s[:80]):
+        rest = a[len(s):].lstrip() if a.startswith(s) else a.split("\n", 1)[1].lstrip() if "\n" in a else ""
+        return rest
+    return a
 
 
 class Store(QObject):
@@ -889,7 +904,8 @@ class Store(QObject):
                             "url": m.get("hls_h264") or (m.get("mp4") or {}).get("max")
                                    or (m.get("mp4") or {}).get("480") or (m.get("webm") or {}).get("max") or ""}
                            for m in data.get("movies") or []][:4],
-                "about": _strip_html(data.get("about_the_game") or data.get("detailed_description") or "")[:4000],
+                "about": _about_without(_strip_html(data.get("about_the_game") or data.get("detailed_description") or ""),
+                                        _strip_html(data.get("short_description", "")))[:4000],
                 "features": [c.get("description", "") for c in data.get("categories") or []][:12],
                 "languages": _strip_html((data.get("supported_languages") or "").replace("<strong>*</strong>", "")).split(",")
                              if data.get("supported_languages") else [],
