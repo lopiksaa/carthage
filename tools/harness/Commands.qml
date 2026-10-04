@@ -147,6 +147,29 @@ QtObject {
             if (cmd.store !== undefined) storeView.filterStore = cmd.store
             if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
             break
+        case "geometry": { // {"tag": "library"}: one GEO line per visible item (for layout audits)
+            const W = app.width, H = app.height
+            const walk = (item, depth) => {
+                if (!item || !item.visible || item.opacity <= 0.01 || item.width <= 0 || item.height <= 0) return
+                const p = item.mapToItem(null, 0, 0)
+                if (p.x < W && p.y < H && p.x + item.width > 0 && p.y + item.height > 0) {
+                    const t = item.toString()
+                    const rec = { tag: cmd.tag, d: depth, type: t.slice(0, t.indexOf("(")), name: item.objectName || "",
+                                  x: Math.round(p.x), y: Math.round(p.y), w: Math.round(item.width), h: Math.round(item.height),
+                                  click: typeof item.clicked === "function" || typeof item.tapped === "function" }
+                    if (typeof item.text === "string" && item.text !== "") rec.text = item.text.slice(0, 40)
+                    if (item.font && item.font.pixelSize > 0 && typeof item.text === "string") {
+                        rec.px = item.font.pixelSize; rec.fam = item.font.family; rec.wt = item.font.weight
+                        if (typeof item.baselineOffset === "number") rec.base = Math.round(p.y + item.baselineOffset)
+                        if (typeof item.contentWidth === "number") rec.cw = Math.round(item.contentWidth)
+                    }
+                    console.warn("GEO " + JSON.stringify(rec))
+                }
+                for (const c of item.children) walk(c, depth + 1)
+            }
+            walk(app, 0)
+            break
+        }
         case "sidebar":  // {"collapsed": bool}
             Backend.settings.sidebarCollapsed = cmd.collapsed
             break

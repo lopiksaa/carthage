@@ -162,11 +162,46 @@ def _readable(fg, bg, minimum):
     return fg
 
 
+def _readable_on(fg, backgrounds, minimum):
+    """fg readable (≥ minimum) on every one of `backgrounds` (a gradient's ends): nudged toward
+    whichever of white or black can get there, even if that means crossing to the other side
+    (mid-tone plastics need dark text)."""
+    def worst(c):
+        return min(contrast(c, b) for b in backgrounds)
+    if worst(fg) >= minimum:
+        return fg
+    step = 0.03 if worst("#ffffff") >= worst("#000000") else -0.03
+    for _ in range(60):
+        if worst(fg) >= minimum:
+            break
+        fg = _shift(fg, step)
+    return fg
+
+
 def _fix_contrast(p):
     p["engrave"] = _readable(p["engrave"], p["recess"], 3.0)
-    p["dockTextDim"] = _readable(p["dockTextDim"], p["dockBottom"], 4.5)
-    p["dockText"] = _readable(p["dockText"], p["dockBottom"], 4.5)
-    p["trayTextDim"] = _readable(p["trayTextDim"], p["tray"], 4.5)
+    # The plastic is a gradient (the sidebar and dock span all of it): readable on both ends.
+    p["dockText"] = _readable_on(p["dockText"], (p["dockTop"], p["dockBottom"]), 4.5)
+    # Mid-tone plastics where no text color reaches 4.5:1 on both ends: the failing end of the
+    # gradient moves (a little deeper or lighter) until the text does. Cartridge shells keep
+    # their own colors.
+    light_text = luminance(p["dockText"]) > 0.5
+    for _ in range(30):
+        top_ok = contrast(p["dockText"], p["dockTop"]) >= 4.5
+        bottom_ok = contrast(p["dockText"], p["dockBottom"]) >= 4.5
+        if top_ok and bottom_ok:
+            break
+        step = -0.02 if light_text else 0.02
+        if not top_ok:
+            p["dockTop"] = _shift(p["dockTop"], step)
+        if not bottom_ok:
+            p["dockBottom"] = _shift(p["dockBottom"], step)
+    p["dockTextDim"] = _readable_on(p["dockTextDim"], (p["dockTop"], p["dockBottom"]), 4.5)
+    if min(contrast(p["dockTextDim"], b) for b in (p["dockTop"], p["dockBottom"])) < 4.5:
+        p["dockTextDim"] = p["dockText"]  # no room for a dimmer readable shade
+    p["trayTextDim"] = _readable_on(p["trayTextDim"], (p["tray"],), 4.5)
+    if contrast(p["trayTextDim"], p["tray"]) < 4.5:
+        p["trayTextDim"] = p["trayText"]
     return p
 
 
@@ -177,7 +212,7 @@ EDITIONS["neon"].update({"dockText": "#12160a", "dockTextDim": "#2e3a14", "trayT
 EDITIONS["atomic"] = _variant("dark", "#6b4bb8")
 EDITIONS["red"] = _variant("dark", "#d8343a", tray="#2a1416")
 
-for _e in ("pink", "mint", "neon", "atomic", "red"):
+for _e in ("dark", "light", "pink", "mint", "neon", "atomic", "red"):
     _fix_contrast(EDITIONS[_e])
 
 

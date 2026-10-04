@@ -68,7 +68,7 @@ Item {
         QQC2.ToolTip.text: text
         QQC2.ToolTip.delay: 300
         // Lit when chosen or pointed at; a little softer otherwise.
-        readonly property color ink: current || hovered ? bar.pal.dockText : Qt.alpha(bar.pal.dockText, 0.78)
+        readonly property color ink: bar.pal.dockText  // full strength: ≥4.5:1 on every plastic (theme)
         // The chosen page is a key pressed into the panel (shaded at the top, caught by the light
         // at the bottom) with a lit mark at its left; hover only lightens.
         background: Item {
@@ -299,7 +299,7 @@ Item {
                         anchors.leftMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Search"
-                        color: Qt.alpha(bar.pal.dockText, 0.6)
+                        color: bar.pal.dockTextDim
                         font.family: Ui.fontText
                         font.weight: Font.Medium
                         font.pixelSize: Ui.textBody
@@ -320,7 +320,7 @@ Item {
                             id: capText
                             anchors.centerIn: parent
                             text: "Ctrl F"
-                            color: Qt.alpha(bar.pal.dockText, 0.55)
+                            color: bar.pal.dockTextDim
                             font.family: Ui.fontText
                             font.weight: Font.Bold
                             font.pixelSize: Ui.textCaption - 1
