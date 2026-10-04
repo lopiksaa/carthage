@@ -81,6 +81,8 @@ FocusScope {
     readonly property real heroTop: Math.max(56, Math.round(height * 0.08))
     readonly property real panelW: wide ? Math.min(720, width - sideM - heroW - 56 - sideM)
                                         : Math.min(Ui.detailsWidth, width - 64)
+    // The cartridge and the details as one group, centered on a wide screen.
+    readonly property real heroLeft: Math.max(sideM, Math.round((width - (heroW + 56 + panelW)) / 2))
 
     visible: level > 0.001 || open
 
@@ -284,7 +286,7 @@ FocusScope {
 
     Card3D {
         id: card
-        x: page.wide ? page.sideM - (width - page.heroW) / 2 : Math.round((page.width - width) / 2)
+        x: page.wide ? page.heroLeft - (width - page.heroW) / 2 : Math.round((page.width - width) / 2)
         y: page.wide ? page.heroTop - (height - page.heroH) / 2 : 20 - (height - page.heroH) / 2 + page.heroH * 0.1
         width: page.heroW * 2.1
         height: page.heroH * 1.35

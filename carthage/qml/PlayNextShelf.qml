@@ -56,6 +56,7 @@ Column {
                 appRoot: pn.appRoot,
             })
             onLoaded: {
+                item.trayModel = Qt.binding(() => pn.listModel)  // follows a page switching lists
                 item.leftMargin = Qt.binding(() => pn.tray.leftMargin)
                 item.rightMargin = Qt.binding(() => pn.tray.rightMargin)
                 item.interactive = false

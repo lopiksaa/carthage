@@ -250,7 +250,12 @@ class Backend(QObject):
     @Property(float, constant=True)
     def motion(self):
         """Animation speed factor: KDE's accessibility setting on Linux, 1 elsewhere; 0 = instant."""
+        import os
+
         from . import chrome
+
+        if os.environ.get("GC_DEMO") and os.environ.get("GC_MOTION"):  # test runs: 0 for still screenshots
+            return float(os.environ["GC_MOTION"])
 
         return chrome.animation_factor()
 

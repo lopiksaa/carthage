@@ -50,6 +50,7 @@ Item {
         page = p
         const m = p.startsWith("store:") ? "store" : "library"
         if (m !== mode) mode = m
+        tray.quietFor(400)  // a new page, not a change to animate
         if (p.startsWith("library:source:")) Backend.games.filterMode = p.slice(8)
         else if (Backend.games.filterMode.startsWith("source:")) Backend.games.filterMode = "all"
         if (m === "store") storeView.load()
@@ -687,7 +688,8 @@ Item {
                 // page, dialog, menu, drawer), nothing behind it takes clicks, hover or scroll.
                 enabled: !app.modalOpen
                 anchors.top: parent.top
-                anchors.left: sidebar.right
+                anchors.left: parent.left
+                anchors.leftMargin: sidebar.layoutWidth
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
 
@@ -830,11 +832,10 @@ Item {
                     appRoot: app
                     anchors.top: pageBar.bottom
                     anchors.left: parent.left
-                    anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     anchors.leftMargin: 24
-                    anchors.rightMargin: 24
-                    anchors.bottomMargin: 24
+                    anchors.bottomMargin: Math.max(24, dock.clearance)  // clear of the dock while a game runs
+                    width: Math.min(parent.width - 48, 1040)  // a settings window, not a wall
                     onCloseRequested: app.navigateBack()
                 }
 
@@ -890,7 +891,7 @@ Item {
                     readonly property real clearance: wanted ? height + protrude - lipY + 30 : Ui.spacingLarge
                     hideY: wanted ? 0 : height + protrude + 40
                     Behavior on hideY { NumberAnimation { duration: 240 * app.motion; easing.type: Easing.OutCubic } }
-                    width: Math.min(parent.width - 48, 640)
+                    width: Math.min(parent.width - 48, statusRoom + slotCount * 156 + 12)
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 18

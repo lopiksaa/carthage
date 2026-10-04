@@ -52,9 +52,11 @@ FocusScope {
     readonly property real heroH: wide ? Math.min(height * 0.6, 500, (width - 2 * sideM - gap - Ui.detailsWidth) * ratio)
                                        : Math.min(height * 0.42, 360)
     readonly property real heroW: Math.round(heroH / ratio)
-    readonly property real heroX: wide ? sideM : Math.round((width - heroW) / 2)
+    // The cartridge and the details as one group, centered on a wide screen.
+    readonly property real heroX: wide ? Math.max(sideM, Math.round((width - (heroW + gap + panelW)) / 2))
+                                       : Math.round((width - heroW) / 2)
     readonly property real heroY: wide ? Math.max(56, Math.round(height * 0.08)) : 28
-    readonly property real panelW: wide ? Math.min(720, width - heroX - heroW - gap - sideM)
+    readonly property real panelW: wide ? Math.min(720, width - 2 * sideM - heroW - gap)
                                         : Math.min(Ui.detailsWidth, width - 64)
 
     visible: level > 0.001 || open || closeAnim.running || warming

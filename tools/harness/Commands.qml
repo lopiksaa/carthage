@@ -147,9 +147,6 @@ QtObject {
             if (cmd.store !== undefined) storeView.filterStore = cmd.store
             if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
             break
-        case "setting":  // {"key": "textureStrength", "value": 1.2} (test runs never save settings)
-            Backend.settings[cmd.key] = cmd.value
-            break
         case "sidebar":  // {"collapsed": bool}
             Backend.settings.sidebarCollapsed = cmd.collapsed
             break

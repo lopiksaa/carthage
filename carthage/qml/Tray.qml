@@ -201,13 +201,26 @@ GridView {
         }
     }
 
-    remove: Transition {
+    // Games coming, going and making room are animated, but not when a whole page changes
+    // (switching lists or launchers: dozens at once could leave a card behind) or when
+    // animations are off.
+    property bool quiet: false
+    function quietFor(ms) { quiet = true; quietEnd.interval = ms; quietEnd.restart() }
+    Timer { id: quietEnd; onTriggered: grid.quiet = false }
+    readonly property bool animateChanges: Backend.motion > 0 && !quiet
+    remove: animateChanges ? removeT : null
+    displaced: animateChanges ? displacedT : null
+    add: animateChanges ? addT : null
+    Transition {
+        id: removeT
         NumberAnimation { property: "opacity"; to: 0; duration: (100 * Backend.motion) }
     }
-    displaced: Transition {
+    Transition {
+        id: displacedT
         NumberAnimation { properties: "x,y"; duration: (200 * Backend.motion); easing.type: Easing.OutCubic }
     }
-    add: Transition {
+    Transition {
+        id: addT
         NumberAnimation { property: "opacity"; from: 0; to: 1; duration: (100 * Backend.motion) }
     }
 }

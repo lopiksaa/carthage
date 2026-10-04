@@ -49,14 +49,16 @@ Flickable {
         else Backend.store.browse("search" + requestId, {
             term: term, tags: genres, sale: sale, maxPrice: price, sort: sort, store: store })
     }
-    onTermChanged: delay.restart()
+    onTermChanged: { started = true; delay.restart() }
     onGenresChanged: delay.restart()
     onPriceChanged: delay.restart()
     onSaleChanged: delay.restart()
     onStoreChanged: delay.restart()
     onSortChanged: delay.restart()
     Timer { id: delay; interval: 380; onTriggered: page.refresh() }
-    Component.onCompleted: refresh()
+    // The first results load when the page is first shown, not at startup.
+    property bool started: false
+    onVisibleChanged: if (visible && !started) { started = true; refresh() }
 
     Connections {
         target: Backend.store
@@ -199,7 +201,8 @@ Flickable {
                 }
             }
         }
-        Row {
+        Flow {  // wraps in a narrow window
+            width: parent.width
             spacing: Ui.gapS
             RowLabel { text: "Price" }
             Repeater {
@@ -218,7 +221,8 @@ Flickable {
                 onClicked: page.sale = !page.sale
             }
         }
-        Row {
+        Flow {  // wraps in a narrow window
+            width: parent.width
             spacing: Ui.gapS
             RowLabel { text: "Store" }
             Repeater {

@@ -22,7 +22,9 @@ Item {
     readonly property int filled: Backend.sessions.count
     // One slot per docked game, or one empty slot while nothing is docked.
     readonly property int slotCount: Math.max(1, filled)
-    readonly property real slotW: Math.min(156, width / slotCount)
+    // Floating, the status takes the left part (statusRoom) and the slots line up after it.
+    readonly property real statusRoom: 320
+    readonly property real slotW: Math.min(156, (floating ? Math.max(slotCount * 84, width - statusRoom) : width) / slotCount)
 
     // Slots slide only while one is added or removed, not while the window is resized (they'd
     // lag behind the edge).
@@ -42,6 +44,7 @@ Item {
     height: 70
 
     function slotX(i) {
+        if (floating) return Math.round(width - 12 - slotCount * slotW + i * slotW)
         return Math.round((width - slotCount * slotW) / 2 + i * slotW)
     }
     function seatPos(i) {
@@ -109,7 +112,8 @@ Item {
         readonly property color ink: dock.pal.dockText
         readonly property color inkDim: dock.pal.dockTextDim
         readonly property Item s: dock.activeSlot
-        readonly property real room: (dock.width - dock.slotCount * dock.slotW) / 2 - 2 * Ui.gapXL
+        readonly property real room: dock.floating ? dock.slotX(0) - 20 - Ui.gapL
+                                                   : (dock.width - dock.slotCount * dock.slotW) / 2 - 2 * Ui.gapXL
         readonly property var inst: dock.installing
         readonly property bool gettingArt: !s && !inst && !!Backend.artPicker && Backend.artPicker.pending > 0
         readonly property color ledColor: dock.appRoot && !dock.appRoot.powered ? dock.pal.ledOff

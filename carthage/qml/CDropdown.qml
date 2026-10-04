@@ -14,6 +14,8 @@ CButton {
     property var value
     property var options: [] // [{ value, text }]
     property int chipColumns: 0 // 0: a menu; more: a panel of chips in this many columns
+    property bool compact: false // just the value (a narrow bar); the label stays in Accessible.name
+    property string compactIcon     // shown instead of the label when compact, so two "All"s differ
     signal picked(var value)
 
     readonly property string currentText: (options.find(o => o.value === value) || options[0] || {}).text || ""
@@ -30,7 +32,16 @@ CButton {
             id: row_
             anchors.centerIn: parent
             spacing: 6
+            CIcon {
+                visible: dd.compact && dd.compactIcon !== ""
+                anchors.verticalCenter: parent.verticalCenter
+                width: 14
+                height: 14
+                source: dd.compactIcon
+                color: dd.isKey ? Qt.alpha(dd.fg, 0.62) : dd.pal.panelTextDim
+            }
             Text {
+                visible: !dd.compact
                 anchors.verticalCenter: parent.verticalCenter
                 text: dd.label
                 color: dd.isKey ? Qt.alpha(dd.fg, 0.62) : dd.pal.panelTextDim

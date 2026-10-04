@@ -23,7 +23,10 @@ Item {
     readonly property real iconX: 11     // the icon inside an entry (centered when folded)
     readonly property real topH: 52      // the top row, level with the pages' title row
 
-    width: collapsed ? narrowW : wideW
+    // The pages move to the new width at once (one layout, not one per frame); the panel
+    // itself slides over them.
+    readonly property real layoutWidth: collapsed ? narrowW : wideW
+    width: layoutWidth
     Behavior on width { NumberAnimation { duration: 170 * Backend.motion; easing.type: Easing.OutCubic } }
 
     Plastic { anchors.fill: parent }

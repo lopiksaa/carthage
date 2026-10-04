@@ -27,6 +27,9 @@ Item {
     ]
 
     height: 52
+    // Narrow (a small window): the menus show just their value, then the count goes.
+    readonly property bool compact: width < 760
+    readonly property bool tiny: width < 600
 
     Row {
         x: bar.tray ? bar.tray.contentLeft : 24
@@ -37,6 +40,7 @@ Item {
             text: bar.title
         }
         Text {
+            visible: !bar.tiny
             anchors.verticalCenter: parent.verticalCenter
             readonly property int n: bar.count >= 0 ? bar.count : Backend.games.count + Backend.favorites.count
             text: n + " "
@@ -57,6 +61,8 @@ Item {
             visible: !bar.sourcePage
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
+            compact: bar.compact
+            compactIcon: "download"
             label: "Show"
             value: Backend.games.filterMode
             options: bar.showOptions
@@ -66,6 +72,8 @@ Item {
             visible: Backend.genreOptions.length > 0  // once the genres have loaded
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
+            compact: bar.compact
+            compactIcon: "tag"
             label: "Genre"
             chipColumns: 3
             value: Backend.games.genre
@@ -75,6 +83,7 @@ Item {
         CDropdown {
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
+            compact: bar.compact
             label: "Sort"
             value: Backend.games.sortMode
             options: bar.sortOptions

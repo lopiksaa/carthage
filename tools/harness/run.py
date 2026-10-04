@@ -129,6 +129,8 @@ def main():
         elif "shot" in step:
             root.grabWindow().save(step["shot"])
             print("[harness] shot", step["shot"], flush=True)
+        elif step.get("do") == "size":  # {"w": 1900, "h": 1020}: the window's size
+            root.resize(step["w"], step["h"])
         elif step.get("do") == "exit":
             app.quit()
         elif step.get("do") == "drag":  # press, move in steps, optionally release

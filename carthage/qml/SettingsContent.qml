@@ -195,9 +195,11 @@ Column {
             // One chip size for both color grids, so their colors line up in columns.
             readonly property var options: Backend.theme.hardwareOptions
             readonly property real chipSize: 30
+            // All on one line when there's room, else rows of 9 (both grids line up).
+            readonly property int chipColumns: width >= 17 * (chipSize + Ui.gapS) ? 17 : 9
             Label_ { text: "Hardware  ·  " + ((look.options.find(o => o.value === Backend.settings.hardware) || {}).text || "Custom") }
-            Flow {
-                width: parent.width
+            Grid {
+                columns: look.chipColumns
                 spacing: Ui.gapS
                 Repeater {
                     model: look.options
@@ -221,8 +223,8 @@ Column {
             }
             Label_ { text: "Cartridges  ·  " + (Backend.settings.cardColor === "same" ? "Same as hardware"
                         : ((look.options.find(o => o.value === Backend.settings.cardColor) || {}).text || "Custom")) }
-            Flow {
-                width: parent.width
+            Grid {
+                columns: look.chipColumns
                 spacing: Ui.gapS
                 Repeater {
                     model: look.options
