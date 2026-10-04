@@ -89,11 +89,14 @@ Flickable {
     Keys.onEscapePressed: page.appRoot.navigateBack()
 
     // A filter chip: on (accent) or off.
+    // A filter you can turn on and off: outlined when off, tinted with its color when on.
     component Chip: QQC2.AbstractButton {
         id: chip
         property bool on: false
+        property color tint: Backend.theme.accent.accent
+        property string iconName
         height: 30
-        implicitWidth: chipLabel.implicitWidth + 2 * Ui.gapM
+        implicitWidth: chipRow.implicitWidth + 2 * Ui.gapM
         hoverEnabled: true
         focusPolicy: Qt.StrongFocus
         Accessible.role: Accessible.CheckBox
@@ -102,20 +105,105 @@ Flickable {
         Keys.onReturnPressed: clicked()
         background: Rectangle {
             radius: height / 2
-            color: chip.on ? Backend.theme.accent.accent
-                 : chip.hovered ? Qt.alpha(page.pal.trayText, 0.14) : Qt.alpha(page.pal.trayText, 0.06)
+            color: chip.on ? Qt.alpha(chip.tint, chip.hovered ? 0.34 : 0.24)
+                 : chip.hovered ? Qt.alpha(page.pal.trayText, 0.08) : "transparent"
             border.width: chip.visualFocus ? 2 : 1
-            border.color: chip.visualFocus ? Ui.focusColor : chip.on ? "transparent" : Qt.alpha(page.pal.trayText, 0.18)
+            border.color: chip.visualFocus ? Ui.focusColor
+                        : chip.on ? Qt.alpha(chip.tint, 0.9) : Qt.alpha(page.pal.trayText, 0.16)
         }
-        contentItem: Text {
-            id: chipLabel
-            text: chip.text
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: chip.on ? Backend.theme.accent.accentText : page.pal.trayText
-            font.family: Ui.fontText
-            font.weight: chip.on ? Font.Bold : Font.DemiBold
-            font.pixelSize: Ui.textCaption + 1
+        contentItem: Item {
+            implicitWidth: chipRow.implicitWidth
+            Row {
+                id: chipRow
+                anchors.centerIn: parent
+                spacing: 6
+                CIcon {
+                    visible: chip.iconName !== ""
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 13
+                    height: 13
+                    source: chip.iconName
+                    color: chipLabel.color
+                }
+                Text {
+                    id: chipLabel
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: chip.text
+                    color: chip.on || chip.hovered ? page.pal.trayText : Qt.alpha(page.pal.trayText, 0.72)
+                    font.family: Ui.fontText
+                    font.weight: chip.on ? Font.Bold : Font.Medium
+                    font.pixelSize: Ui.textCaption + 1
+                }
+            }
+        }
+    }
+    // One choice of a few: a quiet track, the chosen one raised in it.
+    component Segments: Rectangle {
+        id: segs
+        property var options: []   // [{ v, t }]
+        property var value
+        signal picked(var value)
+        readonly property int current: options.findIndex(o => o.v === value)
+        width: segRow.implicitWidth + 6
+        height: 30
+        radius: height / 2
+        color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.22 : 0.08)
+        border.width: 1
+        border.color: Qt.alpha(page.pal.trayText, 0.10)
+        Accessible.role: Accessible.PageTabList
+        Rectangle {  // the chosen one
+            readonly property Item at: segRepeater.itemAt(Math.max(0, segs.current))
+            visible: segs.current >= 0 && at !== null
+            x: at ? segRow.x + at.x : 0
+            y: 3
+            width: at ? at.width : 0
+            height: parent.height - 6
+            radius: height / 2
+            color: Qt.alpha(page.pal.trayText, Backend.theme.dark ? 0.22 : 0.16)
+            border.width: 1
+            border.color: Qt.alpha(page.pal.trayText, 0.16)
+            Behavior on x { NumberAnimation { duration: 160 * Backend.motion; easing.type: Easing.OutCubic } }
+            Behavior on width { NumberAnimation { duration: 160 * Backend.motion; easing.type: Easing.OutCubic } }
+        }
+        Row {
+            id: segRow
+            x: 3
+            anchors.verticalCenter: parent.verticalCenter
+            Repeater {
+                id: segRepeater
+                model: segs.options
+                delegate: QQC2.AbstractButton {
+                    id: seg
+                    required property var modelData
+                    required property int index
+                    readonly property bool chosen: index === segs.current
+                    height: 24
+                    implicitWidth: segText.implicitWidth + 2 * Ui.gapM
+                    hoverEnabled: true
+                    focusPolicy: Qt.StrongFocus
+                    Accessible.role: Accessible.PageTab
+                    Accessible.name: modelData.t
+                    Accessible.selected: chosen
+                    Keys.onReturnPressed: clicked()
+                    onClicked: segs.picked(modelData.v)
+                    background: Rectangle {
+                        radius: height / 2
+                        color: "transparent"
+                        border.width: seg.visualFocus ? 2 : 0
+                        border.color: Ui.focusColor
+                    }
+                    contentItem: Text {
+                        id: segText
+                        text: seg.modelData.t
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        color: seg.chosen || seg.hovered ? page.pal.trayText : Qt.alpha(page.pal.trayText, 0.62)
+                        font.family: Ui.fontText
+                        font.weight: seg.chosen ? Font.Bold : Font.Medium
+                        font.pixelSize: Ui.textCaption + 1
+                    }
+                }
+            }
         }
     }
     component RowLabel: Text {
@@ -205,18 +293,16 @@ Flickable {
             width: parent.width
             spacing: Ui.gapS
             RowLabel { text: "Price" }
-            Repeater {
-                model: [{ v: "", t: "Any" }, { v: "free", t: "Free" }, { v: "10", t: "Under 10" }, { v: "20", t: "Under 20" }]
-                delegate: Chip {
-                    required property var modelData
-                    text: modelData.t
-                    on: page.price === modelData.v
-                    onClicked: page.price = modelData.v
-                }
+            Segments {
+                options: [{ v: "", t: "Any" }, { v: "free", t: "Free" }, { v: "10", t: "Under 10" }, { v: "20", t: "Under 20" }]
+                value: page.price
+                onPicked: (v) => page.price = v
             }
-            Item { width: Ui.gapL; height: 1 }
+            Item { width: Ui.gapS; height: 1 }
             Chip {
                 text: "On Sale"
+                iconName: "tag"
+                tint: "#4c9a1a"  // the discount badges' green
                 on: page.sale
                 onClicked: page.sale = !page.sale
             }
@@ -225,33 +311,20 @@ Flickable {
             width: parent.width
             spacing: Ui.gapS
             RowLabel { text: "Store" }
-            Repeater {
-                model: [{ v: "all", t: "All Stores" }, { v: "steam", t: "Steam" }, { v: "epic", t: "Epic" }]
-                delegate: Chip {
-                    required property var modelData
-                    text: modelData.t
-                    on: page.store === modelData.v
-                    onClicked: page.store = modelData.v
-                }
+            Segments {
+                options: [{ v: "all", t: "All Stores" }, { v: "steam", t: "Steam" }, { v: "epic", t: "Epic" }]
+                value: page.store
+                onPicked: (v) => page.store = v
             }
-            Item { width: Ui.gapL; height: 1 }
-            RowLabel { text: "Order"; width: 60 }
-            Repeater {
-                model: [{ v: "top", t: "Top Sellers" }, { v: "rated", t: "Best Rated" }, { v: "new", t: "Newest" }, { v: "price", t: "Cheapest" }]
-                delegate: Chip {
-                    required property var modelData
-                    text: modelData.t
-                    on: page.sort === modelData.v
-                    onClicked: page.sort = modelData.v
-                }
+            Item { width: Ui.gapS; height: 1 }
+            RowLabel { text: "Order"; width: 58 }
+            Segments {
+                options: [{ v: "top", t: "Top Sellers" }, { v: "rated", t: "Best Rated" }, { v: "new", t: "Newest" }, { v: "price", t: "Cheapest" }]
+                value: page.sort
+                onPicked: (v) => page.sort = v
             }
         }
-        CButton {
-            visible: page.term !== "" || page.genres.length > 0 || page.price !== "" || page.sale || page.store !== "all" || page.sort !== "top"
-            kind: "ghost"
-            text: "Clear All"
-            onClicked: page.clear()
-        }
+        Item { width: 1; height: Ui.gapS }
 
         // In your library.
         Item {
@@ -293,16 +366,30 @@ Flickable {
         }
 
         // In the stores.
-        Row {
-            spacing: Ui.gapM
-            EngravedLabel { text: page.term.length >= 2 || page.hasFilters ? "In the Stores" : "Popular Right Now" }
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: page.state_ === "loading" ? "Searching…" : page.results.length + " games"
-                color: page.pal.trayTextDim
-                font.family: Ui.fontText
-                font.weight: Font.Bold
-                font.pixelSize: Ui.textCaption
+        Item {
+            width: parent.width
+            height: storesTitle.height
+            Row {
+                id: storesTitle
+                spacing: Ui.gapM
+                EngravedLabel { text: page.term.length >= 2 || page.hasFilters ? "In the Stores" : "Popular Right Now" }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: page.state_ === "loading" ? "Searching…" : page.results.length + " games"
+                    color: page.pal.trayTextDim
+                    font.family: Ui.fontText
+                    font.weight: Font.Bold
+                    font.pixelSize: Ui.textCaption
+                }
+            }
+            CButton {
+                visible: page.term !== "" || page.genres.length > 0 || page.price !== "" || page.sale || page.store !== "all" || page.sort !== "top"
+                anchors.right: parent.right
+                anchors.verticalCenter: storesTitle.verticalCenter
+                kind: "ghost"
+                text: "Clear Filters"
+                icon.name: "edit-clear"
+                onClicked: page.clear()
             }
         }
         Text {
