@@ -325,7 +325,7 @@ Flickable {
             Item { width: Ui.gapS; height: 1 }
             Row {
                 spacing: Ui.gapS
-                RowLabel { text: "Order"; width: 58 }
+                RowLabel { text: "Order" }
                 Segments {
                     options: [{ v: "top", t: "Top Sellers" }, { v: "rated", t: "Best Rated" }, { v: "new", t: "Newest" }, { v: "price", t: "Cheapest" }]
                     value: page.sort
