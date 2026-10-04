@@ -772,6 +772,26 @@ class Store(QObject):
 
         threading.Thread(target=work, daemon=True).start()
 
+    epicDetailsReady = Signal(str, "QVariantMap")  # item key, details
+
+    @Slot(str, str)
+    def loadEpicDetails(self, key, title):
+        """Details for a game sold only on Epic: description, About, screenshots, credits."""
+        def work():
+            try:
+                els = shops.epic_search(_fetch_json, title, country(), _money, count=6)
+            except FETCH_ERRORS:
+                els = []
+            want = shops.norm_title(title)
+            el = next((e for e in els if shops.norm_title(e.get("title")) == want), None)
+            if el is None:
+                return
+            d = shops.epic_details(_fetch_json, shops._epic_slug(el), el)
+            if d:
+                self.epicDetailsReady.emit(key, d)
+
+        threading.Thread(target=work, daemon=True).start()
+
     @Slot(int)
     def loadDetails(self, appid):
         self._load_details(appid, quiet=False)

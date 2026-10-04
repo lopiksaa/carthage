@@ -109,6 +109,7 @@ FocusScope {
         offers = it.offers || []
         offerIndex = 0
         if (it.appid) Backend.store.loadDetails(it.appid)
+        else if ((it.store || "") === "epic") Backend.store.loadEpicDetails(keyOf(it), it.name || "")
         // Get the games on either side ready, so ← → shows them at once.
         const list = siblings || []
         for (let k = 0; k < list.length; k++) {
@@ -222,6 +223,9 @@ FocusScope {
         target: Backend.store
         function onDetailsReady(appid, d) {
             if (appid === page.item.appid) page.info = d
+        }
+        function onEpicDetailsReady(key, d) {
+            if (key === page.keyOf(page.item)) page.info = Object.assign({}, page.info, d)
         }
         function onOffersReady(key, list) {
             if (key !== page.keyOf(page.item)) return
