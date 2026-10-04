@@ -389,6 +389,7 @@ class TrayModel(QSortFilterProxyModel):
         self._play_next = {}  # game_id → position in the Play Next list
         self._genre = 0       # a genre's Steam tag (genres.py); 0 = every genre
         self._genre_all = []  # several genres, all required (the search page)
+        self._genre_none = []  # genres a game must not have (the search page)
         self._genres = {}     # game_id → {tag, …}
         self._mirror = mirror
         self.setDynamicSortFilter(True)
@@ -467,10 +468,22 @@ class TrayModel(QSortFilterProxyModel):
 
     genreList = Property("QVariantList", _get_genre_list, _set_genre_list, notify=changed)
 
+    def _get_genre_none(self):
+        return self._genre_none
+
+    def _set_genre_none(self, value):
+        value = [int(v) for v in value or []]
+        if value != self._genre_none:
+            self._genre_none = value
+            self.invalidateFilter()
+            self.changed.emit()
+
+    genreExclude = Property("QVariantList", _get_genre_none, _set_genre_none, notify=changed)
+
     def set_genres(self, genres):
         """{game_id: [tag, …]} from genres.lookup()."""
         self._genres = {g: set(t) for g, t in genres.items()}
-        if self._opts()._genre or self._opts()._genre_all:
+        if self._opts()._genre or self._opts()._genre_all or self._opts()._genre_none:
             self.invalidateFilter()
 
     def _get_sort(self):
@@ -523,6 +536,8 @@ class TrayModel(QSortFilterProxyModel):
         if o._genre and o._genre not in self._genres.get(g.game_id, ()):
             return False
         if o._genre_all and not set(o._genre_all) <= self._genres.get(g.game_id, set()):
+            return False
+        if o._genre_none and set(o._genre_none) & self._genres.get(g.game_id, set()):
             return False
         return not o._text or o._text.casefold() in g.title.casefold()
 

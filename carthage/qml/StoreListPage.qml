@@ -15,6 +15,21 @@ GridView {
     readonly property real cardW: Backend.settings.cardWidth
 
     signal chosen(var item, Item cart, var siblings)
+    // Load More under the cartridges (when the page can fetch the next ones).
+    property bool canLoadMore: false
+    property bool loadingMore: false
+    signal loadMore()
+    footer: Item {
+        visible: grid.canLoadMore || grid.loadingMore
+        width: grid.width - grid.leftMargin - grid.rightMargin
+        height: visible ? 72 : 0
+        CButton {
+            anchors.centerIn: parent
+            enabled: !grid.loadingMore
+            text: grid.loadingMore ? "Loading…" : "Load More"
+            onClicked: grid.loadMore()
+        }
+    }
 
     leftMargin: tray.leftMargin
     rightMargin: tray.rightMargin

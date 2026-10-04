@@ -15,9 +15,9 @@ Item {
     readonly property bool animate: motion > 0
     property string mode: "library"
     // Discord Rich Presence follows the open screen (Python ignores it unless switched on).
-    function updatePresence() { Backend.setPresence(mode, Backend.sessions.count > 0, !!Window.window && Window.window.active) }
+    function updatePresence() { Backend.setPresence(mode, Backend.sessions.count > 0, !!app.Window.window && app.Window.window.active) }
     Connections {
-        target: Window.window
+        target: app.Window.window
         function onActiveChanged() { app.updatePresence() }
     }
     onModeChanged: updatePresence()
@@ -87,9 +87,17 @@ Item {
         searchPage.clear()
         searchPage.setGenres([tag])
     }
+    property int dealsPageNo: 1
+    property bool dealsLoadingMore: false
     Connections {
         target: Backend.store
-        function onDealsReady(list) { app.deals = list }
+        function onDealsReady(list) { app.deals = list; app.dealsPageNo = 1 }
+        function onDealsMoreReady(pageNo, list) {
+            const seen = {}
+            for (const it of app.deals) seen[it.key || it.appid] = true
+            app.deals = app.deals.concat(list.filter(it => !seen[it.key || it.appid]))
+            app.dealsLoadingMore = false
+        }
     }
     // The top bar's field drives the Search page (your games and the stores, with filters).
     function search(text) {
@@ -859,6 +867,9 @@ Item {
                         appRoot: app
                         tray: tray
                         items: app.deals
+                        canLoadMore: app.deals.length > 0
+                        loadingMore: app.dealsLoadingMore
+                        onLoadMore: { app.dealsLoadingMore = true; Backend.store.loadMoreDeals(++app.dealsPageNo) }
                         emptyText: "Gathering the deals…"
                         onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
                     }

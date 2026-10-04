@@ -185,6 +185,16 @@ QtObject {
             })
             break
         }
+        case "searchExclude":  // {"tags": [tag]} genres the search leaves out
+            app.parts.searchPage.exGenres = cmd.tags
+            break
+        case "searchMore":
+            console.warn("RESULTS before", app.parts.searchPage.results.length)
+            app.parts.searchPage.loadMore()
+            break
+        case "searchCount":
+            console.warn("RESULTS now", app.parts.searchPage.results.length)
+            break
         case "toggleSidebar":
             app.toggleSidebar()
             break

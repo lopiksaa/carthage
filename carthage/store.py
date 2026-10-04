@@ -586,15 +586,21 @@ class Store(QObject):
     dealsReady = Signal("QVariantList")
     SORTS = {"top": "topsellers", "new": "Released_DESC", "rated": "Reviews_DESC", "price": "Price_ASC"}
 
-    def _steam_query(self, term="", tags=(), sale=False, max_price="", sort="top", count=CATEGORY_SIZE):
-        """Steam's store search with filters: text, genres (all of them), on sale, a price cap
-        ("free", or euros/dollars as a number), sorted. None if it failed."""
+    def _steam_query(self, term="", tags=(), sale=False, max_price="", sort="top", count=CATEGORY_SIZE,
+                     untags=(), page=1):
+        """Steam's store search with filters: text, genres (all of them, and none of `untags`),
+        on sale, a price cap ("free", or euros/dollars as a number), sorted; `page` for more.
+        None if it failed."""
         q = {"query": "", "start": 0, "count": count, "category1": GAMES_ONLY, "json": 1,
              "cc": country(), "l": "english"}
         if term:
             q["term"] = term
         if tags:
             q["tags"] = ",".join(str(int(t)) for t in tags)
+        if untags:
+            q["untags"] = ",".join(str(int(t)) for t in untags)
+        if page > 1:
+            q["page"] = int(page)
         if sale:
             q["specials"] = 1
         if max_price:
@@ -620,17 +626,20 @@ class Store(QObject):
         does the filtering; a text search also asks Epic (games Steam doesn't sell)."""
         term = (req.get("term") or "").strip()
         tags = [int(t) for t in req.get("tags") or []]
+        untags = [int(t) for t in req.get("untags") or []]
+        page = int(req.get("page") or 1)
         only = req.get("store") or "all"
 
         def work():
             items = []
             if only in ("all", "steam"):
-                got = self._steam_query(term, tags, bool(req.get("sale")), req.get("maxPrice") or "", req.get("sort") or "top")
+                got = self._steam_query(term, tags, bool(req.get("sale")), req.get("maxPrice") or "", req.get("sort") or "top",
+                                        untags=untags, page=page)
                 if got is None:
                     self.browseFailed.emit(key)
                     return
                 items = got
-            if term and only in ("all", "epic") and not tags:
+            if term and only in ("all", "epic") and not tags and not untags and page == 1:
                 try:
                     epic = shops.epic_search(_fetch_json, term, country(), _money)
                 except FETCH_ERRORS:
@@ -646,6 +655,31 @@ class Store(QObject):
                         continue
                     items.append(it)
             self.browseReady.emit(key, self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    dealsMoreReady = Signal(int, "QVariantList")  # page, items
+
+    @Slot(int)
+    def loadMoreDeals(self, page):
+        """The next page of Steam's best-selling discounts, each compared with Epic's price."""
+        def work():
+            from concurrent.futures import ThreadPoolExecutor
+            steam = self._steam_query(sale=True, count=36, page=page) or []
+
+            def best(it):
+                try:
+                    o = shops.epic_offer_for(_fetch_json, it["name"], country(), _money)
+                except FETCH_ERRORS:
+                    o = None
+                if o and o["discount"] and it.get("cents") and o["cents"] < it["cents"]:
+                    return dict(it, store="epic", price=o["price"], original=o["original"],
+                                discount=o["discount"], dealUrl=o["url"], alsoOn="Steam")
+                return dict(it, alsoOn="Epic" if o else "")
+
+            with ThreadPoolExecutor(6) as pool:
+                items = list(pool.map(best, steam))
+            self.dealsMoreReady.emit(page, self._shown(items))
 
         threading.Thread(target=work, daemon=True).start()
 

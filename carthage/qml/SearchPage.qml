@@ -16,6 +16,7 @@ Flickable {
     readonly property var pal: Backend.theme.p
     property alias text: field.text
     property var genres: []       // Steam tags, all required
+    property var exGenres: []     // Steam tags to leave out
     property string price: ""     // "", "free", "10", "20"
     property bool sale: false
     property string store: "all"  // all | steam | epic
@@ -24,22 +25,56 @@ Flickable {
     property string state_: "ready" // loading | ready | error
     property int requestId: 0
     readonly property string term: text.trim()
-    readonly property bool hasFilters: genres.length > 0 || price !== "" || sale || sort !== "top"
+    readonly property bool hasFilters: genres.length > 0 || exGenres.length > 0 || price !== "" || sale || sort !== "top"
     readonly property bool libraryShown: (term.length >= 2 || genres.length > 0) && store === "all"
 
     function focusField() { field.forceActiveFocus() }
     function setGenres(list) { genres = list; contentY = 0 }
+    // A genre chip goes: off → included → left out → off.
     function toggleGenre(tag) {
-        const i = genres.indexOf(tag)
-        genres = i >= 0 ? genres.filter(t => t !== tag) : genres.concat([tag])
+        if (genres.indexOf(tag) >= 0) {
+            genres = genres.filter(t => t !== tag)
+            exGenres = exGenres.concat([tag])
+        } else if (exGenres.indexOf(tag) >= 0) {
+            exGenres = exGenres.filter(t => t !== tag)
+        } else {
+            genres = genres.concat([tag])
+        }
     }
     function clear() {
-        text = ""; genres = []; price = ""; sale = false; store = "all"; sort = "top"
+        text = ""; genres = []; exGenres = []; price = ""; sale = false; store = "all"; sort = "top"
+    }
+    // Load more: the next page of the same search, added below.
+    property int pageNo: 1
+    property int lastBatch: 0
+    property bool appending: false
+    readonly property bool canLoadMore: state_ === "ready" && lastBatch >= 10 && !(store === "epic" && term.length < 2)
+    function loadMore() {
+        pageNo++
+        requestId++
+        appending = true
+        state_ = "loading"
+        Backend.store.browse("search" + requestId, {
+            term: term, tags: genres, untags: exGenres, sale: sale, maxPrice: price, sort: sort, store: store, page: pageNo })
+    }
+    function take(list) {
+        const got = shown(list)
+        lastBatch = list.length
+        if (appending) {
+            const seen = {}
+            for (const it of results) seen[it.key || it.appid] = true
+            results = results.concat(got.filter(it => !seen[it.key || it.appid]))
+        } else results = got
+        appending = false
+        state_ = "ready"
     }
     function refresh() {
         Backend.searchLibrary.filterText = term.length >= 2 ? term : ""
         Backend.searchLibrary.genreList = genres
+        Backend.searchLibrary.genreExclude = exGenres
         requestId++
+        pageNo = 1
+        appending = false
         state_ = "loading"
         if (store === "epic" && term.length < 2) {
             results = []
@@ -48,10 +83,11 @@ Flickable {
         }
         if (term.length >= 2 && !hasFilters) Backend.store.search(term)  // the best title matches
         else Backend.store.browse("search" + requestId, {
-            term: term, tags: genres, sale: sale, maxPrice: price, sort: sort, store: store })
+            term: term, tags: genres, untags: exGenres, sale: sale, maxPrice: price, sort: sort, store: store })
     }
     onTermChanged: { started = true; delay.restart() }
     onGenresChanged: delay.restart()
+    onExGenresChanged: delay.restart()
     onPriceChanged: delay.restart()
     onSaleChanged: delay.restart()
     onStoreChanged: delay.restart()
@@ -64,13 +100,13 @@ Flickable {
     Connections {
         target: Backend.store
         function onBrowseReady(key, list) {
-            if (key === "search" + page.requestId) { page.results = page.shown(list); page.state_ = "ready" }
+            if (key === "search" + page.requestId) page.take(list)
         }
         function onBrowseFailed(key) {
             if (key === "search" + page.requestId) page.state_ = "error"
         }
         function onSearchReady(t, list) {
-            if (t === page.term && !page.hasFilters) { page.results = page.shown(list); page.state_ = "ready" }
+            if (t === page.term && !page.hasFilters && !page.appending) page.take(list)
         }
         function onSearchFailed(t) {
             if (t === page.term) page.state_ = "error"
@@ -94,23 +130,25 @@ Flickable {
     component Chip: QQC2.AbstractButton {
         id: chip
         property bool on: false
-        property color tint: Backend.theme.accent.accent
+        property bool excluded: false  // left out: red, with a minus
+        property color tint: excluded ? "#c8453c" : Backend.theme.accent.accent
         property string iconName
         height: 30
         implicitWidth: chipRow.implicitWidth + 2 * Ui.gapM
         hoverEnabled: true
         focusPolicy: Qt.StrongFocus
         Accessible.role: Accessible.CheckBox
-        Accessible.name: text
+        Accessible.name: text + (excluded ? ", left out" : "")
         Accessible.checked: on
         Keys.onReturnPressed: clicked()
         background: Rectangle {
             radius: height / 2
-            color: chip.on ? Qt.alpha(chip.tint, chip.hovered ? 0.34 : 0.24)
+            readonly property bool lit: chip.on || chip.excluded
+            color: lit ? Qt.alpha(chip.tint, chip.hovered ? 0.34 : 0.24)
                  : chip.hovered ? Qt.alpha(page.pal.trayText, 0.08) : "transparent"
             border.width: chip.visualFocus ? 2 : 1
             border.color: chip.visualFocus ? Ui.focusColor
-                        : chip.on ? Qt.alpha(chip.tint, 0.9) : Qt.alpha(page.pal.trayText, 0.16)
+                        : lit ? Qt.alpha(chip.tint, 0.9) : Qt.alpha(page.pal.trayText, 0.16)
         }
         contentItem: Item {
             implicitWidth: chipRow.implicitWidth
@@ -119,20 +157,21 @@ Flickable {
                 anchors.centerIn: parent
                 spacing: 6
                 CIcon {
-                    visible: chip.iconName !== ""
+                    visible: chip.iconName !== "" || chip.excluded
                     anchors.verticalCenter: parent.verticalCenter
                     width: 13
                     height: 13
-                    source: chip.iconName
+                    source: chip.excluded ? "list-remove" : chip.iconName
                     color: chipLabel.color
                 }
                 Text {
                     id: chipLabel
                     anchors.verticalCenter: parent.verticalCenter
                     text: chip.text
-                    color: chip.on || chip.hovered ? page.pal.trayText : Qt.alpha(page.pal.trayText, 0.72)
+                    color: chip.on || chip.excluded || chip.hovered ? page.pal.trayText : Qt.alpha(page.pal.trayText, 0.72)
                     font.family: Ui.fontText
-                    font.weight: chip.on ? Font.Bold : Font.Medium
+                    font.weight: chip.on || chip.excluded ? Font.Bold : Font.Medium
+                    font.strikeout: chip.excluded
                     font.pixelSize: Ui.textBody
                 }
             }
@@ -286,6 +325,7 @@ Flickable {
                         required property var modelData
                         text: modelData.name
                         on: page.genres.indexOf(modelData.tag) >= 0
+                        excluded: page.exGenres.indexOf(modelData.tag) >= 0
                         onClicked: page.toggleGenre(modelData.tag)
                     }
                 }
@@ -394,7 +434,7 @@ Flickable {
                 }
             }
             CButton {
-                visible: page.term !== "" || page.genres.length > 0 || page.price !== "" || page.sale || page.store !== "all" || page.sort !== "top"
+                visible: page.term !== "" || page.hasFilters || page.store !== "all"
                 anchors.right: parent.right
                 anchors.verticalCenter: storesTitle.verticalCenter
                 kind: "ghost"
@@ -422,7 +462,7 @@ Flickable {
         Flow {
             width: parent.width
             spacing: Ui.gapL
-            opacity: page.state_ === "loading" ? 0.5 : 1
+            opacity: page.state_ === "loading" && !page.appending ? 0.5 : 1
             Behavior on opacity { NumberAnimation { duration: 120 * Backend.motion; easing.type: Easing.OutCubic } }
             Repeater {
                 model: page.results
@@ -433,6 +473,19 @@ Flickable {
                     appRoot: page.appRoot
                     onChosen: (it, cart) => page.chosen(it, cart, page.results)
                 }
+            }
+        }
+        Item {
+            visible: page.canLoadMore || page.appending
+            width: parent.width
+            height: visible ? moreButton.height + Ui.gapL : 0
+            CButton {
+                id: moreButton
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Ui.gapL
+                enabled: !page.appending
+                text: page.appending ? "Loading…" : "Load More"
+                onClicked: page.loadMore()
             }
         }
     }
