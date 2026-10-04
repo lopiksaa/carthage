@@ -847,6 +847,7 @@ FocusScope {
                     extraChips: inspect.extras.players ? [{ text: inspect.extras.players + " playing now", live: true }] : []
                 }
                 AchievementsSection {
+                    objectName: "achievements"  // for the test harness
                     width: parent.width
                     appid: inspect.game.source === "steam" ? (parseInt(inspect.game.extId) || 0) : 0
                 }

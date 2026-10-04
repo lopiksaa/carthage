@@ -170,6 +170,21 @@ QtObject {
             walk(app, 0)
             break
         }
+        case "fakeAchievements": { // fills the open game's achievements and pins the one at "pin"
+            const sec = harness.find("achievements")
+            const items = []
+            for (let i = 0; i < 18; i++)
+                items.push({ name: i === 2 ? "Lighthouse Keeper" : "Achievement " + (i + 1), description: i === 2 ? "Light every lamp on the coast in one night." : "",
+                             icon: "", unlocked: i < 6, time: 1790000000 - i * 86400, percent: 40 - i * 2 })
+            sec.result = { items: items }
+            Qt.callLater(() => {
+                const grid = sec.children.find(c => c.columns !== undefined)
+                const rep = grid ? grid.children.find(c => c.count !== undefined && c.itemAt) : null
+                const it = rep ? rep.itemAt(cmd.pin || 0) : null
+                if (it) { sec.chosen = cmd.pin || 0; sec.chosenItem = it }
+            })
+            break
+        }
         case "toggleSidebar":
             app.toggleSidebar()
             break
