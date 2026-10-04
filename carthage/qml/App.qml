@@ -960,14 +960,15 @@ Item {
 
                 Rectangle {
                     id: dockFade
-                    visible: false  // the floating dock has no edge to fade into
+                    // The cartridges fade into the tray before they pass behind the band.
+                    visible: dock.valley && dock.hideY < 1
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.bottom: dock.top
-                    height: dock.protrude - dock.lipY + Ui.gridUnit * 2
+                    anchors.bottom: dock.top   // down to the valley floor: nothing sharp peeks into the valley
+                    height: 72 + dock.rise
                     gradient: Gradient {
                         GradientStop { position: 0.0; color: Qt.alpha(app.pal.tray, 0) }
-                        GradientStop { position: 0.55; color: Qt.alpha(app.pal.tray, 0.92) }
+                        GradientStop { position: 0.62; color: Qt.alpha(app.pal.tray, 0.9) }
                         GradientStop { position: 1.0; color: app.pal.tray }
                     }
                 }
@@ -1020,8 +1021,8 @@ Item {
                             easing.type: dock.wanted ? Easing.OutCubic : Easing.InCubic
                         }
                     }
-                    // Room for the shoulders (status, clock) and the valley's slots.
-                    width: Math.min(parent.width - 32, 2 * (endRun + 185 + wallRun + floorPad) + slotCount * 156)
+                    // The band across the bottom (a margin each side for its sloped ends).
+                    width: parent.width - 24
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     onClicked: {

@@ -16,12 +16,14 @@ Item {
     // middle where the cartridges stand. The status sits on the left shoulder, a clock on the
     // right. The dock's own top is the valley floor; the shoulders rise above it.
     property bool valley: false
-    readonly property real rise: valley ? 34 : 0      // shoulders above the valley floor
-    readonly property real endRun: 26                 // the sloped ends (short and steep)
-    readonly property real wallRun: 46                // the valley's walls
-    readonly property real floorPad: 14               // floor beyond the outer slots
-    readonly property real shoulderMin: 120
-    readonly property real floorW: slotCount * slotW + 2 * floorPad
+    // A low, long band: shoulders 22 px above a long valley floor, gentle S-curve walls.
+    readonly property real rise: valley ? 22 : 0      // shoulders above the valley floor
+    readonly property real endRun: 34                 // the sloped ends
+    readonly property real wallRun: 72                // the valley's walls (a long, soft S)
+    readonly property real floorPad: 24               // floor beyond the outer slots
+    readonly property real shoulderMin: 200           // room for the status / the clock
+    // The valley is at least a third of the band, so it reads as a shape, not a notch.
+    readonly property real floorW: Math.max(slotCount * slotW + 2 * floorPad, width * 0.34 - 2 * wallRun)
     // Centered when both shoulders fit; in a narrow window the valley moves right, so the status
     // (more important than the clock) keeps its room on the left.
     readonly property bool roomy: width >= 2 * (endRun + shoulderMin + wallRun) + floorW
@@ -34,7 +36,7 @@ Item {
 
     readonly property real cartW: 84
     readonly property real cartH: cartW * Backend.theme.ratio
-    readonly property real lipY: 39
+    readonly property real lipY: valley ? 15 : 39  // the slot's lip, just under the floor's top surface
     readonly property real protrude: 75 // how much cartridge shows above the lip
     readonly property real riseHeight: cartH - protrude + 12 // travel to fully clear the lip
     readonly property int filled: Backend.sessions.count
@@ -61,7 +63,7 @@ Item {
 
     signal clicked()
 
-    height: 70
+    height: valley ? 46 : 70
 
     function slotX(i) {
         if (valley) return Math.round(valleyMid - slotCount * slotW / 2 + i * slotW)
@@ -103,9 +105,8 @@ Item {
         border.color: dock.pal.dockSeam
     }
 
-    // The console base's body: one molded piece lit from the top left. A soft contact shadow
-    // sets it on the tray (no outline), a light bevel runs along its top edge, the valley's right
-    // wall catches the light and its left wall is in shade, and the plastic has its grain.
+    // The console base's body: one molded piece lit from the top left. One crisp highlight runs along
+    // its top edge (no outline) and the plastic has its grain.
     Item {
         id: base
         visible: dock.valley
@@ -134,12 +135,6 @@ Item {
                 + " C " + (w - e * 0.55) + " " + sh + " " + (w - e * 0.25 - d) + " " + (sh + 6) + " " + (w - d) + " " + bt
         }
         readonly property string outline: edgePath(0) + " Z"
-        // One wall of the valley (for its light or shade), d pixels inside.
-        function wallPath(left, d) {
-            const sh = base.sh + d, fl = base.fl + d, a = base.a, b = base.b, k = base.k
-            return left ? "M " + a + " " + sh + " C " + (a + k * 0.55) + " " + sh + " " + (a + k * 0.4) + " " + fl + " " + (a + k) + " " + fl
-                        : "M " + (b - k) + " " + fl + " C " + (b - k * 0.4) + " " + fl + " " + (b - k * 0.55) + " " + sh + " " + b + " " + sh
-        }
 
         Shape {
             id: bodyShape
@@ -156,20 +151,6 @@ Item {
                 }
                 PathSvg { path: base.outline }
             }
-        }
-        // The contact shadow: the body's own shape, soft and dark, a little down and right.
-        MultiEffect {
-            anchors.fill: parent
-            source: bodyShape
-            z: -1
-            shadowEnabled: true
-            shadowColor: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.7 : 0.35)
-            shadowBlur: 0.7
-            shadowHorizontalOffset: 2
-            shadowVerticalOffset: 2
-            blurMax: 24
-            autoPaddingEnabled: true
-            opacity: 0.9
         }
         Image {
             id: baseGrain
@@ -189,28 +170,19 @@ Item {
         Shape {
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
-            // The valley's left wall faces away from the light: a soft shade just inside it.
+            // On light plastic a faint seam outlines the edge (a highlight alone wouldn't show).
             ShapePath {
                 fillColor: "transparent"
-                strokeColor: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.32 : 0.14)
-                strokeWidth: 5
-                capStyle: ShapePath.RoundCap
-                PathSvg { path: base.wallPath(true, 3) }
+                strokeColor: Backend.theme.dark ? "transparent" : Qt.alpha(dock.pal.dockSeam, 0.35)
+                strokeWidth: 1
+                PathSvg { path: base.edgePath(-0.5) }
             }
-            // Its right wall faces the light.
+            // The light catching the top edge: one crisp line, right on the edge.
             ShapePath {
                 fillColor: "transparent"
-                strokeColor: Qt.rgba(1, 1, 1, Backend.theme.dark ? 0.10 : 0.35)
-                strokeWidth: 4
-                capStyle: ShapePath.RoundCap
-                PathSvg { path: base.wallPath(false, 2.5) }
-            }
-            // The bevel: the light catching the top edge.
-            ShapePath {
-                fillColor: "transparent"
-                strokeColor: dock.pal.dockHi
-                strokeWidth: 1.5
-                PathSvg { path: base.edgePath(1.2) }
+                strokeColor: Qt.alpha(dock.pal.dockHi, Backend.theme.dark ? 0.35 : 0.9)
+                strokeWidth: 1
+                PathSvg { path: base.edgePath(0.5) }
             }
         }
     }
@@ -308,7 +280,7 @@ Item {
         }
         // Quiet at rest on the console base: words only when something happens.
         readonly property bool busy: !!s || !!inst || gettingArt
-        visible: room >= 100 && (busy || !dock.valley)
+        visible: room >= 100  // the dock always says what's happening ("Ready" at rest)
         x: dock.valley ? dock.endRun + 14 : 20
         // On the console base: two lines (the name, then what it's doing), centered on the
         // shoulder like the clock opposite.
