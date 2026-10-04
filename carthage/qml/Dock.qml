@@ -16,11 +16,11 @@ Item {
     // middle where the cartridges stand. The status sits on the left shoulder, a clock on the
     // right. The dock's own top is the valley floor; the shoulders rise above it.
     property bool valley: false
-    readonly property real rise: valley ? 22 : 0      // shoulders above the valley floor
-    readonly property real endRun: 40                 // the sloped ends
-    readonly property real wallRun: 56                // the valley's walls
-    readonly property real floorPad: 18               // floor beyond the outer slots
-    readonly property real shoulderMin: 140
+    readonly property real rise: valley ? 34 : 0      // shoulders above the valley floor
+    readonly property real endRun: 26                 // the sloped ends (short and steep)
+    readonly property real wallRun: 46                // the valley's walls
+    readonly property real floorPad: 14               // floor beyond the outer slots
+    readonly property real shoulderMin: 120
     readonly property real floorW: slotCount * slotW + 2 * floorPad
     // Centered when both shoulders fit; in a narrow window the valley moves right, so the status
     // (more important than the clock) keeps its room on the left.
@@ -103,8 +103,9 @@ Item {
         border.color: dock.pal.dockSeam
     }
 
-    // The console base's body: one plastic shape, lit from the top left (a thin highlight runs
-    // along its top edge, a seam line just outside it), with the plastic's grain.
+    // The console base's body: one molded piece lit from the top left. A soft contact shadow
+    // sets it on the tray (no outline), a light bevel runs along its top edge, the valley's right
+    // wall catches the light and its left wall is in shade, and the plastic has its grain.
     Item {
         id: base
         visible: dock.valley
@@ -112,14 +113,38 @@ Item {
         y: -dock.rise
         width: dock.width
         height: dock.height + dock.rise + 4   // past the window's bottom edge (the bump)
-        readonly property real shoulderY: 0            // the shoulders
-        readonly property real floorY: dock.rise       // the valley floor
-        readonly property real baseBottom: height
-        readonly property real baseW: width
+        readonly property real sh: 0            // the shoulders
+        readonly property real fl: dock.rise    // the valley floor
+        readonly property real bt: height
+        readonly property real w: width
+        readonly property real e: dock.endRun
+        readonly property real a: dock.valleyL
+        readonly property real b: dock.valleyR
+        readonly property real k: dock.wallRun
+        // The top edge from the left end to the right end, d pixels inside (for the bevel).
+        function edgePath(d) {
+            const sh = base.sh + d, fl = base.fl + d, bt = base.bt, e = base.e, a = base.a, b = base.b, k = base.k, w = base.w
+            return "M " + (d) + " " + bt
+                + " C " + (e * 0.25 + d) + " " + (sh + 6) + " " + (e * 0.55) + " " + sh + " " + e + " " + sh
+                + " L " + a + " " + sh
+                + " C " + (a + k * 0.55) + " " + sh + " " + (a + k * 0.4) + " " + fl + " " + (a + k) + " " + fl
+                + " L " + (b - k) + " " + fl
+                + " C " + (b - k * 0.4) + " " + fl + " " + (b - k * 0.55) + " " + sh + " " + b + " " + sh
+                + " L " + (w - e) + " " + sh
+                + " C " + (w - e * 0.55) + " " + sh + " " + (w - e * 0.25 - d) + " " + (sh + 6) + " " + (w - d) + " " + bt
+        }
+        readonly property string outline: edgePath(0) + " Z"
+        // One wall of the valley (for its light or shade), d pixels inside.
+        function wallPath(left, d) {
+            const sh = base.sh + d, fl = base.fl + d, a = base.a, b = base.b, k = base.k
+            return left ? "M " + a + " " + sh + " C " + (a + k * 0.55) + " " + sh + " " + (a + k * 0.4) + " " + fl + " " + (a + k) + " " + fl
+                        : "M " + (b - k) + " " + fl + " C " + (b - k * 0.4) + " " + fl + " " + (b - k * 0.55) + " " + sh + " " + b + " " + sh
+        }
+
         Shape {
             id: bodyShape
             anchors.fill: parent
-            layer.enabled: true      // also the grain's mask
+            layer.enabled: true      // the grain's mask, and the shadow's source
             layer.samples: 4
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
@@ -129,38 +154,23 @@ Item {
                     GradientStop { position: 0; color: dock.pal.dockTop }
                     GradientStop { position: 1; color: dock.pal.dockBottom }
                 }
-                startX: 0; startY: base.baseBottom
-                // "/": the left end rises to the shoulder
-                PathCubic {
-                    x: dock.endRun; y: base.shoulderY
-                    control1X: dock.endRun * 0.42; control1Y: base.baseBottom * 0.15
-                    control2X: dock.endRun * 0.6; control2Y: base.shoulderY
-                }
-                PathLine { x: dock.valleyL; y: base.shoulderY }
-                // down into the valley
-                PathCubic {
-                    x: dock.valleyL + dock.wallRun; y: base.floorY
-                    control1X: dock.valleyL + dock.wallRun * 0.55; control1Y: base.shoulderY
-                    control2X: dock.valleyL + dock.wallRun * 0.45; control2Y: base.floorY
-                }
-                PathLine { x: dock.valleyR - dock.wallRun; y: base.floorY }
-                // and up again
-                PathCubic {
-                    x: dock.valleyR; y: base.shoulderY
-                    control1X: dock.valleyR - dock.wallRun * 0.45; control1Y: base.floorY
-                    control2X: dock.valleyR - dock.wallRun * 0.55; control2Y: base.shoulderY
-                }
-                PathLine { x: base.baseW - dock.endRun; y: base.shoulderY }
-                // "\": the right end falls away
-                PathCubic {
-                    x: base.baseW; y: base.baseBottom
-                    control1X: base.baseW - dock.endRun * 0.6; control1Y: base.shoulderY
-                    control2X: base.baseW - dock.endRun * 0.42; control2Y: base.baseBottom * 0.15
-                }
-                PathLine { x: 0; y: base.baseBottom }
+                PathSvg { path: base.outline }
             }
         }
-        // The grain, only on the body.
+        // The contact shadow: the body's own shape, soft and dark, a little down and right.
+        MultiEffect {
+            anchors.fill: parent
+            source: bodyShape
+            z: -1
+            shadowEnabled: true
+            shadowColor: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.7 : 0.35)
+            shadowBlur: 0.7
+            shadowHorizontalOffset: 2
+            shadowVerticalOffset: 2
+            blurMax: 24
+            autoPaddingEnabled: true
+            opacity: 0.9
+        }
         Image {
             id: baseGrain
             anchors.fill: parent
@@ -176,36 +186,31 @@ Item {
             maskEnabled: true
             maskSource: bodyShape
         }
-        // The top edge: a seam just outside, a highlight just inside (the light catches it).
         Shape {
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
+            // The valley's left wall faces away from the light: a soft shade just inside it.
             ShapePath {
-                id: edge
                 fillColor: "transparent"
-                strokeColor: dock.pal.dockSeam
-                strokeWidth: 1
-                startX: 0; startY: base.baseBottom
-                PathCubic { x: dock.endRun; y: base.shoulderY; control1X: dock.endRun * 0.42; control1Y: base.baseBottom * 0.15; control2X: dock.endRun * 0.6; control2Y: base.shoulderY }
-                PathLine { x: dock.valleyL; y: base.shoulderY }
-                PathCubic { x: dock.valleyL + dock.wallRun; y: base.floorY; control1X: dock.valleyL + dock.wallRun * 0.55; control1Y: base.shoulderY; control2X: dock.valleyL + dock.wallRun * 0.45; control2Y: base.floorY }
-                PathLine { x: dock.valleyR - dock.wallRun; y: base.floorY }
-                PathCubic { x: dock.valleyR; y: base.shoulderY; control1X: dock.valleyR - dock.wallRun * 0.45; control1Y: base.floorY; control2X: dock.valleyR - dock.wallRun * 0.55; control2Y: base.shoulderY }
-                PathLine { x: base.baseW - dock.endRun; y: base.shoulderY }
-                PathCubic { x: base.baseW; y: base.baseBottom; control1X: base.baseW - dock.endRun * 0.6; control1Y: base.shoulderY; control2X: base.baseW - dock.endRun * 0.42; control2Y: base.baseBottom * 0.15 }
+                strokeColor: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.32 : 0.14)
+                strokeWidth: 5
+                capStyle: ShapePath.RoundCap
+                PathSvg { path: base.wallPath(true, 3) }
             }
+            // Its right wall faces the light.
+            ShapePath {
+                fillColor: "transparent"
+                strokeColor: Qt.rgba(1, 1, 1, Backend.theme.dark ? 0.10 : 0.35)
+                strokeWidth: 4
+                capStyle: ShapePath.RoundCap
+                PathSvg { path: base.wallPath(false, 2.5) }
+            }
+            // The bevel: the light catching the top edge.
             ShapePath {
                 fillColor: "transparent"
                 strokeColor: dock.pal.dockHi
                 strokeWidth: 1.5
-                startX: 1.5; startY: base.baseBottom
-                PathCubic { x: dock.endRun; y: base.shoulderY + 1.5; control1X: dock.endRun * 0.42 + 1; control1Y: base.baseBottom * 0.15; control2X: dock.endRun * 0.6; control2Y: base.shoulderY + 1.5 }
-                PathLine { x: dock.valleyL; y: base.shoulderY + 1.5 }
-                PathCubic { x: dock.valleyL + dock.wallRun; y: base.floorY + 1.5; control1X: dock.valleyL + dock.wallRun * 0.55; control1Y: base.shoulderY + 1.5; control2X: dock.valleyL + dock.wallRun * 0.45; control2Y: base.floorY + 1.5 }
-                PathLine { x: dock.valleyR - dock.wallRun; y: base.floorY + 1.5 }
-                PathCubic { x: dock.valleyR; y: base.shoulderY + 1.5; control1X: dock.valleyR - dock.wallRun * 0.45; control1Y: base.floorY + 1.5; control2X: dock.valleyR - dock.wallRun * 0.55; control2Y: base.shoulderY + 1.5 }
-                PathLine { x: base.baseW - dock.endRun; y: base.shoulderY + 1.5 }
-                PathCubic { x: base.baseW - 1.5; y: base.baseBottom; control1X: base.baseW - dock.endRun * 0.6; control1Y: base.shoulderY + 1.5; control2X: base.baseW - dock.endRun * 0.42 - 1; control2Y: base.baseBottom * 0.15 }
+                PathSvg { path: base.edgePath(1.2) }
             }
         }
     }
@@ -226,7 +231,7 @@ Item {
             onTriggered: clock.now = new Date()
         }
         Accessible.role: Accessible.StaticText
-        Accessible.name: timeText.text + ", " + dateText.text
+        Accessible.name: "Time " + timeText.text
         Text {
             id: timeText
             anchors.right: parent.right
@@ -234,11 +239,12 @@ Item {
             color: dock.pal.dockText
             font.family: Ui.fontLabels
             font.weight: Font.Black
-            font.pixelSize: Ui.textTitle
+            font.pixelSize: Ui.textLead
             font.letterSpacing: 1
         }
         Text {
             id: dateText
+            visible: false  // the time is enough (the desktop shows the date)
             anchors.right: parent.right
             text: Qt.locale("en_GB").toString(clock.now, "ddd d MMM")
             color: dock.pal.dockTextDim
@@ -300,7 +306,9 @@ Item {
             const d = s.state_ === "notresponding" ? "click the cartridge" : s.statusText
             return dock.filled > 1 ? d + " · " + dock.filled + " running" : d
         }
-        visible: room >= 120
+        // Quiet at rest on the console base: words only when something happens.
+        readonly property bool busy: !!s || !!inst || gettingArt
+        visible: room >= 100 && (busy || !dock.valley)
         x: dock.valley ? dock.endRun + 14 : 20
         // On the console base: two lines (the name, then what it's doing), centered on the
         // shoulder like the clock opposite.

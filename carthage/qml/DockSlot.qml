@@ -132,12 +132,21 @@ Item {
     readonly property real mouthW: cartW + 2
     readonly property real mouthTop: lipY - 7
     readonly property real lipTop: lipY - 2
+    // On the console base the opening is cut straight into the valley floor: no frame, and the
+    // face takes the body's own colors at its height.
+    readonly property bool flush: !!dockItem && dockItem.valley === true
+    function bodyAt(y) {
+        const t = Math.max(0, Math.min(1, (y + dockItem.rise) / (dockItem.height + dockItem.rise + 4)))
+        const a = Qt.color(pal.dockTop), b = Qt.color(pal.dockBottom)
+        return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1)
+    }
     // Opaque, so the front lip can continue the same gradient over the cartridge.
-    readonly property color frameTop: Qt.lighter(pal.dockTop, dark ? 1.12 : 1.0)
-    readonly property color frameBottom: Qt.darker(pal.dockBottom, dark ? 1.12 : 1.06)
+    readonly property color frameTop: flush ? bodyAt(mouthTop - 6) : Qt.lighter(pal.dockTop, dark ? 1.12 : 1.0)
+    readonly property color frameBottom: flush ? bodyAt(lipY + 7) : Qt.darker(pal.dockBottom, dark ? 1.12 : 1.06)
     readonly property color plasticDeep: Qt.darker(pal.dockBottom, dark ? 1.5 : 1.12)
 
     Rectangle {
+        visible: !slot.flush
         x: slot.mouthX - 16
         y: slot.mouthTop - 7
         width: slot.mouthW + 32
@@ -149,9 +158,9 @@ Item {
     }
     Rectangle {
         id: portFace
-        x: slot.mouthX - 15
+        x: slot.mouthX - (slot.flush ? 6 : 15)
         y: slot.mouthTop - 6
-        width: slot.mouthW + 30
+        width: slot.mouthW + (slot.flush ? 12 : 30)
         height: slot.lipY + 7 - y
         radius: 6
         gradient: Gradient {
@@ -159,11 +168,34 @@ Item {
             GradientStop { position: 1.0; color: slot.frameBottom }
         }
         Rectangle {
+            visible: !slot.flush
             x: parent.radius
             y: 1
             width: parent.width - 2 * parent.radius
             height: 1
             color: slot.pal.dockHi
+        }
+    }
+    // On the console base: the opening's rim, cut into the floor. Its far wall is in shade and
+    // its near edge catches the light (light from the top left).
+    Rectangle {
+        visible: slot.flush
+        x: slot.mouthX - 5
+        y: slot.mouthTop - 4
+        width: slot.mouthW + 10
+        height: slot.lipTop - slot.mouthTop + 9
+        radius: 5
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, slot.dark ? 0.55 : 0.28) }
+            GradientStop { position: 0.6; color: Qt.rgba(0, 0, 0, slot.dark ? 0.25 : 0.10) }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            x: 4
+            width: parent.width - 8
+            height: 1
+            color: Qt.rgba(1, 1, 1, slot.dark ? 0.14 : 0.55)
         }
     }
     Rectangle {

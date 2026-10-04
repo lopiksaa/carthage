@@ -960,7 +960,7 @@ Item {
                         }
                     }
                     // Room for the shoulders (status, clock) and the valley's slots.
-                    width: Math.min(parent.width - 32, 2 * (endRun + 170 + wallRun + floorPad) + slotCount * 156)
+                    width: Math.min(parent.width - 32, 2 * (endRun + 185 + wallRun + floorPad) + slotCount * 156)
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     onClicked: {
