@@ -28,8 +28,8 @@ Item {
 
     height: 52
     // Narrow (a small window): the menus show just their value, then the count goes.
-    readonly property bool compact: width < 760
-    readonly property bool tiny: width < 600
+    readonly property bool compact: width < 800
+    readonly property bool tiny: width < 720
 
     Row {
         x: bar.tray ? bar.tray.contentLeft : 24
