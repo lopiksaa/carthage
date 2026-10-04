@@ -908,11 +908,13 @@ Item {
                 Dock {
                     id: dock
                     appRoot: app
-                    floating: true
-                    // Shown only while it has something: a game in it, an install, a drag.
-                    readonly property bool wanted: Backend.sessions.count > 0 || app.dragging || installing !== null
-                    readonly property real clearance: wanted ? height + protrude - lipY + 30 : Ui.spacingLarge
-                    hideY: wanted ? 0 : height + protrude + 40
+                    valley: true
+                    // Always there in the library; elsewhere only while it has something: a game
+                    // in it, an install, a drag.
+                    readonly property bool wanted: app.libraryGrid || app.listPageShown
+                                                   || Backend.sessions.count > 0 || app.dragging || installing !== null
+                    readonly property real clearance: wanted ? height + rise + Ui.spacingLarge : Ui.spacingLarge
+                    hideY: wanted ? 0 : height + rise + protrude + 20
                     // Rises with ease-out; leaves faster with ease-in (exits shorter than entrances).
                     Behavior on hideY {
                         NumberAnimation {
@@ -920,10 +922,10 @@ Item {
                             easing.type: dock.wanted ? Easing.OutCubic : Easing.InCubic
                         }
                     }
-                    width: Math.min(parent.width - 48, statusRoom + slotCount * 156 + 12)
+                    // Room for the shoulders (status, clock) and the valley's slots.
+                    width: Math.min(parent.width - 32, 2 * (endRun + 250 + wallRun + floorPad) + slotCount * 156)
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 18
                     onClicked: {
                         sounds.play("click_in")
                         dock.bump()

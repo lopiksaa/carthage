@@ -7,6 +7,7 @@ import QtQuick.Controls as QQC2
 QQC2.ApplicationWindow {
     id: root
     visible: true
+    flags: Backend.testNoFocus ? (Qt.Window | Qt.WindowDoesNotAcceptFocus) : Qt.Window
     color: Backend.theme.p.tray
     font.family: Ui.fontText  // standard controls (fields, menus) inherit the chosen font
 

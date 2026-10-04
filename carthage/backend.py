@@ -260,6 +260,14 @@ class Backend(QObject):
         return chrome.animation_factor()
 
     @Property(bool, constant=True)
+    def testNoFocus(self):
+        """Test runs with GC_NOFOCUS: the window never takes the keyboard focus (so a test can
+        run on another screen while someone uses this one)."""
+        import os
+
+        return bool(os.environ.get("GC_DEMO") and os.environ.get("GC_NOFOCUS"))
+
+    @Property(bool, constant=True)
     def fake(self):
         return self._fake
 
