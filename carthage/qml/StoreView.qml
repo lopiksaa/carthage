@@ -37,6 +37,12 @@ Item {
     // The sidebar concept: no filter bar; a genre opens the search page; shelves for the
     // library's top genres ("Because you play …", games you don't own).
     property bool showBar: true
+    // The page grid (the sidebar concept): the library tray's edges and columns, so every
+    // page lines up. Without a tray, the old fixed margins.
+    property Item tray: null
+    readonly property real edge: tray ? tray.contentLeft : 28
+    readonly property real edgeRight: tray ? tray.width - tray.contentRight : 24
+    readonly property real gridLeft: tray ? tray.leftMargin : 24
     property var onGenre: null
     property var because: []  // [{key, title, items}]
     readonly property var topGenres: Backend.topGenres.slice(0, 2)
@@ -224,8 +230,8 @@ Item {
                 id: bannerItem
                 objectName: "storeBanner"  // for the test harness
                 visible: view.spotlight.length > 0
-                x: 24
-                width: parent.width - 48
+                x: view.edge
+                width: parent.width - view.edge - view.edgeRight
                 height: implicitHeight
                 items: view.spotlight
                 appRoot: view.appRoot
@@ -262,8 +268,8 @@ Item {
             height: 110
             orientation: ListView.Horizontal
             spacing: Ui.gapL
-            leftMargin: 28
-            rightMargin: 28
+            leftMargin: view.edge
+            rightMargin: view.edgeRight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             model: Backend.store.categories
@@ -295,7 +301,7 @@ Item {
             spacing: Ui.gapM
 
             EngravedLabel {
-                x: 28
+                x: view.edge
                 text: shelf.modelData.title
             }
             // The shelf's cartridges, laid out as chosen in Settings → Store.
@@ -307,9 +313,9 @@ Item {
                 id: rows
                 Grid {
                     id: grid
-                    x: 24
-                    readonly property real cellW: Math.floor((shelves.width - 48) / columns)
-                    columns: Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
+                    x: view.tray ? view.gridLeft : 24
+                    readonly property real cellW: view.tray ? view.tray.cellWidth : Math.floor((shelves.width - 48) / columns)
+                    columns: view.tray ? view.tray.columns : Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
                     rowSpacing: Ui.gapL
                     Repeater {
                         model: shelf.modelData.items
@@ -338,8 +344,8 @@ Item {
                     height: view.cardW * Backend.theme.ratio + view.cardW * 0.07
                             + (shelf.modelData.key === "charts" ? 76 : 58)
                     orientation: ListView.Horizontal
-                    leftMargin: 32
-                    rightMargin: 32
+                    leftMargin: view.edge
+                    rightMargin: view.edgeRight
                     spacing: 22
                     boundsBehavior: Flickable.StopAtBounds
                     model: shelf.modelData.items
@@ -366,14 +372,15 @@ Item {
         visible: view.browsing && !view.gridMode
         anchors.fill: parent
         anchors.topMargin: storeBar.height
-        leftMargin: 24
-        rightMargin: 24
+        leftMargin: view.edge - Ui.gapS
+        rightMargin: view.edgeRight - Ui.gapS
         topMargin: 18
         bottomMargin: view.bottomClearance + Ui.gapXXL
         clip: true
         model: Backend.store.categories
-        readonly property int cols: Math.max(2, Math.floor((width - 48) / 236))
-        cellWidth: Math.floor((width - 48) / cols)
+        readonly property real span: width - leftMargin - rightMargin
+        readonly property int cols: Math.max(2, Math.floor(span / 236))
+        cellWidth: Math.floor(span / cols)
         cellHeight: 140
         boundsBehavior: Flickable.StopAtBounds
         QQC2.ScrollBar.vertical: CScrollBar {}

@@ -8,6 +8,7 @@ GridView {
     id: grid
 
     property Item appRoot
+    property Item tray      // the page grid: the library tray's margins and columns
     property var items: []
     property string note
     property string emptyText
@@ -15,13 +16,13 @@ GridView {
 
     signal chosen(var item, Item cart, var siblings)
 
-    leftMargin: 24
-    rightMargin: 24
+    leftMargin: tray.leftMargin
+    rightMargin: tray.rightMargin
+    topMargin: Ui.gapM
     bottomMargin: 120
     clip: true
     model: items
-    readonly property int cols: Math.max(1, Math.floor((width - 48) / (cardW + 40)))
-    cellWidth: Math.floor((width - 48) / cols)
+    cellWidth: tray.cellWidth
     cellHeight: cardW * Backend.theme.ratio + 90
     boundsBehavior: Flickable.StopAtBounds
     QQC2.ScrollBar.vertical: CScrollBar {}
@@ -29,7 +30,7 @@ GridView {
 
     header: Text {
         visible: grid.note !== ""
-        width: grid.width - 48
+        width: grid.width - grid.leftMargin - grid.rightMargin
         height: visible ? implicitHeight + Ui.gapL : 0
         topPadding: Ui.gapM
         text: grid.note

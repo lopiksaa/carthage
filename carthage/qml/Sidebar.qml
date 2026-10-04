@@ -67,14 +67,54 @@ Item {
         QQC2.ToolTip.visible: bar.collapsed && hovered
         QQC2.ToolTip.text: text
         QQC2.ToolTip.delay: 300
-        readonly property color ink: current ? Backend.theme.accent.accentText : bar.pal.dockText
-        background: Rectangle {
-            radius: Ui.radiusSmall
-            color: entry.current ? Backend.theme.accent.accent
-                 : entry.down ? Qt.alpha(bar.pal.dockText, 0.16)
-                 : entry.hovered ? Qt.alpha(bar.pal.dockText, 0.09) : "transparent"
-            border.width: entry.visualFocus ? 2 : 0
-            border.color: Ui.focusColor
+        // Lit when chosen or pointed at; a little softer otherwise.
+        readonly property color ink: current || hovered ? bar.pal.dockText : Qt.alpha(bar.pal.dockText, 0.78)
+        // The chosen page is a key pressed into the panel (shaded at the top, caught by the light
+        // at the bottom) with a lit mark at its left; hover only lightens.
+        background: Item {
+            Rectangle {
+                anchors.fill: parent
+                radius: Ui.radiusSmall
+                color: entry.current ? Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.30 : 0.16)
+                     : entry.down ? Qt.rgba(0, 0, 0, 0.14)
+                     : entry.hovered ? Qt.alpha(bar.pal.dockText, 0.07) : "transparent"
+                border.width: entry.visualFocus ? 2 : 0
+                border.color: Ui.focusColor
+            }
+            Rectangle {  // the shade under the top edge
+                visible: entry.current
+                x: 4
+                y: 0
+                width: parent.width - 8
+                height: 2
+                radius: 1
+                color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.35 : 0.18)
+            }
+            Rectangle {  // the light on the bottom lip
+                visible: entry.current
+                x: 6
+                anchors.bottom: parent.bottom
+                width: parent.width - 12
+                height: 1
+                color: Qt.rgba(1, 1, 1, Backend.theme.dark ? 0.10 : 0.45)
+            }
+            Rectangle {  // the lit mark
+                visible: entry.current
+                x: 3
+                anchors.verticalCenter: parent.verticalCenter
+                width: 3
+                height: 16
+                radius: 1.5
+                color: Backend.theme.accent.accent
+                Rectangle {  // its glow
+                    anchors.centerIn: parent
+                    width: 9
+                    height: 22
+                    radius: 4.5
+                    color: Qt.alpha(Backend.theme.accent.accent, 0.25)
+                    z: -1
+                }
+            }
         }
         contentItem: Item {
             Image {
@@ -101,7 +141,7 @@ Item {
                 elide: Text.ElideRight
                 color: entry.ink
                 font.family: Ui.fontText
-                font.weight: entry.current ? Font.Bold : Font.DemiBold
+                font.weight: entry.current ? Font.Bold : Font.Medium
                 font.pixelSize: Ui.textBody
             }
             Text {
@@ -112,7 +152,7 @@ Item {
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
                 text: entry.count
-                color: entry.current ? Backend.theme.accent.accentText : bar.pal.dockTextDim
+                color: bar.pal.dockTextDim
                 font.family: Ui.fontText
                 font.weight: Font.Bold
                 font.pixelSize: Ui.textCaption

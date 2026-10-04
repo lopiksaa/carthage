@@ -727,7 +727,7 @@ Item {
                     anchors.right: parent.right
                     height: visible ? 52 : 0
                     Row {
-                        x: app.page === "store:deals" || app.page === "store:free" ? 24 : 28
+                        x: tray.contentLeft  // the page grid's left edge
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Ui.gapM
                         EngravedLabel {
@@ -778,6 +778,7 @@ Item {
                     appRoot: app
                     visible: app.page === "store:discover" || app.page === "store:genres"
                     showBar: false
+                    tray: tray
                     onGenre: (c) => app.searchGenre(c.tag)
                     anchors.top: pageBar.bottom
                     anchors.left: parent.left
@@ -794,6 +795,7 @@ Item {
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     appRoot: app
+                    tray: tray
                     items: app.deals
                     emptyText: "Gathering the deals…"
                     onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
@@ -806,6 +808,7 @@ Item {
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     appRoot: app
+                    tray: tray
                     items: storeView.free
                     emptyText: "Looking for free games…"
                     onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
@@ -833,9 +836,9 @@ Item {
                     anchors.top: pageBar.bottom
                     anchors.left: parent.left
                     anchors.bottom: parent.bottom
-                    anchors.leftMargin: 24
+                    anchors.leftMargin: tray.contentLeft  // on the page grid
                     anchors.bottomMargin: Math.max(24, dock.clearance)  // clear of the dock while a game runs
-                    width: Math.min(parent.width - 48, 1040)  // a settings window, not a wall
+                    width: Math.min(tray.contentRight - tray.contentLeft, 1040)  // a settings window, not a wall
                     onCloseRequested: app.navigateBack()
                 }
 
