@@ -292,11 +292,14 @@ Flickable {
         Flow {  // wraps in a narrow window
             width: parent.width
             spacing: Ui.gapS
-            RowLabel { text: "Price" }
-            Segments {
-                options: [{ v: "", t: "Any" }, { v: "free", t: "Free" }, { v: "10", t: "Under 10" }, { v: "20", t: "Under 20" }]
-                value: page.price
-                onPicked: (v) => page.price = v
+            Row {  // a label wraps with its control
+                spacing: Ui.gapS
+                RowLabel { text: "Price" }
+                Segments {
+                    options: [{ v: "", t: "Any" }, { v: "free", t: "Free" }, { v: "10", t: "Under 10" }, { v: "20", t: "Under 20" }]
+                    value: page.price
+                    onPicked: (v) => page.price = v
+                }
             }
             Item { width: Ui.gapS; height: 1 }
             Chip {
@@ -310,18 +313,24 @@ Flickable {
         Flow {  // wraps in a narrow window
             width: parent.width
             spacing: Ui.gapS
-            RowLabel { text: "Store" }
-            Segments {
-                options: [{ v: "all", t: "All Stores" }, { v: "steam", t: "Steam" }, { v: "epic", t: "Epic" }]
-                value: page.store
-                onPicked: (v) => page.store = v
+            Row {
+                spacing: Ui.gapS
+                RowLabel { text: "Store" }
+                Segments {
+                    options: [{ v: "all", t: "All Stores" }, { v: "steam", t: "Steam" }, { v: "epic", t: "Epic" }]
+                    value: page.store
+                    onPicked: (v) => page.store = v
+                }
             }
             Item { width: Ui.gapS; height: 1 }
-            RowLabel { text: "Order"; width: 58 }
-            Segments {
-                options: [{ v: "top", t: "Top Sellers" }, { v: "rated", t: "Best Rated" }, { v: "new", t: "Newest" }, { v: "price", t: "Cheapest" }]
-                value: page.sort
-                onPicked: (v) => page.sort = v
+            Row {
+                spacing: Ui.gapS
+                RowLabel { text: "Order"; width: 58 }
+                Segments {
+                    options: [{ v: "top", t: "Top Sellers" }, { v: "rated", t: "Best Rated" }, { v: "new", t: "Newest" }, { v: "price", t: "Cheapest" }]
+                    value: page.sort
+                    onPicked: (v) => page.sort = v
+                }
             }
         }
         Item { width: 1; height: Ui.gapS }

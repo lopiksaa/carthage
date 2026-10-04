@@ -27,13 +27,12 @@ Column {
     visible: title !== "" || appid > 0
     spacing: Ui.gapS
 
-    Text {
-        text: "MORE ABOUT THIS GAME"
-        color: Ui.onScrimDim
+    Text {  // the same heading style as About This Game and Achievements
+        text: "More About This Game"
+        color: Ui.onScrim
         font.family: Ui.fontText
         font.weight: Font.Black
-        font.pixelSize: Ui.textCaption
-        font.letterSpacing: 2
+        font.pixelSize: Ui.textLead
     }
     Flow {
         width: parent.width
