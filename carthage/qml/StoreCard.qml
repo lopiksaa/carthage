@@ -60,7 +60,7 @@ Item {
         layer.enabled: card.forSale
         layer.effect: MultiEffect { saturation: -1; brightness: -0.08 }
         forSale: card.forSale
-        forSaleLeft: card.item.discount > 0
+        forSaleLeft: true  // always top-left: it never moves for a sale tag
         transform: [
             Translate { y: -card.cardW * 0.035 * lift.value },
             Scale {

@@ -164,7 +164,7 @@ Item {
         Image {
             id: baseGrain
             anchors.fill: parent
-            source: "image://gc/grain/" + Backend.theme.edition + Backend.theme.roughTexQuery  // rougher than the panels
+            source: "image://gc/grain/" + Backend.theme.edition + Backend.theme.texQuery
             fillMode: Image.Tile
             smooth: false
             visible: false
@@ -172,7 +172,7 @@ Item {
         MultiEffect {
             anchors.fill: parent
             source: baseGrain
-            opacity: 0.6
+            opacity: 0.35
             maskEnabled: true
             maskSource: bodyShape
         }
