@@ -82,7 +82,7 @@ Item {
             color: "#ffffff"
             font.family: Ui.fontText
             font.weight: Font.Black
-            font.pixelSize: tile.compact ? Ui.textLead + 2 : Ui.textTitle + 2
+            font.pixelSize: tile.compact ? Ui.textLead : Ui.textTitle
             wrapMode: Text.Wrap
             maximumLineCount: 2
             elide: Text.ElideRight

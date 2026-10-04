@@ -41,7 +41,8 @@ GridView {
 
     FontMetrics {
         id: fontMetrics
-        font: Qt.application.font
+        font.family: Ui.fontText  // as the titles under the cartridges
+        font.pixelSize: Ui.textBody
     }
 
     model: trayModel

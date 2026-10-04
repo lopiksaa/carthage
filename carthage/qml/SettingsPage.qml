@@ -150,7 +150,7 @@ FocusScope {
                     color: page.pal.panelText
                     font.family: Ui.fontTitles
                     font.weight: Font.Black
-                    font.pixelSize: Ui.textTitle + 2
+                    font.pixelSize: Ui.textTitle
                 }
                 Text {
                     text: page.current.blurb

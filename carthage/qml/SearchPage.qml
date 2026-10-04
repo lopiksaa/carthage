@@ -132,7 +132,7 @@ Flickable {
                     color: chip.on || chip.hovered ? page.pal.trayText : Qt.alpha(page.pal.trayText, 0.72)
                     font.family: Ui.fontText
                     font.weight: chip.on ? Font.Bold : Font.Medium
-                    font.pixelSize: Ui.textCaption + 1
+                    font.pixelSize: Ui.textBody
                 }
             }
         }
@@ -200,7 +200,7 @@ Flickable {
                         color: seg.chosen || seg.hovered ? page.pal.trayText : Qt.alpha(page.pal.trayText, 0.62)
                         font.family: Ui.fontText
                         font.weight: seg.chosen ? Font.Bold : Font.Medium
-                        font.pixelSize: Ui.textCaption + 1
+                        font.pixelSize: Ui.textBody
                     }
                 }
             }
@@ -229,14 +229,14 @@ Flickable {
         QQC2.TextField {
             id: field
             width: parent.width
-            height: 54
+            height: 48
             leftPadding: 52
             rightPadding: 48
             placeholderText: "Search your games and the stores"
             placeholderTextColor: page.pal.trayTextDim
             color: page.pal.trayText
             font.family: Ui.fontText
-            font.pixelSize: Ui.textLead + 2
+            font.pixelSize: Ui.textLead
             font.weight: Font.DemiBold
             selectByMouse: true
             Accessible.name: "Search"

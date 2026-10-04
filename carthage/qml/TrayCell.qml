@@ -301,7 +301,8 @@ Item {
         width: pocket.width + Ui.spacingLarge
         text: cell.title
         color: cell.installed ? cell.pal.trayText : cell.pal.trayTextDim
-        font: Qt.application.font
+        font.family: Ui.fontText  // the chosen text font (was the app default, Nunito)
+        font.pixelSize: Ui.textBody
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
         maximumLineCount: 2

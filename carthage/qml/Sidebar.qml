@@ -176,7 +176,7 @@ Item {
             color: bar.pal.dockTextDim
             font.family: Ui.fontLabels
             font.weight: Font.Black
-            font.pixelSize: Ui.textCaption - 1
+            font.pixelSize: Ui.textCaption
             font.letterSpacing: 2
             font.capitalization: Font.AllUppercase
         }
@@ -231,8 +231,8 @@ Item {
                 color: bar.pal.dockText
                 font.family: Ui.fontLabels
                 font.weight: Font.Black
-                font.pixelSize: Ui.textBody + 1
-                font.letterSpacing: 3
+                font.pixelSize: Ui.textLead  // level with the pages' titles
+                font.letterSpacing: 2.5
             }
         }
     }
@@ -287,8 +287,8 @@ Item {
                         id: searchIcon
                         x: bar.iconX
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 16
-                        height: 16
+                        width: 18
+                        height: 18
                         source: "search"
                         color: Qt.alpha(bar.pal.dockText, 0.8)
                     }
@@ -323,7 +323,7 @@ Item {
                             color: bar.pal.dockTextDim
                             font.family: Ui.fontText
                             font.weight: Font.Bold
-                            font.pixelSize: Ui.textCaption - 1
+                            font.pixelSize: Ui.textCaption
                         }
                     }
                 }
