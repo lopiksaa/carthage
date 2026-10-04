@@ -252,11 +252,83 @@ Item {
             width: scroller.width
             spacing: 2
 
-            Entry {
-                text: "Search"
-                iconName: "search"
+            // Search looks like a field: a slot cut into the panel, with its shortcut.
+            QQC2.AbstractButton {
+                id: searchKey
+                readonly property bool current: bar.page === "search"
+                x: bar.side
+                width: bar.width - 2 * bar.side
+                height: 34
+                hoverEnabled: true
+                focusPolicy: Qt.StrongFocus
+                Accessible.role: Accessible.Button
+                Accessible.name: "Search your games and the stores"
                 onClicked: bar.searchRequested()
+                QQC2.ToolTip.visible: bar.collapsed && hovered
+                QQC2.ToolTip.text: "Search (Ctrl+F)"
+                QQC2.ToolTip.delay: 300
+                background: Rectangle {
+                    radius: Ui.radiusSmall
+                    color: Qt.rgba(0, 0, 0, searchKey.hovered ? (Backend.theme.dark ? 0.32 : 0.16) : (Backend.theme.dark ? 0.24 : 0.11))
+                    border.width: searchKey.visualFocus || searchKey.current ? 2 : 1
+                    border.color: searchKey.visualFocus ? Ui.focusColor
+                                : searchKey.current ? Backend.theme.accent.accent
+                                : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.35 : 0.12)
+                    Rectangle {  // the light on the bottom lip
+                        x: 6
+                        anchors.bottom: parent.bottom
+                        width: parent.width - 12
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, Backend.theme.dark ? 0.08 : 0.5)
+                    }
+                }
+                contentItem: Item {
+                    CIcon {
+                        id: searchIcon
+                        x: bar.iconX
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 16
+                        height: 16
+                        source: "search"
+                        color: Qt.alpha(bar.pal.dockText, 0.8)
+                    }
+                    Text {
+                        opacity: bar.collapsed ? 0 : 1
+                        visible: opacity > 0
+                        anchors.left: searchIcon.right
+                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Search"
+                        color: Qt.alpha(bar.pal.dockText, 0.6)
+                        font.family: Ui.fontText
+                        font.weight: Font.Medium
+                        font.pixelSize: Ui.textBody
+                    }
+                    Rectangle {  // the shortcut's keycap
+                        opacity: bar.collapsed ? 0 : 1
+                        visible: opacity > 0
+                        anchors.right: parent.right
+                        anchors.rightMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: capText.implicitWidth + 10
+                        height: 18
+                        radius: 4
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Qt.alpha(bar.pal.dockText, 0.22)
+                        Text {
+                            id: capText
+                            anchors.centerIn: parent
+                            text: "Ctrl F"
+                            color: Qt.alpha(bar.pal.dockText, 0.55)
+                            font.family: Ui.fontText
+                            font.weight: Font.Bold
+                            font.pixelSize: Ui.textCaption - 1
+                        }
+                    }
+                }
             }
+            Item { width: 1; height: 4 }
 
             Heading { text: "Library" }
             Entry { text: "All Games"; iconName: "view-grid"; target: "library:all" }
