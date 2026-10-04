@@ -46,7 +46,15 @@ class LibraryWatcher(QObject):
             key = keys.get("steam")
             root = steam.find_root()
             sid = steam.steam_id64(root) if root else None
+            changed = False
             if key and sid and (force or time.time() - t > 60) and steam.refresh_owned(key, sid):
+                changed = True
+            # The family's games: less often (they change rarely), only when in a family.
+            _, ft = steam.family_cache()
+            members = steam.family_members(root) if key and root else []
+            if members and (force or time.time() - ft > 6 * 3600) and steam.refresh_family(key, members):
+                changed = True
+            if changed:
                 self._owned_changed.emit()
 
         threading.Thread(target=work, daemon=True).start()

@@ -446,7 +446,7 @@ def _stencil(img):
 
 def render_launcher(w, h, source, color):
     """A launcher's mark in one color, fitted and centered; a generic game icon if none."""
-    spec = HEADER_LOGOS.get(source) or {}
+    spec = HEADER_LOGOS.get("steam" if source == "family" else source) or {}
     if not spec.get("file"):
         return render_icon(w, h, "applications-games", color)
     vb = LAUNCHER_MARKS.get(source) or spec.get("viewBox")

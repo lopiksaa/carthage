@@ -105,6 +105,7 @@ class Game:
     developer: str = ""
     publisher: str = ""
     released: int = 0  # unix time
+    family: bool = False  # lent by your Steam Family (not on your own account)
     code: str = field(default="")
 
     def __post_init__(self):
@@ -152,7 +153,7 @@ def real_games():
             installed=g["installed"], last_played=g["last_played"], playtime=g["playtime"],
             added=g["added"], install_dir=g["install_dir"],
             developer=g.get("developer", ""), publisher=g.get("publisher", ""), released=g.get("released", 0),
-            executable=f"steam://rungameid/{g['appid']}",
+            executable=f"steam://rungameid/{g['appid']}", family=g.get("family", False),
         ))
     for g in _read("Heroic", heroic.load):
         games.append(Game(
@@ -363,7 +364,7 @@ class GameModel(QAbstractListModel):
 
 def source_label(source):
     """A launcher's name for menus and lists ("battlenet" → "Battle.net")."""
-    special = {"desktop": "Installed Apps", "custom": "Added by You", "battlenet": "Battle.net"}
+    special = {"desktop": "Installed Apps", "custom": "Added by You", "battlenet": "Battle.net", "family": "Steam Family"}
     return special.get(source) or SOURCES.get(source, (source.upper(),))[0].title()
 
 
@@ -510,7 +511,8 @@ class TrayModel(QSortFilterProxyModel):
         counts = {}
         for g in m._games:
             if g.game_id not in m._hidden and g.source != "carthage":
-                counts[g.source] = counts.get(g.source, 0) + 1
+                src = "family" if g.family else g.source
+                counts[src] = counts.get(src, 0) + 1
         return [{"value": "source:" + s, "text": source_label(s), "count": n}
                 for s, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
 
@@ -531,7 +533,14 @@ class TrayModel(QSortFilterProxyModel):
             return False
         if o._filter == "notinstalled" and g.installed:
             return False
-        if o._filter.startswith("source:") and g.source != o._filter[7:]:
+        # The Steam Family's games have their own place (Sources → Steam Family); the search
+        # (part "all") finds them too.
+        if g.family and o._filter != "source:family" and self._part != "all":
+            return False
+        if o._filter == "source:family":
+            if not g.family:
+                return False
+        elif o._filter.startswith("source:") and g.source != o._filter[7:]:
             return False
         if o._genre and o._genre not in self._genres.get(g.game_id, ()):
             return False
