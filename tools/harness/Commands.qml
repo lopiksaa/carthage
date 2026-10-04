@@ -170,6 +170,9 @@ QtObject {
             walk(app, 0)
             break
         }
+        case "toggleSidebar":
+            app.toggleSidebar()
+            break
         case "sidebar":  // {"collapsed": bool}
             Backend.settings.sidebarCollapsed = cmd.collapsed
             break

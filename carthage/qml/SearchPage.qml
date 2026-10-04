@@ -10,6 +10,7 @@ Flickable {
 
     property Item tray      // the main tray, for the cartridge geometry
     property Item appRoot
+    property bool showField: true  // off when the top bar's field drives the page
     signal chosen(var item, Item cart, var siblings)
 
     readonly property var pal: Backend.theme.p
@@ -228,8 +229,9 @@ Flickable {
         // The field.
         QQC2.TextField {
             id: field
+            visible: page.showField
             width: parent.width
-            height: 48
+            height: visible ? 48 : 0
             leftPadding: 52
             rightPadding: 48
             placeholderText: "Search your games and the stores"

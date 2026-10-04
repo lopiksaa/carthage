@@ -17,10 +17,10 @@ Item {
     // right. The dock's own top is the valley floor; the shoulders rise above it.
     property bool valley: false
     readonly property real rise: valley ? 22 : 0      // shoulders above the valley floor
-    readonly property real endRun: 46                 // the sloped ends
+    readonly property real endRun: 40                 // the sloped ends
     readonly property real wallRun: 56                // the valley's walls
     readonly property real floorPad: 18               // floor beyond the outer slots
-    readonly property real shoulderMin: 150
+    readonly property real shoulderMin: 140
     readonly property real floorW: slotCount * slotW + 2 * floorPad
     // Centered when both shoulders fit; in a narrow window the valley moves right, so the status
     // (more important than the clock) keeps its room on the left.
@@ -164,7 +164,7 @@ Item {
         Image {
             id: baseGrain
             anchors.fill: parent
-            source: "image://gc/grain/" + Backend.theme.edition + Backend.theme.texQuery
+            source: "image://gc/grain/" + Backend.theme.edition + Backend.theme.roughTexQuery  // rougher than the panels
             fillMode: Image.Tile
             smooth: false
             visible: false
@@ -172,7 +172,7 @@ Item {
         MultiEffect {
             anchors.fill: parent
             source: baseGrain
-            opacity: 0.35
+            opacity: 0.6
             maskEnabled: true
             maskSource: bodyShape
         }

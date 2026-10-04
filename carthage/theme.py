@@ -415,6 +415,11 @@ class Theme(QObject):
         return f"?tex={self._texture}&size={TEXTURE_GRAIN}&s={self._strength:g}"
 
     @Property(str, notify=changed)
+    def roughTexQuery(self):
+        """A rougher finish for the console base: the cartridge texture, coarse and deeper."""
+        return f"?tex={self._card_texture}&size=coarse&s={min(1.2, self._strength * 1.8 + 0.25):g}"
+
+    @Property(str, notify=changed)
     def cardTexQuery(self):
         """The same for cartridges, which are always textured ("Textured plastic" is the
         hardware's finish only)."""

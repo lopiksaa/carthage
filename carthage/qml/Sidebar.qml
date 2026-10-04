@@ -11,7 +11,10 @@ Item {
 
     property Item appRoot
     property string page: "library:all"
-    readonly property bool collapsed: Backend.settings.sidebarCollapsed
+    // A drawer that slides out over the content (the top bar has the ≡, the name and search):
+    // always open full width, no top row, no search key.
+    property bool drawer: false
+    readonly property bool collapsed: !drawer && Backend.settings.sidebarCollapsed
     function toggle() { Backend.settings.sidebarCollapsed = !collapsed }
     signal navigate(string page)
     signal searchRequested()
@@ -194,8 +197,9 @@ Item {
     // The top row: the burger (always in the same place) and the name.
     Item {
         id: top
+        visible: !bar.drawer
         width: parent.width
-        height: bar.topH
+        height: bar.drawer ? Ui.gapM : bar.topH
         CButton {
             id: burger
             x: bar.side
@@ -255,6 +259,7 @@ Item {
             // Search looks like a field: a slot cut into the panel, with its shortcut.
             QQC2.AbstractButton {
                 id: searchKey
+                visible: !bar.drawer  // the top bar has the search field
                 readonly property bool current: bar.page === "search"
                 x: bar.side
                 width: bar.width - 2 * bar.side
@@ -328,7 +333,7 @@ Item {
                     }
                 }
             }
-            Item { width: 1; height: 4 }
+            Item { width: 1; height: bar.drawer ? 0 : 4 }
 
             Heading { text: "Library" }
             Entry { text: "All Games"; iconName: "view-grid"; target: "library:all" }
@@ -383,6 +388,11 @@ Item {
             text: "Settings"
             iconName: "configure"
             target: "settings"
+            UpdateDot {
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+            }
         }
     }
 }

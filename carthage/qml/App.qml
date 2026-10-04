@@ -22,7 +22,13 @@ Item {
         function onCountChanged() { app.updatePresence() }
     }
     Timer { running: true; interval: 800; onTriggered: app.updatePresence() }
-    function setMode(m) { navigate(m === "store" ? "store:discover" : "library:all") }
+    // The knob: Library or Store, each back on the page it was last on.
+    property string lastLibraryPage: "library:all"
+    property string lastStorePage: "store:discover"
+    function setMode(m) { navigate(m === "store" ? lastStorePage : lastLibraryPage) }
+    // The sidebar slides out over the content from the top bar's ≡.
+    property bool sidebarOpen: false
+    function toggleSidebar() { sidebarOpen = !sidebarOpen }
 
     // The sidebar layout concept: one page at a time in the main area, picked in the sidebar.
     //   library:all · library:source:<launcher> · library:playnext · library:favorites
@@ -51,7 +57,10 @@ Item {
         pageInAnim.restart()
         if (!back) pageHistory = pageHistory.concat([page]).slice(-20)
         page = p
-        const m = p.startsWith("store:") ? "store" : "library"
+        if (p.startsWith("store:")) lastStorePage = p
+        else if (p.startsWith("library:")) lastLibraryPage = p
+        // Search and Settings keep the knob where it was.
+        const m = p.startsWith("store:") ? "store" : p.startsWith("library:") ? "library" : mode
         if (m !== mode) mode = m
         tray.quietFor(400)  // a new page, not a change to animate
         if (p.startsWith("library:source:")) Backend.games.filterMode = p.slice(8)
@@ -60,7 +69,7 @@ Item {
         if (p === "store:genres") storeView.showCategories()
         else if (p === "store:discover") storeView.backToStore()
         if (p === "store:deals" && deals.length === 0) Backend.store.loadDeals()
-        if (p === "search") Qt.callLater(searchPage.focusField)
+        if (p === "search") Qt.callLater(() => header.searchField.forceActiveFocus())
         else if (p.startsWith("library:")) focusTray()
     }
     function navigateBack() {
@@ -78,9 +87,10 @@ Item {
         target: Backend.store
         function onDealsReady(list) { app.deals = list }
     }
+    // The top bar's field drives the Search page (your games and the stores, with filters).
     function search(text) {
-        if (mode === "store") storeView.query = text
-        else Backend.games.filterText = text
+        searchPage.text = text
+        if (text !== "" && page !== "search") navigate("search")
     }
     function showOwned(gid) {
         setMode("library")
@@ -607,7 +617,7 @@ Item {
     }
 
     Component.onCompleted: {
-        Window.window.searchField = null  // the concept's search is a page (Ctrl+F below)
+        Window.window.searchField = header.searchField  // Ctrl+F
         const problems = Backend.libraryProblems()
         if (problems) notify("Couldn't read " + problems + ". Details are in " + Backend.logFile(), "long")
         // Cartridges already in the dock (startup or live reload) are out of their recesses.
@@ -672,27 +682,53 @@ Item {
             id: stage
             anchors.fill: parent
 
+            // Over the content while open: a dimmed tray (choose it to close) and the sidebar.
+            Rectangle {
+                anchors.top: header.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                z: 3
+                color: "black"
+                opacity: app.sidebarOpen ? 0.35 : 0
+                visible: opacity > 0.01
+                Behavior on opacity { NumberAnimation { duration: Ui.motionMedium * app.motion; easing.type: Easing.OutCubic } }
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.AllButtons
+                    onClicked: app.sidebarOpen = false
+                    onWheel: (wheel) => wheel.accepted = true
+                }
+            }
             Sidebar {
                 id: sidebar
-                enabled: !app.modalOpen
-                anchors.top: parent.top
+                drawer: true
+                enabled: !app.modalOpen && app.sidebarOpen
+                anchors.top: header.bottom
                 anchors.bottom: parent.bottom
-                anchors.left: parent.left
+                x: app.sidebarOpen ? 0 : -width - 16
+                visible: x > -width - 16
+                // In with ease-out; out a little faster with ease-in.
+                Behavior on x {
+                    NumberAnimation {
+                        duration: (app.sidebarOpen ? Ui.motionSlow - 60 : Ui.motionMedium) * app.motion
+                        easing.type: app.sidebarOpen ? Easing.OutCubic : Easing.InCubic
+                    }
+                }
                 appRoot: app
                 page: app.page
-                onNavigate: (p) => app.navigate(p)
-                onSearchRequested: app.navigate("search")
-                z: 3
+                onNavigate: (p) => { app.navigate(p); app.sidebarOpen = false }
+                onSearchRequested: { app.navigate("search"); app.sidebarOpen = false }
+                z: 4
             }
 
             Item {
                 id: body
                 // One rule for the whole app: while anything sits on top (closer look, store
                 // page, dialog, menu, drawer), nothing behind it takes clicks, hover or scroll.
-                enabled: !app.modalOpen
-                anchors.top: parent.top
+                enabled: !app.modalOpen && !app.sidebarOpen
+                anchors.top: header.bottom
                 anchors.left: parent.left
-                anchors.leftMargin: sidebar.layoutWidth
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
 
@@ -840,6 +876,7 @@ Item {
                     }
                     SearchPage {
                         id: searchPage
+                        showField: false  // the top bar's field
                         visible: app.page === "search"
                         anchors.fill: parent
                         tray: tray
@@ -923,7 +960,7 @@ Item {
                         }
                     }
                     // Room for the shoulders (status, clock) and the valley's slots.
-                    width: Math.min(parent.width - 32, 2 * (endRun + 250 + wallRun + floorPad) + slotCount * 156)
+                    width: Math.min(parent.width - 32, 2 * (endRun + 170 + wallRun + floorPad) + slotCount * 156)
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     onClicked: {
@@ -935,7 +972,6 @@ Item {
 
             Header {
                 id: header
-                visible: false  // the sidebar concept: the sidebar replaces the header
                 appRoot: app
                 anchors.top: parent.top
                 anchors.left: parent.left
@@ -1154,12 +1190,13 @@ Item {
     }
 
     Shortcut {
-        sequences: [StandardKey.Find]
-        onActivated: app.navigate("search")
+        sequence: "Ctrl+B"
+        onActivated: app.toggleSidebar()
     }
     Shortcut {
-        sequence: "Ctrl+B"
-        onActivated: sidebar.toggle()
+        sequence: "Esc"
+        enabled: app.sidebarOpen
+        onActivated: app.sidebarOpen = false
     }
     Shortcut {
         sequence: "F10"

@@ -41,10 +41,36 @@ Item {
         }
     }
 
+    // ≡ slides the sidebar out over the content (lists, sources, store pages, Settings). A dot
+    // on it says an update is waiting (Settings has the same dot).
+    CButton {
+        id: burger
+        anchors.left: parent.left
+        anchors.leftMargin: 10
+        anchors.verticalCenter: parent.verticalCenter
+        width: 40
+        height: 36
+        kind: "ghost"
+        tint: header.pal.dockText
+        icon.name: "application-menu"
+        Accessible.name: (header.appRoot && header.appRoot.sidebarOpen ? "Close" : "Open") + " the sidebar"
+                         + (updateDot.visible ? ", an update is available" : "")
+        QQC2.ToolTip.visible: hovered
+        QQC2.ToolTip.text: "Sidebar (Ctrl+B)"
+        QQC2.ToolTip.delay: 500
+        onClicked: header.appRoot.toggleSidebar()
+        UpdateDot {
+            id: updateDot
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 5
+        }
+    }
+
     Row {
         id: brand
-        anchors.left: parent.left
-        anchors.leftMargin: 20
+        anchors.left: burger.right
+        anchors.leftMargin: 6
         anchors.verticalCenter: parent.verticalCenter
         spacing: Ui.gapM
         Accessible.ignored: true
@@ -84,8 +110,8 @@ Item {
         selectedTextColor: "#ffffff"
         verticalAlignment: TextInput.AlignVCenter
         selectByMouse: true
-        Accessible.name: "Search games"
-        placeholderText: header.appRoot && header.appRoot.mode === "store" ? "Search Steam and Epic" : "Search games"
+        Accessible.name: "Search your games and the stores"
+        placeholderText: "Search your games and the stores"
         onTextChanged: header.appRoot.search(text)
         Keys.onEscapePressed: {
             if (text) text = ""
