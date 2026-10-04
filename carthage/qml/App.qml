@@ -73,6 +73,7 @@ Item {
         if (p === "store:genres") storeView.showCategories()
         else if (p === "store:discover") storeView.backToStore()
         if (p === "store:deals" && deals.length === 0) Backend.store.loadDeals()
+        if (p === "store:wishlist") loadWishlist()  // fresh each visit (prices change)
         if (p === "search") Qt.callLater(() => header.searchField.forceActiveFocus())
         else if (p.startsWith("library:")) focusTray()
     }
@@ -87,11 +88,22 @@ Item {
         searchPage.clear()
         searchPage.setGenres([tag])
     }
+    property var wishlist: []
+    property bool wishlistLoaded: false
+    property string wishlistError: ""
+    function loadWishlist() {
+        const sid = Backend.steamId()
+        if (!sid) { wishlistError = "Your wishlist needs Steam on this PC."; return }
+        wishlistError = ""
+        Backend.store.loadWishlist(sid)
+    }
     property int dealsPageNo: 1
     property bool dealsLoadingMore: false
     Connections {
         target: Backend.store
         function onDealsReady(list) { app.deals = list; app.dealsPageNo = 1 }
+        function onWishlistReady(list) { app.wishlist = list; app.wishlistLoaded = true }
+        function onWishlistFailed(message) { app.wishlistError = message }
         function onDealsMoreReady(pageNo, list) {
             const seen = {}
             for (const it of app.deals) seen[it.key || it.appid] = true
@@ -886,13 +898,18 @@ Item {
                         emptyText: "Looking for free games…"
                         onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
                     }
-                    CPlaceholder {
+                    StoreListPage {
+                        id: wishlistPage
                         visible: app.page === "store:wishlist"
-                        anchors.centerIn: parent
-                        width: parent.width - 80
-                        iconName: "bookmark-filled"
-                        text: "Your Steam wishlist goes here"
-                        explanation: "Coming next: the games you wishlisted on Steam, with the best price from every store and a note when one goes on sale."
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        appRoot: app
+                        tray: tray
+                        items: app.wishlist
+                        emptyText: app.wishlistError || (app.wishlistLoaded ? "Your Steam wishlist is empty" : "Getting your wishlist…")
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
                     }
                     SearchPage {
                         id: searchPage

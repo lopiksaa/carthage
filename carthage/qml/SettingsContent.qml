@@ -495,7 +495,7 @@ Column {
             KeyRow {
                 width: parent.width
                 service: "itad"
-                title: "IsThereAnyDeal (experimental, not tested)"
+                title: "IsThereAnyDeal"
                 purpose: "For the store's other stores: what GOG, Microsoft Store, EA and Battle.net ask for a game. Register an app on IsThereAnyDeal to get its key."
                 getUrl: "https://isthereanydeal.com/apps/my/"
             }

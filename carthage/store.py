@@ -658,6 +658,43 @@ class Store(QObject):
 
         threading.Thread(target=work, daemon=True).start()
 
+    wishlistReady = Signal("QVariantList")
+    wishlistFailed = Signal(str)
+
+    @staticmethod
+    def _cheapest(it):
+        """A Steam item, switched to Epic's offer when Epic sells it cheaper (on sale)."""
+        try:
+            o = shops.epic_offer_for(_fetch_json, it["name"], country(), _money)
+        except FETCH_ERRORS:
+            o = None
+        if o and o["discount"] and it.get("cents") and o["cents"] < it["cents"]:
+            return dict(it, store="epic", price=o["price"], original=o["original"],
+                        discount=o["discount"], dealUrl=o["url"], alsoOn="Steam")
+        return dict(it, alsoOn="Epic" if o else "")
+
+    @Slot(str)
+    def loadWishlist(self, steam_id):
+        """Your Steam wishlist (public, no key needed): games on sale first (biggest discount
+        first), then the rest, newest wish first; each at its best price across Steam and Epic."""
+        def work():
+            from concurrent.futures import ThreadPoolExecutor
+            try:
+                raw = _fetch_json("https://api.steampowered.com/IWishlistService/GetWishlist/v1/",
+                                  {"steamid": steam_id}).get("response", {}).get("items") or []
+            except FETCH_ERRORS:
+                self.wishlistFailed.emit("Steam didn't answer. Check the connection and try again.")
+                return
+            added = {int(w["appid"]): int(w.get("date_added") or 0) for w in raw if w.get("appid")}
+            info = _batch(list(added))
+            items = [info[a] for a in added if a in info]
+            with ThreadPoolExecutor(6) as pool:
+                items = list(pool.map(self._cheapest, items))
+            items.sort(key=lambda it: (-(it.get("discount") or 0), -added.get(it.get("appid"), 0)))
+            self.wishlistReady.emit(self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
     dealsMoreReady = Signal(int, "QVariantList")  # page, items
 
     @Slot(int)
@@ -667,18 +704,8 @@ class Store(QObject):
             from concurrent.futures import ThreadPoolExecutor
             steam = self._steam_query(sale=True, count=36, page=page) or []
 
-            def best(it):
-                try:
-                    o = shops.epic_offer_for(_fetch_json, it["name"], country(), _money)
-                except FETCH_ERRORS:
-                    o = None
-                if o and o["discount"] and it.get("cents") and o["cents"] < it["cents"]:
-                    return dict(it, store="epic", price=o["price"], original=o["original"],
-                                discount=o["discount"], dealUrl=o["url"], alsoOn="Steam")
-                return dict(it, alsoOn="Epic" if o else "")
-
             with ThreadPoolExecutor(6) as pool:
-                items = list(pool.map(best, steam))
+                items = list(pool.map(self._cheapest, steam))
             self.dealsMoreReady.emit(page, self._shown(items))
 
         threading.Thread(target=work, daemon=True).start()
@@ -691,18 +718,8 @@ class Store(QObject):
             from concurrent.futures import ThreadPoolExecutor
             steam = self._steam_query(sale=True, count=36) or []
 
-            def best(it):
-                try:
-                    o = shops.epic_offer_for(_fetch_json, it["name"], country(), _money)
-                except FETCH_ERRORS:
-                    o = None
-                if o and o["discount"] and it.get("cents") and o["cents"] < it["cents"]:
-                    return dict(it, store="epic", price=o["price"], original=o["original"],
-                                discount=o["discount"], dealUrl=o["url"], alsoOn="Steam")
-                return dict(it, alsoOn="Epic" if o else "")
-
             with ThreadPoolExecutor(6) as pool:
-                items = list(pool.map(best, steam))
+                items = list(pool.map(self._cheapest, steam))
             seen = {shops.norm_title(i["name"]) for i in items}
             v = {"keywords": "", "count": 24, "country": country(), "locale": "en-US",
                  "category": shops.EPIC_CATEGORY, "withPrice": True, "onSale": True,

@@ -407,6 +407,14 @@ class Backend(QObject):
         """Steam achievements for the closer look (achievements.py)."""
         return self._achievements
 
+    @Slot(result=str)
+    def steamId(self):
+        """Your Steam ID (from Steam's own files), "" without Steam."""
+        from .sources import steam
+
+        root = steam.find_root()
+        return str(steam.steam_id64(root) or "") if root else ""
+
     @Property(QObject, constant=True)
     def favoritesList(self):
         """Every favorite, in the order added, without taking them off the tray (the sidebar's list)."""
