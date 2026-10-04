@@ -31,10 +31,26 @@ LARGE_IMAGE = "https://raw.githubusercontent.com/lopiksaa/carthage/main/carthage
 RETRY = 20                          # seconds between attempts while Discord isn't running
 MIN_GAP = 4.5                       # seconds between activity updates (Discord: 5 per 20 s)
 
-STATES = {
-    "library": ("Choosing a Game", "In the library"),
-    "store": ("Browsing Store", "Looking for something new"),
+# What friends see, by how long you've been at it: (after seconds, details, state).
+STAGES = {
+    "library": [(0, "Choosing a Game", "In the library"),
+                (120, "Still Choosing", "So many cartridges"),
+                (600, "Can't Decide", "Scrolling the library"),
+                (1800, "Lost in the Library", "Maybe the dice will help")],
+    "store": [(0, "Browsing the Store", "Looking for something new"),
+              (300, "Window Shopping", "Just looking"),
+              (1200, "Still Window Shopping", "The wishlist keeps growing")],
 }
+STATES = {k: v[0][1:] for k, v in STAGES.items()}
+
+
+def stage_for(screen, seconds):
+    """(details, state) for this screen after this long, or None."""
+    out = None
+    for after, details, state in STAGES.get(screen, []):
+        if seconds >= after:
+            out = (details, state)
+    return out
 
 
 def _candidates():
@@ -109,18 +125,26 @@ class Presence:
     def __init__(self, enabled=lambda: False):
         self._enabled = enabled
         self._want = None          # (details, state) or None to clear
+        self._screen = None        # what's showing (None: nothing, or a game runs, or inactive)
         self._since = int(time.time())
         self._sent = "unset"
         self._wake = threading.Event()
         self._conn = None
         threading.Thread(target=self._run, daemon=True).start()
 
-    def set(self, screen, game_running=False):
-        """What Carthage is showing: "library", "store", or anything else for nothing."""
-        want = None if game_running or screen not in STATES else STATES[screen]
-        if want != self._want:
-            if want and (not self._want or want[0] != self._want[0]):
+    def set(self, screen, game_running=False, active=True):
+        """What Carthage is showing: "library", "store", or anything else for nothing. Nothing
+        while a game runs or while the window isn't the active one."""
+        screen = None if game_running or not active or screen not in STAGES else screen
+        if screen != self._screen:
+            if screen:  # a new screen, or back to the window: the clock starts again
                 self._since = int(time.time())
+            self._screen = screen
+            self._update_want()
+
+    def _update_want(self):
+        want = stage_for(self._screen, time.time() - self._since) if self._screen else None
+        if want != self._want:
             self._want = want
             self._wake.set()
 
@@ -133,6 +157,7 @@ class Presence:
         while True:
             self._wake.wait(RETRY)
             self._wake.clear()
+            self._update_want()  # the longer you browse, the more it says
             want = self._want if self._enabled() else None
             if want == self._sent and (self._conn or want is None):
                 continue

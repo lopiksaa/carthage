@@ -514,10 +514,11 @@ class Backend(QObject):
     def updater(self):
         return self._updater
 
-    @Slot(str, bool)
-    def setPresence(self, screen, game_running):
-        """Which screen is open, for Discord ("library" / "store"); cleared while a game runs."""
-        self._presence.set(screen, game_running)
+    @Slot(str, bool, bool)
+    def setPresence(self, screen, game_running, active=True):
+        """Which screen is open, for Discord ("library" / "store"); cleared while a game runs
+        or while the window isn't the active one."""
+        self._presence.set(screen, game_running, active)
 
     @Property(QObject, constant=True)
     def keys(self):

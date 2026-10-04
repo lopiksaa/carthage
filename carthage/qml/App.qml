@@ -15,7 +15,11 @@ Item {
     readonly property bool animate: motion > 0
     property string mode: "library"
     // Discord Rich Presence follows the open screen (Python ignores it unless switched on).
-    function updatePresence() { Backend.setPresence(mode, Backend.sessions.count > 0) }
+    function updatePresence() { Backend.setPresence(mode, Backend.sessions.count > 0, !!Window.window && Window.window.active) }
+    Connections {
+        target: Window.window
+        function onActiveChanged() { app.updatePresence() }
+    }
     onModeChanged: updatePresence()
     Connections {
         target: Backend.sessions
