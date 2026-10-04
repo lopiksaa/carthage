@@ -195,6 +195,16 @@ QtObject {
         case "searchCount":
             console.warn("RESULTS now", app.parts.searchPage.results.length)
             break
+        case "makeList":  // {"name": "Couch", "ids": ["fake1", …]} makes a list with these games
+        {
+            const id = Backend.createList(cmd.name)
+            for (const g of cmd.ids || []) Backend.setInList(id, g, true)
+            if (cmd.open) app.navigate("library:list:" + id)
+            break
+        }
+        case "listPicker":
+            app.addToList(cmd.id, cmd.title || "")
+            break
         case "toggleSidebar":
             app.toggleSidebar()
             break

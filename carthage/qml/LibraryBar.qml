@@ -1,6 +1,7 @@
 // The bar above the tray, lined up with its first and last pockets.
 import QtQuick
 import Carthage
+import QtQuick.Controls as QQC2
 
 Item {
     id: bar
@@ -11,6 +12,7 @@ Item {
     property bool withSources: true  // launchers in Show (the sidebar concept lists them itself)
     property bool sourcePage: false  // one launcher's games: no Show menu
     property int count: -1           // shown instead of the library's count (a list page)
+    property string listId: ""       // one of your lists: Rename and Delete in its menu
     readonly property var pal: Backend.theme.p
 
     readonly property var showOptions: [
@@ -44,7 +46,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             readonly property int n: bar.count >= 0 ? bar.count : Backend.games.count + Backend.favorites.count
             text: n + " "
-                  + (Backend.games.filterText !== "" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games"))
+                  + (Backend.games && Backend.games.filterText !== "" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games"))
             color: bar.pal.trayTextDim
             font.family: Ui.fontText
             font.weight: Font.Bold
@@ -100,6 +102,33 @@ Item {
             icon.name: "list-add-symbolic"
             Accessible.name: "Add Game"
             onClicked: bar.appRoot.addGame()
+        }
+        CButton {
+            id: listMenuKey
+            visible: bar.listId !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            kind: "key"
+            width: 36
+            height: 36
+            icon.name: "overflow-menu-symbolic"
+            Accessible.name: "List options"
+            onClicked: listMenu.popup(listMenuKey, 0, listMenuKey.height + 6)
+        }
+    }
+
+    CMenu {
+        id: listMenu
+        QQC2.Action {
+            text: "Rename List…"
+            icon.name: "edit-rename-symbolic"
+            onTriggered: bar.appRoot.renameList(bar.listId)
+        }
+        CMenuSeparator {}
+        QQC2.Action {
+            text: "Delete List"
+            objectName: "danger"
+            icon.name: "edit-delete-symbolic"
+            onTriggered: bar.appRoot.deleteList(bar.listId)
         }
     }
 }

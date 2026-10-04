@@ -40,8 +40,14 @@ Item {
     property string page: "library:all"
     property var pageHistory: []
     readonly property bool libraryGrid: page === "library:all" || page.startsWith("library:source:")
-    readonly property bool listPageShown: page === "library:playnext" || page === "library:favorites"
+    readonly property bool listPageShown: page === "library:playnext" || page === "library:favorites" || customListShown
+    readonly property bool customListShown: page.startsWith("library:list:")
+    readonly property string customListId: customListShown ? page.slice(13) : ""
     readonly property string pageTitle: {
+        if (page.startsWith("library:list:")) {
+            const l = Backend.lists.find(x => "library:list:" + x.id === page)
+            return l ? l.name : "List"
+        }
         if (page.startsWith("library:source:")) {
             const l = Backend.games.launchers.find(x => "library:" + x.value === page)
             return l ? l.text : "Library"
@@ -67,6 +73,7 @@ Item {
         const m = p.startsWith("store:") ? "store" : p.startsWith("library:") ? "library" : mode
         if (m !== mode) mode = m
         tray.quietFor(400)  // a new page, not a change to animate
+        if (p.startsWith("library:list:")) Backend.showList(p.slice(13))
         if (p.startsWith("library:source:")) Backend.games.filterMode = p.slice(8)
         else if (Backend.games.filterMode.startsWith("source:")) Backend.games.filterMode = "all"
         if (m === "store") storeView.load()
@@ -139,7 +146,7 @@ Item {
     // Dialogs, panels and menus: these block the sidebar too (a game's view doesn't).
     readonly property bool dialogOpen: artPicker.opened || cropEditor.opened || confirm.opened
                                        || headerPicker.opened || textPrompt.opened || processPicker.opened
-                                       || mediaViewer.opened || addGameDialog.opened || slotPanel.opened
+                                       || mediaViewer.opened || addGameDialog.opened || slotPanel.opened || listPicker.opened
                                        || colorPicker.opened || whatsNew.opened || feedbackDialog.opened
                                        || Ui.openMenus > 0
 
@@ -792,7 +799,9 @@ Item {
                         withSources: false
                         sourcePage: app.page.startsWith("library:source:")
                         count: app.page === "library:playnext" ? playNextPage.count
-                             : app.page === "library:favorites" ? favoritesPage.count : -1
+                             : app.page === "library:favorites" ? favoritesPage.count
+                             : app.customListShown ? customListPage.count : -1
+                        listId: app.customListId
                     }
                     // The other pages' title row (the store, search, settings).
                     Item {
@@ -839,6 +848,21 @@ Item {
                         storeItems: Backend.playNextStore
                         emptyText: "Nothing to play next"
                         emptyHint: "Add games from their page: Play Next. Store games can go here too."
+                    }
+                    ListPage {
+                        id: customListPage
+                        visible: app.customListShown
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomMargin: dock.clearance
+                        tray: tray
+                        appRoot: app
+                        listModel: Backend.customList
+                        storeItems: []
+                        emptyText: "Nothing in this list yet"
+                        emptyHint: "Right-click a cartridge › Add to List…"
                     }
                     ListPage {
                         id: favoritesPage
@@ -1129,6 +1153,28 @@ Item {
                                notify("That isn't a number of hours. Try again with something like 12 or 3.5.")
                        })
     }
+    // Your own lists.
+    function newList(addGameId) {
+        textPrompt.ask("New List", "Name it after a mood, a friend, a weekend…", "", "Create",
+                       function (v) {
+                           const id = Backend.createList(v)
+                           if (!id) return
+                           if (addGameId) Backend.setInList(id, addGameId, true)
+                           else navigate("library:list:" + id)
+                       })
+    }
+    function addToList(gid, title) { listPicker.openFor(gid, title) }
+    function renameList(lid) {
+        const l = Backend.lists.find(x => x.id === lid)
+        if (l) textPrompt.ask("Rename List", "", l.name, "Rename", function (v) { Backend.renameList(lid, v) })
+    }
+    function deleteList(lid) {
+        const l = Backend.lists.find(x => x.id === lid)
+        if (!l) return
+        navigate("library:all")
+        Backend.deleteList(lid)
+        notify("Deleted “" + l.name + "”. The games are still in your library.")
+    }
     function renameGame(gid, title) {
         textPrompt.ask("Rename Game", "Only changes the name in Carthage.", title, "Rename",
                        function (v) { Backend.rename(gid, v) },
@@ -1140,6 +1186,10 @@ Item {
 
     AddGameDialog {
         id: addGameDialog
+        appRoot: app
+    }
+    ListPicker {
+        id: listPicker
         appRoot: app
     }
     function openStoreItem(item, list) {  // a store game from a library shelf (Play Next)

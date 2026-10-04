@@ -146,6 +146,11 @@ GridView {
             onTriggered: Backend.setFavorite(cardMenu.cell.gameId, !fav)
         }
         QQC2.Action {
+            text: "Add to List…"
+            icon.name: "view-list-icons-symbolic"
+            onTriggered: grid.appRoot.addToList(cardMenu.cell.gameId, cardMenu.cell.title)
+        }
+        QQC2.Action {
             text: "Change Art…"
             icon.name: "insert-image-symbolic"
             enabled: !Backend.fake

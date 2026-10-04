@@ -50,6 +50,9 @@ class Backend(QObject):
         self._play_next = TrayModel(self._library, self, part="playnext", mirror=self._tray)
         # Favorites as a list (the sidebar concept): like Play Next, they stay in the tray too.
         self._favorites_list = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        # The open custom list (one model, filled with the list shown).
+        self._custom_list = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        self._shown_list = ""
         # The search page's library results: its own text and genres, not the tray's.
         self._search_library = TrayModel(self._library, self, part="all")
         self._play_next_store = []
@@ -406,6 +409,72 @@ class Backend(QObject):
     def achievements(self):
         """Steam achievements for the closer look (achievements.py)."""
         return self._achievements
+
+    # ── Your own lists ──────────────────────────────────────────────────────────────────────
+    listsChanged = Signal()
+
+    def _lists(self):
+        return [dict(x) for x in self._settings.get("lists") or []]
+
+    def _save_lists(self, lists):
+        self._settings.set("lists", lists)
+        if self._shown_list:
+            self.showList(self._shown_list)
+        self.listsChanged.emit()
+
+    @Property("QVariantList", notify=listsChanged)
+    def lists(self):
+        """[{id, name, count}] in the order they were made."""
+        return [{"id": x["id"], "name": x["name"], "count": len(x.get("ids") or [])} for x in self._lists()]
+
+    @Slot(str, result=str)
+    def createList(self, name):
+        import uuid
+
+        name = name.strip()
+        if not name:
+            return ""
+        lists = self._lists()
+        lid = uuid.uuid4().hex[:8]
+        lists.append({"id": lid, "name": name, "ids": []})
+        self._save_lists(lists)
+        return lid
+
+    @Slot(str, str)
+    def renameList(self, lid, name):
+        lists = self._lists()
+        for x in lists:
+            if x["id"] == lid and name.strip():
+                x["name"] = name.strip()
+        self._save_lists(lists)
+
+    @Slot(str)
+    def deleteList(self, lid):
+        self._save_lists([x for x in self._lists() if x["id"] != lid])
+
+    @Slot(str, str, bool)
+    def setInList(self, lid, game_id, on):
+        lists = self._lists()
+        for x in lists:
+            if x["id"] == lid:
+                ids = [g for g in x.get("ids") or [] if g != game_id]
+                x["ids"] = ids + [game_id] if on else ids
+        self._save_lists(lists)
+
+    @Slot(str, str, result=bool)
+    def inList(self, lid, game_id):
+        return any(x["id"] == lid and game_id in (x.get("ids") or []) for x in self._lists())
+
+    @Slot(str)
+    def showList(self, lid):
+        """Fills customList with this list's games."""
+        self._shown_list = lid
+        ids = next((x.get("ids") or [] for x in self._lists() if x["id"] == lid), [])
+        self._custom_list.set_play_next(ids)
+
+    @Property(QObject, constant=True)
+    def customList(self):
+        return self._custom_list
 
     @Slot(result=str)
     def steamId(self):

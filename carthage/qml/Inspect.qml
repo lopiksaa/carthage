@@ -946,6 +946,12 @@ FocusScope {
             height: visible ? implicitHeight : 0
         }
         QQC2.Action {
+            text: "Add to List…"
+            icon.name: "view-list-icons-symbolic"
+            onTriggered: inspect.appRoot.addToList(inspect.game.gameId, inspect.game.title)
+        }
+        CMenuSeparator {}
+        QQC2.Action {
             text: "Change Art…"
             icon.name: "insert-image-symbolic"
             enabled: !Backend.fake

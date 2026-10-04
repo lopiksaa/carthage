@@ -37,6 +37,7 @@ class Settings(QObject):
         "sidebarCollapsed": False,
         # Play Next bookmarks, in order: a library game id, or a store game {appid, name, capsule, header}.
         "playNext": [],
+        "lists": [],  # your own lists: [{id, name, ids: [gameId, …]}]
         # Cartridge colors for single games (game id → a preset name or "c_rrggbb").
         "gameColors": {},
         "otherStores": False,

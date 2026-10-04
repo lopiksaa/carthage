@@ -344,10 +344,20 @@ Item {
                 count: Backend.playNext.count + Backend.playNextStore.length
             }
             Entry { text: "Favorites"; iconName: "starred"; target: "library:favorites"; count: Backend.favoritesList.count }
+            Repeater {
+                model: Backend.lists
+                delegate: Entry {
+                    required property var modelData
+                    text: modelData.name
+                    iconName: "view-list-icons"
+                    target: "library:list:" + modelData.id
+                    count: modelData.count
+                }
+            }
             Entry {
                 text: "New List"
                 iconName: "list-add"
-                onClicked: bar.appRoot.notify("Your own lists come next (this is the layout concept).")
+                onClicked: { bar.appRoot.sidebarOpen = false; bar.appRoot.newList("") }
             }
 
             Heading { text: "Sources" }
