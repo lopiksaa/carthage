@@ -165,7 +165,7 @@ Item {
         id: spot
         visible: opacity > 0
         opacity: cell.spotlit && !cell.out ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: spot.opacity < 0.5 ? 40 : 280; easing.type: Easing.OutQuad } }
+        Behavior on opacity { NumberAnimation { duration: (spot.opacity < 0.5 ? 40 : 280) * Backend.motion; easing.type: Easing.OutQuad } }
         Repeater {
             model: [0.5, 0.25, 0.12]
             Rectangle {

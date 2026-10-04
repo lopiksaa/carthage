@@ -42,10 +42,13 @@ Item {
                   "settings": "Settings" })[page] || ""
     }
     property var deals: []
+    property real pageIn: 1
+    NumberAnimation { id: pageInAnim; target: app; property: "pageIn"; from: 0; to: 1; duration: 180 * app.motion; easing.type: Easing.OutCubic }
     function navigate(p, back) {
         if (inspect.open) inspect.close()
         if (storePage.open) storePage.close()
         if (p === page) return
+        pageInAnim.restart()
         if (!back) pageHistory = pageHistory.concat([page]).slice(-20)
         page = p
         const m = p.startsWith("store:") ? "store" : "library"
@@ -705,141 +708,166 @@ Item {
                     smooth: false
                 }
 
-                LibraryBar {
-                    id: libraryBar
-                    visible: app.libraryGrid || app.listPageShown
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    tray: tray
-                    appRoot: app
-                    title: app.pageTitle
-                    withSources: false
-                    sourcePage: app.page.startsWith("library:source:")
-                    count: app.listPageShown ? listPage.count : -1
-                }
-                // The other pages' title row (the store, search, settings).
+                // The pages. A new page fades in with a small rise (ease-out, short: page
+                // switches are frequent); the dock stays outside, unaffected.
                 Item {
-                    id: pageBar
-                    visible: !libraryBar.visible && app.page !== "search"
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: visible ? 52 : 0
-                    Row {
-                        x: tray.contentLeft  // the page grid's left edge
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Ui.gapM
-                        EngravedLabel {
+                    id: pages
+                    anchors.fill: parent
+                    opacity: app.pageIn
+                    transform: Translate { y: (1 - app.pageIn) * 6 }
+                    LibraryBar {
+                        id: libraryBar
+                        visible: app.libraryGrid || app.listPageShown
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        tray: tray
+                        appRoot: app
+                        title: app.pageTitle
+                        withSources: false
+                        sourcePage: app.page.startsWith("library:source:")
+                        count: app.page === "library:playnext" ? playNextPage.count
+                             : app.page === "library:favorites" ? favoritesPage.count : -1
+                    }
+                    // The other pages' title row (the store, search, settings).
+                    Item {
+                        id: pageBar
+                        visible: !libraryBar.visible && app.page !== "search"
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: visible ? 52 : 0
+                        Row {
+                            x: tray.contentLeft  // the page grid's left edge
                             anchors.verticalCenter: parent.verticalCenter
-                            text: app.pageTitle
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: app.page === "store:deals" ? "Steam and Epic together: each game once, at its best price"
-                                : app.page === "store:free" ? "Free to keep for a limited time, on Steam and Epic"
-                                : app.page === "store:discover" ? "Picked from what you play" : ""
-                            color: app.pal.trayTextDim
-                            font.family: Ui.fontText
-                            font.weight: Font.Bold
-                            font.pixelSize: Ui.textCaption
+                            spacing: Ui.gapM
+                            EngravedLabel {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: app.pageTitle
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: app.page === "store:deals" ? "Steam and Epic together: each game once, at its best price"
+                                    : app.page === "store:free" ? "Free to keep for a limited time, on Steam and Epic"
+                                    : app.page === "store:discover" ? "Picked from what you play" : ""
+                                color: app.pal.trayTextDim
+                                font.family: Ui.fontText
+                                font.weight: Font.Bold
+                                font.pixelSize: Ui.textCaption
+                            }
                         }
                     }
-                }
-                Tray {
-                    id: tray
-                    appRoot: app
-                    visible: app.libraryGrid
-                    showShelves: false
-                    anchors.top: libraryBar.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    bottomClearance: dock.clearance
-                }
-                ListPage {
-                    id: listPage
-                    visible: app.listPageShown
-                    anchors.top: libraryBar.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    bottomMargin: dock.clearance
-                    tray: tray
-                    appRoot: app
-                    listModel: app.page === "library:favorites" ? Backend.favoritesList : Backend.playNext
-                    storeItems: app.page === "library:favorites" ? [] : Backend.playNextStore
-                    emptyText: app.page === "library:favorites" ? "No favorites yet" : "Nothing to play next"
-                    emptyHint: app.page === "library:favorites" ? "Right-click a cartridge › Add to Favorites."
-                        : "Add games from their page: Play Next. Store games can go here too."
-                }
-                StoreView {
-                    id: storeView
-                    appRoot: app
-                    visible: app.page === "store:discover" || app.page === "store:genres"
-                    showBar: false
-                    tray: tray
-                    onGenre: (c) => app.searchGenre(c.tag)
-                    anchors.top: pageBar.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    bottomClearance: dock.clearance
-                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
-                }
-                StoreListPage {
-                    id: dealsPage
-                    visible: app.page === "store:deals"
-                    anchors.top: pageBar.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    appRoot: app
-                    tray: tray
-                    items: app.deals
-                    emptyText: "Gathering the deals…"
-                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
-                }
-                StoreListPage {
-                    id: freePage
-                    visible: app.page === "store:free"
-                    anchors.top: pageBar.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    appRoot: app
-                    tray: tray
-                    items: storeView.free
-                    emptyText: "Looking for free games…"
-                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
-                }
-                CPlaceholder {
-                    visible: app.page === "store:wishlist"
-                    anchors.centerIn: parent
-                    width: parent.width - 80
-                    iconName: "bookmark-filled"
-                    text: "Your Steam wishlist goes here"
-                    explanation: "Coming next: the games you wishlisted on Steam, with the best price from every store and a note when one goes on sale."
-                }
-                SearchPage {
-                    id: searchPage
-                    visible: app.page === "search"
-                    anchors.fill: parent
-                    tray: tray
-                    appRoot: app
-                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
-                }
-                SettingsPage {
-                    id: settingsPage
-                    visible: app.page === "settings"
-                    appRoot: app
-                    anchors.top: pageBar.bottom
-                    anchors.left: parent.left
-                    anchors.bottom: parent.bottom
-                    anchors.leftMargin: tray.contentLeft  // on the page grid
-                    anchors.bottomMargin: Math.max(24, dock.clearance)  // clear of the dock while a game runs
-                    width: Math.min(tray.contentRight - tray.contentLeft, 1040)  // a settings window, not a wall
-                    onCloseRequested: app.navigateBack()
+                    Tray {
+                        id: tray
+                        appRoot: app
+                        visible: app.libraryGrid
+                        showShelves: false
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomClearance: dock.clearance
+                    }
+                    // One page per list (switching shows another page instead of rebuilding
+                    // every cartridge in one).
+                    ListPage {
+                        id: playNextPage
+                        visible: app.page === "library:playnext"
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomMargin: dock.clearance
+                        tray: tray
+                        appRoot: app
+                        listModel: Backend.playNext
+                        storeItems: Backend.playNextStore
+                        emptyText: "Nothing to play next"
+                        emptyHint: "Add games from their page: Play Next. Store games can go here too."
+                    }
+                    ListPage {
+                        id: favoritesPage
+                        visible: app.page === "library:favorites"
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomMargin: dock.clearance
+                        tray: tray
+                        appRoot: app
+                        listModel: Backend.favoritesList
+                        storeItems: []
+                        emptyText: "No favorites yet"
+                        emptyHint: "Right-click a cartridge › Add to Favorites."
+                    }
+                    StoreView {
+                        id: storeView
+                        appRoot: app
+                        visible: app.page === "store:discover" || app.page === "store:genres"
+                        showBar: false
+                        tray: tray
+                        onGenre: (c) => app.searchGenre(c.tag)
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomClearance: dock.clearance
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    StoreListPage {
+                        id: dealsPage
+                        visible: app.page === "store:deals"
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        appRoot: app
+                        tray: tray
+                        items: app.deals
+                        emptyText: "Gathering the deals…"
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    StoreListPage {
+                        id: freePage
+                        visible: app.page === "store:free"
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        appRoot: app
+                        tray: tray
+                        items: storeView.free
+                        emptyText: "Looking for free games…"
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    CPlaceholder {
+                        visible: app.page === "store:wishlist"
+                        anchors.centerIn: parent
+                        width: parent.width - 80
+                        iconName: "bookmark-filled"
+                        text: "Your Steam wishlist goes here"
+                        explanation: "Coming next: the games you wishlisted on Steam, with the best price from every store and a note when one goes on sale."
+                    }
+                    SearchPage {
+                        id: searchPage
+                        visible: app.page === "search"
+                        anchors.fill: parent
+                        tray: tray
+                        appRoot: app
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    SettingsPage {
+                        id: settingsPage
+                        visible: app.page === "settings"
+                        appRoot: app
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.bottom: parent.bottom
+                        anchors.leftMargin: tray.contentLeft  // on the page grid
+                        anchors.bottomMargin: Math.max(24, dock.clearance)  // clear of the dock while a game runs
+                        width: Math.min(tray.contentRight - tray.contentLeft, 1040)  // a settings window, not a wall
+                        onCloseRequested: app.navigateBack()
+                    }
                 }
 
                 Rectangle {
@@ -871,7 +899,9 @@ Item {
                 }
 
                 CPlaceholder {
-                    anchors.centerIn: tray
+                    // Centered on the tray (inside the pages container).
+                    anchors.horizontalCenter: pages.horizontalCenter
+                    y: tray.y + Math.round((tray.height - height) / 2)
                     width: tray.width - Ui.gridUnit * 4
                     readonly property string filter: Backend.games.filterMode
                     visible: Backend.games.count + Backend.favorites.count === 0 && app.libraryGrid
@@ -893,7 +923,13 @@ Item {
                     readonly property bool wanted: Backend.sessions.count > 0 || app.dragging || installing !== null
                     readonly property real clearance: wanted ? height + protrude - lipY + 30 : Ui.spacingLarge
                     hideY: wanted ? 0 : height + protrude + 40
-                    Behavior on hideY { NumberAnimation { duration: 240 * app.motion; easing.type: Easing.OutCubic } }
+                    // Rises with ease-out; leaves faster with ease-in (exits shorter than entrances).
+                    Behavior on hideY {
+                        NumberAnimation {
+                            duration: (dock.wanted ? Ui.motionSlow - 60 : Ui.motionMedium - 20) * app.motion
+                            easing.type: dock.wanted ? Easing.OutCubic : Easing.InCubic
+                        }
+                    }
                     width: Math.min(parent.width - 48, statusRoom + slotCount * 156 + 12)
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom

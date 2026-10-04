@@ -251,7 +251,7 @@ CDialog {
                     color: picker.pal.panelHover
                     clip: true
                     scale: hh.hovered ? 1.04 : 1
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: 100 * Backend.motion; easing.type: Easing.OutCubic } }
                     border.width: hh.hovered ? 3 : 0
                     border.color: Backend.theme.accent.accent
 

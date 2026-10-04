@@ -35,7 +35,7 @@ Rectangle {
         asynchronous: true
         smooth: true
         scale: tile.zoomed ? 1.02 : 1
-        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 140 * Backend.motion; easing.type: Easing.OutCubic } }
     }
     Rectangle {
         visible: !!tile.media && tile.media.kind === "video"

@@ -30,7 +30,7 @@ Item {
     Item {
         anchors.fill: parent
         scale: hover.hovered ? 1.08 : 1
-        Behavior on scale { NumberAnimation { duration: 90 } }
+        Behavior on scale { NumberAnimation { duration: 90 * Backend.motion; easing.type: Easing.OutCubic } }
 
         Shape {
             visible: chip.rainbow

@@ -26,7 +26,7 @@ Item {
         repeat: true
         onTriggered: banner.go(banner.index + 1)
     }
-    NumberAnimation { id: fade; target: shot; property: "opacity"; from: 0.25; to: 1; duration: 420; easing.type: Easing.OutCubic }
+    NumberAnimation { id: fade; target: shot; property: "opacity"; from: 0.25; to: 1; duration: 420 * Backend.motion; easing.type: Easing.OutCubic }
 
     Rectangle {
         anchors.fill: parent
@@ -146,7 +146,7 @@ Item {
                     height: 8
                     radius: 4
                     color: index === banner.index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.45)
-                    Behavior on width { NumberAnimation { duration: 180 } }
+                    Behavior on width { NumberAnimation { duration: 180 * Backend.motion; easing.type: Easing.OutCubic } }
                     TapHandler { onTapped: banner.go(index) }
                 }
             }

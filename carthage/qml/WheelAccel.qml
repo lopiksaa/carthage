@@ -1,6 +1,7 @@
 // Wheel scrolling that speeds up while the wheel keeps turning; touchpads scroll natively.
 //   WheelAccel { flickable: myList; step: 120 }
 import QtQuick
+import Carthage
 
 WheelHandler {
     id: wa
@@ -57,7 +58,7 @@ WheelHandler {
     readonly property bool gliding: glide.running
     property NumberAnimation glide: NumberAnimation {
         target: wa.flickable
-        duration: 180
+        duration: 180 * Backend.motion
         easing.type: Easing.OutCubic
     }
 }

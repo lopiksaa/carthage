@@ -29,11 +29,11 @@ QQC2.Popup {
     closePolicy: QQC2.Popup.CloseOnEscape | QQC2.Popup.CloseOnPressOutside
 
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 110 }
-        NumberAnimation { property: "y"; from: panel.y + 8; to: panel.y; duration: 160; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 110 * Backend.motion; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "y"; from: panel.y + 8; to: panel.y; duration: 160 * Backend.motion; easing.type: Easing.OutCubic }
     }
     exit: Transition {
-        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 80 }
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 80 * Backend.motion; easing.type: Easing.InCubic }
     }
 
     background: PanelBackground {

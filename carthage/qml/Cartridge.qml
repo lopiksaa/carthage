@@ -33,7 +33,7 @@ Item {
                                        && Backend.installs.progress[cart.gameId] !== undefined
                                        ? Backend.installs.progress[cart.gameId] : -1
     property real fill: installing >= 0 ? installing : 0
-    Behavior on fill { NumberAnimation { duration: 1900; easing.type: Easing.OutCubic } }
+    Behavior on fill { NumberAnimation { duration: 1900 * Backend.motion; easing.type: Easing.OutCubic } }
     property bool flat: false
 
     property bool glare: false

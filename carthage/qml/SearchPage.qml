@@ -421,7 +421,7 @@ Flickable {
             width: parent.width
             spacing: Ui.gapL
             opacity: page.state_ === "loading" ? 0.5 : 1
-            Behavior on opacity { NumberAnimation { duration: 120 } }
+            Behavior on opacity { NumberAnimation { duration: 120 * Backend.motion; easing.type: Easing.OutCubic } }
             Repeater {
                 model: page.results
                 delegate: StoreCard {

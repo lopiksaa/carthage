@@ -70,7 +70,7 @@ CDialog {
                         height: 6
                         radius: 3
                         color: index <= at ? Backend.theme.accent.accent : wiz.pal.panelBorder
-                        Behavior on width { NumberAnimation { duration: 140 } }
+                        Behavior on width { NumberAnimation { duration: 140 * Backend.motion; easing.type: Easing.OutCubic } }
                     }
                 }
             }

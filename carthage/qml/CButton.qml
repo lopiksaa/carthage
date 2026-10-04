@@ -33,7 +33,7 @@ QQC2.AbstractButton {
 
     scale: down && !isKey ? 0.97 : 1
     Behavior on scale {
-        NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
+        NumberAnimation { duration: 80 * Backend.motion; easing.type: Easing.OutQuad }
     }
 
     background: Item {

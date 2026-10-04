@@ -164,9 +164,9 @@ FocusScope {
     }
     SequentialAnimation {
         id: edgeNudge
-        NumberAnimation { target: page; property: "spin"; to: 8; duration: 60 }
-        NumberAnimation { target: page; property: "spin"; to: -8; duration: 90 }
-        NumberAnimation { target: page; property: "spin"; to: 0; duration: 60 }
+        NumberAnimation { target: page; property: "spin"; to: 8; duration: 60 * page.motion; easing.type: Easing.OutQuad }
+        NumberAnimation { target: page; property: "spin"; to: -8; duration: 90 * page.motion; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: page; property: "spin"; to: 0; duration: 60 * page.motion; easing.type: Easing.InQuad }
     }
 
     function shuffle(dir) {

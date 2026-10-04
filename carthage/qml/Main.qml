@@ -88,8 +88,8 @@ QQC2.ApplicationWindow {
         height: 48
         opacity: shown ? 1 : 0
         visible: opacity > 0.01
-        Behavior on opacity { NumberAnimation { duration: 160 } }
-        Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 160 * Backend.motion; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 200 * Backend.motion; easing.type: Easing.OutCubic } }
         Accessible.role: Accessible.AlertMessage
         Accessible.name: message
         PanelBackground { anchors.fill: parent; radius: Ui.radiusMedium; shadowOffset: 6; shadowBlur: 20 }

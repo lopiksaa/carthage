@@ -28,11 +28,11 @@ QQC2.Menu {
     implicitWidth: 230
 
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 90 }
-        NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: 110; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 90 * Backend.motion; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: 110 * Backend.motion; easing.type: Easing.OutCubic }
     }
     exit: Transition {
-        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 70 }
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 70 * Backend.motion; easing.type: Easing.InCubic }
     }
 
     background: PanelBackground {

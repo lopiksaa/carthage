@@ -179,7 +179,7 @@ Item {
         }
     }
 
-    NumberAnimation { id: liftAnim; target: lift; property: "value"; duration: 110; easing.type: Easing.OutCubic }
+    NumberAnimation { id: liftAnim; target: lift; property: "value"; duration: 110 * Backend.motion; easing.type: Easing.OutCubic }
     QtObject { id: lift; property real value: 0 }
     HoverHandler {
         id: hh

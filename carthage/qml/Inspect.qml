@@ -294,9 +294,9 @@ FocusScope {
 
     SequentialAnimation {
         id: edgeNudge
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX - 6; duration: 50 }
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX + 6; duration: 70 }
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 50 }
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX - 6; duration: 50 * inspect.motion; easing.type: Easing.OutQuad }
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX + 6; duration: 70 * inspect.motion; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 50 * inspect.motion; easing.type: Easing.InQuad }
     }
 
     function resetGallery() { morph.reset() }  // no animation: closing or showing another game
@@ -578,8 +578,8 @@ FocusScope {
 
     SequentialAnimation {
         id: heroPress
-        NumberAnimation { target: hero; property: "press"; to: 0.97; duration: 80; easing.type: Easing.OutQuad }
-        NumberAnimation { target: hero; property: "press"; to: 1; duration: 140; easing.type: Easing.OutBack }
+        NumberAnimation { target: hero; property: "press"; to: 0.97; duration: 80 * inspect.motion; easing.type: Easing.OutQuad }
+        NumberAnimation { target: hero; property: "press"; to: 1; duration: 140 * inspect.motion; easing.type: Easing.OutBack }
     }
 
     ParallelAnimation {

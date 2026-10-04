@@ -37,6 +37,13 @@ QtObject {
     readonly property int radiusMedium: 12  // buttons, fields, menus
     readonly property int radiusLarge: 18   // dialogs, panels, banners
 
+    // Motion (× Backend.motion, the desktop's speed; 0 = instant). From NN/g, Material 3 and
+    // Fluent: feedback ~100 ms, small transitions ~200, panels/pages entering ~300; exits a bit
+    // shorter and ease-in, entrances ease-out, nothing linear (learning/ui-rules.md §7).
+    readonly property int motionFast: 100    // press, hover, toggles
+    readonly property int motionMedium: 200  // menus, chips, small moves, exits
+    readonly property int motionSlow: 300    // panels and dialogs entering
+
     readonly property int gapXS: 4
     readonly property int gapS: 8
     readonly property int gapM: 12

@@ -52,8 +52,8 @@ Column {
             color: Qt.alpha(Backend.theme.accent.accent, fs.hot ? 0.12 : 0)
             border.width: 2
             border.color: Qt.alpha(Backend.theme.accent.accent, fs.hot ? 0.9 : 0)
-            Behavior on color { ColorAnimation { duration: 120 } }
-            Behavior on border.color { ColorAnimation { duration: 120 } }
+            Behavior on color { ColorAnimation { duration: 120 * Backend.motion } }
+            Behavior on border.color { ColorAnimation { duration: 120 * Backend.motion } }
         }
 
         // The shelf is itself a Tray (one row), loaded by URL: Tray already contains this
