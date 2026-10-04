@@ -278,7 +278,7 @@ CDialog {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            if (!cell.modelData.square) picker.repositionAfter = picker.gameId
+                            picker.repositionAfter = picker.gameId  // new art: straight on to Reposition
                             Backend.artPicker.choose(picker.gameId, cell.modelData.url)
                             picker.close()
                         }
