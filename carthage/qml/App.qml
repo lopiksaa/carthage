@@ -149,7 +149,7 @@ Item {
     // Dialogs, panels and menus: these block the sidebar too (a game's view doesn't).
     readonly property bool dialogOpen: artPicker.opened || cropEditor.opened || confirm.opened
                                        || headerPicker.opened || textPrompt.opened || processPicker.opened
-                                       || mediaViewer.opened || addGameDialog.opened || slotPanel.opened || listPicker.opened
+                                       || mediaViewer.opened || addGameDialog.opened || slotPanel.opened || listPicker.opened || listGamesPicker.opened
                                        || colorPicker.opened || whatsNew.opened || feedbackDialog.opened
                                        || Ui.openMenus > 0
 
@@ -868,7 +868,9 @@ Item {
                         listModel: Backend.customList
                         storeItems: []
                         emptyText: "Nothing in this list yet"
-                        emptyHint: "Right-click a cartridge › Add to List…"
+                        emptyHint: "Pick its games, or right-click any cartridge › Add to List…"
+                        emptyAction: "Add Games…"
+                        onEmptyActionTriggered: app.editListGames(app.customListId)
                     }
                     ListPage {
                         id: favoritesPage
@@ -1167,7 +1169,10 @@ Item {
                            const id = Backend.createList(v)
                            if (!id) return
                            if (addGameId) Backend.setInList(id, addGameId, true)
-                           else navigate("library:list:" + id)
+                           else {
+                               navigate("library:list:" + id)
+                               Qt.callLater(() => editListGames(id))
+                           }
                        })
     }
     function addToList(gid, title) { listPicker.openFor(gid, title) }
@@ -1198,6 +1203,13 @@ Item {
     ListPicker {
         id: listPicker
         appRoot: app
+    }
+    ListGamesPicker {
+        id: listGamesPicker
+    }
+    function editListGames(lid) {
+        const l = Backend.lists.find(x => x.id === lid)
+        if (l) listGamesPicker.openFor(lid, l.name)
     }
     function openStoreItem(item, list) {  // a store game from a library shelf (Play Next)
         storePage.openFor(item, list)

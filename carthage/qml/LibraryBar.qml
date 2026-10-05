@@ -119,6 +119,11 @@ Item {
     CMenu {
         id: listMenu
         QQC2.Action {
+            text: "Edit Games…"
+            icon.name: "checkmark-symbolic"
+            onTriggered: bar.appRoot.editListGames(bar.listId)
+        }
+        QQC2.Action {
             text: "Rename List…"
             icon.name: "edit-rename-symbolic"
             onTriggered: bar.appRoot.renameList(bar.listId)

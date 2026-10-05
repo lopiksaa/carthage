@@ -41,8 +41,10 @@ QtObject {
             }
             for (const c of item.children) walk(c)
         }
-        walk(win.contentItem)
-        if (win.overlay) walk(win.overlay)
+        // The window's root item: the content and the overlay (dialogs, menus) are under it.
+        let top = win.contentItem
+        while (top.parent) top = top.parent
+        walk(top)
         const p = hits[nth || 0]
         return p ? Math.round(p.x) + "," + Math.round(p.y) + "," + hits.length : "none," + hits.length
     }

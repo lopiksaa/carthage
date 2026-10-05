@@ -300,6 +300,9 @@ Item {
         anchors.horizontalCenter: pocket.horizontalCenter
         width: pocket.width + Ui.spacingLarge
         text: cell.title
+        // The name opens the game too (people aim for it).
+        TapHandler { onTapped: if (!cell.out) cell.appRoot.choose(cell) }
+        HoverHandler { cursorShape: Qt.PointingHandCursor }
         color: cell.installed ? cell.pal.trayText : cell.pal.trayTextDim
         font.family: Ui.fontText  // the chosen text font (was the app default, Nunito)
         font.pixelSize: Ui.textBody

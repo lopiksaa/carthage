@@ -13,6 +13,8 @@ Flickable {
     property var storeItems: []
     property string emptyText
     property string emptyHint
+    property string emptyAction  // a button under the empty state
+    signal emptyActionTriggered()
     readonly property int count: shelf.count
 
     contentHeight: shelf.height + 2 * Ui.spacingLarge
@@ -40,5 +42,7 @@ Flickable {
         iconName: "bookmark"
         text: page.emptyText
         explanation: page.emptyHint
+        actionText: page.emptyAction
+        onAction: page.emptyActionTriggered()
     }
 }
