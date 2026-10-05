@@ -255,7 +255,7 @@ Item {
                 GradientStop { position: 1.0; color: "transparent" }
             }
             SequentialAnimation on opacity {
-                running: cart.installing >= 0 && cart.visible
+                running: cart.installing >= 0 && cart.visible && Backend.motion > 0  // (the % says it in words)
                 loops: Animation.Infinite
                 NumberAnimation { to: 0.35; duration: 900; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 1.0; duration: 900; easing.type: Easing.InOutSine }
