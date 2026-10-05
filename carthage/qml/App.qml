@@ -1031,7 +1031,9 @@ Item {
                     // in it, an install, a drag.
                     readonly property bool wanted: app.libraryGrid || app.listPageShown
                                                    || Backend.sessions.count > 0 || app.dragging || installing !== null
-                    readonly property real clearance: wanted ? height + rise + Ui.spacingLarge : Ui.spacingLarge
+                    // Room to keep clear above it: its body, plus the cartridges standing in it.
+                    readonly property real clearance: wanted ? height + rise + (filled > 0 ? protrude - lipY - rise : 0) + Ui.spacingLarge
+                                                             : Ui.spacingLarge
                     hideY: wanted ? 0 : height + rise + protrude + 20
                     // Rises with ease-out; leaves faster with ease-in (exits shorter than entrances).
                     Behavior on hideY {
