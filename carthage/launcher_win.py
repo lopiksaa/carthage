@@ -201,9 +201,18 @@ class Snapshot:
         # The game's own process: the oldest one running from that game's install folder —
         # not just any steamapps\common one (Wallpaper Engine and other tools live there too).
         folder = _install_dir(appid)
-        if not folder:
-            return {}
-        games = sorted((t, pid) for pid, t in self.started.items() if self.exe.get(pid, "").startswith(folder))
+        games = sorted((t, pid) for pid, t in self.started.items()
+                       if folder and self.exe.get(pid, "").startswith(folder))
+        if not games:
+            # Some games run from somewhere else (a publisher's launcher the Steam app hands
+            # over to): then it's what Steam itself started that isn't part of Steam.
+            root = _steam.find_root()
+            steam_dir = _folder_key(str(root)) if root else ""
+            apps_dir = os.path.join(steam_dir, "steamapps", "")
+            steam_pids = [pid for pid, n in self.name.items() if n == "steam.exe"]
+            games = sorted((self.started[pid], pid) for sp in steam_pids for pid in self.children.get(sp, [])
+                           if self.exe.get(pid) and (not steam_dir or not self.exe[pid].startswith(steam_dir)
+                                                     or self.exe[pid].startswith(apps_dir)))
         return {str(appid): games[0][1]} if games else {}
 
     def in_folder(self, folder):
