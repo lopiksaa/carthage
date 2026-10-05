@@ -77,6 +77,11 @@ def _start_in_job(exe):
             if _kernel32.AssignProcessToJobObject(job, proc):
                 _jobs[p.pid] = job
                 job = None
+        if p.pid not in _jobs:
+            import logging
+
+            logging.getLogger("carthage.launcher").warning(
+                "No job object for this launch (error %d): tracking only its own process tree", ctypes.get_last_error())
     finally:
         if proc:
             _ntdll.NtResumeProcess(proc)

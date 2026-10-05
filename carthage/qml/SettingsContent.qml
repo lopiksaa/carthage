@@ -581,11 +581,25 @@ Column {
                 icon.name: ready ? "view-refresh-symbolic" : "download-symbolic"
                 onClicked: ready ? Backend.updater.restartNow() : Backend.updater.download()
             }
-            CButton {
+            Row {
                 width: parent.width
-                text: "Send Feedback"
-                icon.name: "dialog-messages-symbolic"
-                onClicked: sc.appRoot.sendFeedback()
+                spacing: Ui.gapS
+                CButton {
+                    width: (parent.width - Ui.gapS) / 2
+                    text: "Send Feedback"
+                    icon.name: "dialog-messages-symbolic"
+                    onClicked: sc.appRoot.sendFeedback()
+                }
+                CButton {
+                    width: (parent.width - Ui.gapS) / 2
+                    text: "Copy Diagnostics"
+                    icon.name: "tools-symbolic"
+                    Accessible.description: "Copies a report about Carthage and this PC, for a bug report"
+                    onClicked: sc.appRoot.notify(Backend.copyDiagnostics()
+                        ? "Diagnostics copied. Paste them into your bug report."
+                        : "Couldn't make the diagnostics. Try again, or send the log from " + (Qt.platform.os === "windows"
+                          ? "%LOCALAPPDATA%\\Carthage" : "~/.cache/carthage") + ".")
+                }
             }
             Note {
                 topPadding: 4

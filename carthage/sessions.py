@@ -14,6 +14,7 @@ States: starting → running → closing (→ notresponding) → ended
         unconfirmed  (never saw it start; Eject or keep waiting)
 """
 
+import logging
 import threading
 import time
 
@@ -39,6 +40,7 @@ GENERIC_PROGRAMS = {"sh", "bash", "zsh", "fish", "env", "python", "python3", "wi
                     "steam", "heroic", "lutris", "legendary", "gamemoderun", "mangohud", "flatpak",
                     "xdg-open", "gio", "systemd-run", "cmd", "powershell", "start", "java", "mono", "dotnet"}
 CRASH_WINDOW = 5.0  # s: exiting this soon after starting counts as "closed right after starting"
+_log = logging.getLogger("carthage.sessions")  # what the dock did, for Copy Diagnostics
 
 
 def _start_timeout(handle, steam_was_running):
@@ -186,6 +188,8 @@ class SessionModel(QAbstractListModel):
         i, s = self._row(game_id)
         if s is None or s.state == state:
             return
+        _log.info("%s: %s → %s (%d processes, %.0f s after launch)", s.game.title, s.state, state, len(s.pids),
+                  time.time() - s.launched)
         s.state = state
         idx = self.index(i)
         self.dataChanged.emit(idx, idx)
@@ -225,6 +229,8 @@ class SessionModel(QAbstractListModel):
         if game.executable and self._real and game.source != "carthage":
             s.steam_cold = launcher.kind_of(game.executable) == "steam" and not launcher.Snapshot().running("steam")
             s.handle = launcher.launch(game)
+            _log.info("Launched %s [%s] as %s%s", game.title, game.source, s.handle.get("kind"),
+                      " (Steam was closed)" if s.steam_cold else "")
             if s.handle["kind"] == "handoff":
                 s.later(900, lambda: self._set_state(game.game_id, "handoff"))
         else:
@@ -303,6 +309,7 @@ class SessionModel(QAbstractListModel):
         s.cancel_timers()
         if reason == "crashed" and time.time() - s.started > CRASH_WINDOW + 0.5:
             reason = "exited"
+        _log.info("%s ended: %s", s.game.title, reason)
         if s.handle and s.handle.get("kind") == "scope":
             launcher.forget_scope(s.handle["unit"])
         if not s.simulated and s.state in ("running", "closing", "notresponding"):

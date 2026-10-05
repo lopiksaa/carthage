@@ -671,6 +671,9 @@ class Backend(QObject):
         # (Only looks at the disk, so test runs check it too.)
         gone = launcher.missing_program(g) if g.installed and g.executable and not self._fake else ""
         if gone and self._sessions.indexOf(game_id) < 0:
+            import logging
+
+            logging.getLogger("carthage").warning("%s: its program is missing (%s)", g.title, gone)
             return "notfound:" + gone
         if self._test_run and game_id != TEST_CARTRIDGE_ID:
             # A scripted test (GC_DEMO) on the real library never starts anything, whatever
@@ -744,6 +747,20 @@ class Backend(QObject):
             if g.source != "carthage":
                 counts[g.source] = counts.get(g.source, 0) + 1
         return [{"name": source_label(s), "count": n} for s, n in sorted(counts.items(), key=lambda kv: -kv[1])]
+
+    @Slot(result=bool)
+    def copyDiagnostics(self):
+        """Settings → System → Copy Diagnostics: the report for a bug report, on the clipboard."""
+        import logging
+
+        from . import diagnostics
+
+        try:
+            diagnostics.copy(self)
+            return True
+        except Exception:  # noqa: BLE001 — a broken report must not break the app; say so instead
+            logging.getLogger("carthage").exception("Couldn't build the diagnostics")
+            return False
 
     @Slot(QUrl, result=str)
     def localPath(self, url):
