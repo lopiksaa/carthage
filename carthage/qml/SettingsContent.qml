@@ -500,7 +500,7 @@ Column {
                 getUrl: "https://isthereanydeal.com/apps/my/"
             }
             Note {
-                text: "Keys are kept in your system keyring and only sent to their own service. Never paste your Steam key into a website — you can <a href=\"https://steamcommunity.com/dev/apikey\">revoke it</a> any time."
+                text: "Keys are kept in " + (Qt.platform.os === "windows" ? "Windows Credential Manager" : "your system keyring") + " and only sent to their own service. Never paste your Steam key into a website — you can <a href=\"https://steamcommunity.com/dev/apikey\">revoke it</a> any time."
             }
             CButton {
                 width: parent.width

@@ -136,7 +136,8 @@ CDialog {
         Body_ {
             visible: wiz.stepKey !== ""
             font.pixelSize: Ui.textCaption
-            text: "The key stays in your system keyring (Credential Manager on Windows) and is only sent to Steam (api.steampowered.com)."
+            text: "The key stays in " + (Qt.platform.os === "windows" ? "Windows Credential Manager" : "your system keyring")
+                  + " and is only sent to Steam (api.steampowered.com)."
         }
 
         Column {

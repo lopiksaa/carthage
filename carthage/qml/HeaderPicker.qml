@@ -11,7 +11,7 @@ CDialog {
     property string source
     readonly property string current: Backend.headerTick >= 0 && gameId ? Backend.headerOf(gameId) : "launcher"
     readonly property var options: [
-        { value: "launcher", text: "Launcher", hint: "Where the game comes from (Steam, Heroic…)" },
+        { value: "launcher", text: "Launcher", hint: Qt.platform.os === "windows" ? "Where the game comes from (Steam, Epic…)" : "Where the game comes from (Steam, Heroic…)" },
         { value: "logo", text: "Game Logo", hint: "The game's own logo" },
         { value: "title", text: "Game Title", hint: "The name, printed" },
         { value: "carthage", text: "Carthage", hint: "A Carthage label" },
