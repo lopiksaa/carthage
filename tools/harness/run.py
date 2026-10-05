@@ -124,9 +124,15 @@ def main():
         from PySide6.QtGui import QMouseEvent
         p = QPointF(pt)
         g = QPointF(root.mapToGlobal(pt))
+        # Real-looking timestamps (pointer handlers like TapHandler ignore events stamped 0).
+        clock = [int(time.monotonic() * 1000)]
+        def stamp(e, step=20):
+            clock[0] += step
+            e.setTimestamp(clock[0])
+            return e
         def ev(kind, buttons):
-            return QMouseEvent(kind, p, p, g, button, buttons, Qt.NoModifier)
-        QGuiApplication.sendEvent(root, QMouseEvent(QMouseEvent.Type.MouseMove, p, p, g, Qt.NoButton, Qt.NoButton, Qt.NoModifier))
+            return stamp(QMouseEvent(kind, p, p, g, button, buttons, Qt.NoModifier))
+        QGuiApplication.sendEvent(root, stamp(QMouseEvent(QMouseEvent.Type.MouseMove, p, p, g, Qt.NoButton, Qt.NoButton, Qt.NoModifier)))
         QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonPress, button))
         QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonRelease, Qt.NoButton))
         if double:
@@ -150,6 +156,12 @@ def main():
         elif step.get("do") == "lag_stop":
             state["lag_timer"].stop()
             print(f"[harness] LAG {step.get('label', '')}: worst freeze {state['lag'] * 1000:.0f} ms", flush=True)
+        elif step.get("do") == "frames_start":  # every frame's interval until frames_stop
+            state["intervals"] = []
+            state["last"] = time.monotonic()
+        elif step.get("do") == "frames_stop":
+            iv = state.pop("intervals", None) or []
+            print(f"[harness] FRAMES {step.get('label', '')}: {len(iv)} frames, intervals {iv[:40]}", flush=True)
         elif step.get("do") == "fps_start":
             state["frames"] = 0
             state["worst"] = 0.0
@@ -189,6 +201,8 @@ def main():
         elif step.get("do") == "grabber":  # prints which item holds the mouse (debugging clicks)
             g = root.mouseGrabberItem()
             print("GRABBER", step.get("label", ""), g.metaObject().className() if g else None, g.objectName() if g else "", flush=True)
+        elif step.get("do") == "qtclick":  # QTest's click (blocks ~1 s; for comparison)
+            QTest.mouseClick(root, Qt.LeftButton, Qt.NoModifier, QPoint(step["x"], step["y"]))
         elif step.get("do") == "dblclick":
             send_click(QPoint(step["x"], step["y"]), double=True)
         elif step.get("do") == "key":  # {"key": "Escape", "mods": "ctrl+shift"} a real key press
@@ -239,6 +253,8 @@ def main():
 
     def on_frame():
         now = time.monotonic()
+        if state.get("intervals") is not None:
+            state["intervals"].append(round((now - state.get("last", now)) * 1000, 1))
         state["worst"] = max(state.get("worst", 0.0), now - state.get("last", now))
         state["last"] = now
         state["frames"] += 1
