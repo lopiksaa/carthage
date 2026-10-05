@@ -777,9 +777,11 @@ Item {
 
             Item {
                 id: body
+                objectName: "appBody"  // (CButton looks for it)
                 // One rule for the whole app: while anything sits on top (closer look, store
                 // page, dialog, menu, drawer), nothing behind it takes clicks, hover or scroll.
                 enabled: !app.modalOpen && !app.sidebarOpen
+                onEnabledChanged: Ui.bodyBlocked = !enabled
                 anchors.top: header.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right

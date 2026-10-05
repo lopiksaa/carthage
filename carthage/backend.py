@@ -752,8 +752,11 @@ class Backend(QObject):
         counts = {}
         for g in self._library._games:
             if g.source != "carthage":
-                counts[g.source] = counts.get(g.source, 0) + 1
-        return [{"name": source_label(s), "count": n} for s, n in sorted(counts.items(), key=lambda kv: -kv[1])]
+                src = "family" if g.family else g.source  # (counted like the sidebar: the family's on its own)
+                counts[src] = counts.get(src, 0) + 1
+        # (Steam Family straight after Steam, whatever its count.)
+        order = lambda kv: (-counts.get("steam", 0), 1) if kv[0] == "family" else (-kv[1], 0)  # noqa: E731
+        return [{"name": source_label(s), "count": n} for s, n in sorted(counts.items(), key=order)]
 
     @Slot(result=bool)
     def copyDiagnostics(self):

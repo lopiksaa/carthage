@@ -38,8 +38,11 @@ Flickable {
 
     CPlaceholder {
         visible: !shelf.visible
-        anchors.centerIn: parent
-        width: parent.width - 80
+        // Centered on the page, not on the (empty, nearly zero-height) content: that put the
+        // icon above the top edge and the text against the bar.
+        width: page.width - 80
+        x: Math.round((page.width - width) / 2)
+        y: Math.max(Ui.spacingLarge, Math.round((page.height - page.bottomMargin - height) / 2))
         iconName: page.emptyIcon
         text: page.emptyText
         explanation: page.emptyHint

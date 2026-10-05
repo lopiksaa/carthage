@@ -260,6 +260,18 @@ def _strip_html(html):
     return re.sub(r"\n{3,}", "\n\n", unescape(text)).strip()
 
 
+def _in_parallel(fn, items, workers=6):
+    """fn over items on a few threads. [] when Carthage is quitting meanwhile (no new threads
+    can start then; that's not an error worth a traceback)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    try:
+        with ThreadPoolExecutor(workers) as pool:
+            return list(pool.map(fn, items))
+    except RuntimeError:
+        return []
+
+
 def _requirements(data):
     """A store page's minimum requirements for this system (Linux's on Linux, Windows' on
     Windows), else the other one's."""
@@ -709,7 +721,6 @@ class Store(QObject):
         """Your Steam wishlist (public, no key needed): games on sale first (biggest discount
         first), then the rest, newest wish first; each at its best price across Steam and Epic."""
         def work():
-            from concurrent.futures import ThreadPoolExecutor
             try:
                 raw = _fetch_json("https://api.steampowered.com/IWishlistService/GetWishlist/v1/",
                                   {"steamid": steam_id}).get("response", {}).get("items") or []
@@ -719,8 +730,7 @@ class Store(QObject):
             added = {int(w["appid"]): int(w.get("date_added") or 0) for w in raw if w.get("appid")}
             info = _batch(list(added))
             items = [info[a] for a in added if a in info]
-            with ThreadPoolExecutor(6) as pool:
-                items = list(pool.map(self._cheapest, items))
+            items = _in_parallel(self._cheapest, items)
             items.sort(key=lambda it: (-(it.get("discount") or 0), -added.get(it.get("appid"), 0)))
             self.wishlistReady.emit(self._shown(items))
 
@@ -732,11 +742,9 @@ class Store(QObject):
     def loadMoreDeals(self, page):
         """The next page of Steam's best-selling discounts, each compared with Epic's price."""
         def work():
-            from concurrent.futures import ThreadPoolExecutor
             steam = self._steam_query(sale=True, count=36, page=page) or []
 
-            with ThreadPoolExecutor(6) as pool:
-                items = list(pool.map(self._cheapest, steam))
+            items = _in_parallel(self._cheapest, steam)
             self.dealsMoreReady.emit(page, self._shown(items))
 
         threading.Thread(target=work, daemon=True).start()
@@ -746,11 +754,9 @@ class Store(QObject):
         """Deals from every store, together: Steam's best-selling discounts, each compared with
         Epic's price (the cheaper one shows, with its store), then Epic's own discounts."""
         def work():
-            from concurrent.futures import ThreadPoolExecutor
             steam = self._steam_query(sale=True, count=36) or []
 
-            with ThreadPoolExecutor(6) as pool:
-                items = list(pool.map(self._cheapest, steam))
+            items = _in_parallel(self._cheapest, steam)
             seen = {shops.norm_title(i["name"]) for i in items}
             v = {"keywords": "", "count": 24, "country": country(), "locale": "en-US",
                  "category": shops.EPIC_CATEGORY, "withPrice": True, "onSale": True,

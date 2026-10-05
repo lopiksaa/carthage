@@ -18,6 +18,13 @@ QQC2.AbstractButton {
     readonly property var pal: Backend.theme.p
     readonly property var acc: Backend.theme.accent
     readonly property bool isKey: kind === "key"
+    // Disabled for itself, not only because the page is under an overlay (Ui.bodyBlocked).
+    property bool inBody: false
+    Component.onCompleted: {
+        for (let p = parent; p; p = p.parent)
+            if (p.objectName === "appBody") { inBody = true; break }
+    }
+    readonly property bool looksDisabled: !enabled && !(inBody && Ui.bodyBlocked)
     readonly property color fg: tint.a > 0 ? tint
                                : isKey ? pal.dockText
                                : kind === "primary" ? acc.accentText
@@ -50,7 +57,7 @@ QQC2.AbstractButton {
         visible: btn.isKey
         anchors.fill: parent
         radius: Ui.radiusMedium
-        opacity: btn.enabled ? 1 : 0.45
+        opacity: btn.looksDisabled ? 0.45 : 1
         color: Qt.darker(btn.pal.dockBottom, Backend.theme.dark ? 1.5 : 1.15)
       }
       Rectangle { // the face, lit from above
@@ -60,7 +67,7 @@ QQC2.AbstractButton {
         anchors.topMargin: btn.down ? 3 : 0
         anchors.bottomMargin: btn.down ? 0 : 3
         radius: Ui.radiusMedium
-        opacity: btn.enabled ? 1 : 0.45
+        opacity: btn.looksDisabled ? 0.45 : 1
         gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.tint(btn.pal.dockTop, Qt.rgba(1, 1, 1, btn.hovered ? 0.1 : 0.06)) }
             GradientStop { position: 1.0; color: btn.pal.dockBottom }
@@ -95,7 +102,7 @@ QQC2.AbstractButton {
         }
         border.width: btn.kind === "danger" ? 1 : 0
         border.color: Qt.alpha(btn.pal.dangerText, 0.5)
-        opacity: btn.enabled ? 1 : 0.45
+        opacity: btn.looksDisabled ? 0.45 : 1
       }
       Rectangle {
         visible: btn.visualFocus
@@ -111,7 +118,7 @@ QQC2.AbstractButton {
     contentItem: Item {
         implicitWidth: row.implicitWidth
         implicitHeight: row.implicitHeight
-        opacity: btn.enabled ? 1 : 0.4  // a button that can't be used looks it, label included
+        opacity: btn.looksDisabled ? 0.4 : 1  // a button that can't be used looks it, label included
         transform: Translate { y: btn.isKey ? (btn.down ? 1.5 : -1.5) : 0 }
         Row {
             id: row

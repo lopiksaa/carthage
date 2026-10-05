@@ -69,8 +69,10 @@ GridView {
     }
     CPlaceholder {
         visible: grid.count === 0
+        // On the view, not the (empty) content, which would put it against the top.
+        parent: grid
         anchors.centerIn: parent
-        width: parent.width - 80
+        width: grid.width - 80
         iconName: "view-refresh"
         text: grid.emptyText
     }

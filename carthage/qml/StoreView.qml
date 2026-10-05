@@ -476,8 +476,9 @@ Item {
             }
         }
         CPlaceholder {
+            parent: resultsGrid  // (on the view, not its empty content)
             anchors.centerIn: parent
-            width: parent.width - 80
+            width: resultsGrid.width - 80
             visible: resultsGrid.count === 0 && (view.searching || view.category !== null)
             iconName: view.gridState === "error" ? "network-disconnect"
                     : view.gridState === "loading" ? "view-refresh" : "search"
