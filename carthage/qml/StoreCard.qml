@@ -53,6 +53,7 @@ Item {
         sourceIcon: card.store
         installed: true
         artUrl: card.item.capsule || ""
+        title: card.item.name || ""
         artFallback: card.item.header || ""
         labelOverride: card.item.price ? card.item.price.toUpperCase() : card.storeName.toUpperCase()
         labelSize: 64

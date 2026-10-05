@@ -76,7 +76,10 @@ Item {
         if (p.startsWith("library:list:")) Backend.showList(p.slice(13))
         if (p.startsWith("library:source:")) Backend.games.filterMode = p.slice(8)
         else if (Backend.games.filterMode.startsWith("source:")) Backend.games.filterMode = "all"
-        if (m === "store") storeView.load()
+        if (m === "store") {
+            storeView.load()
+            if (deals.length === 0) Backend.store.loadDeals()  // ready before Deals is opened
+        }
         if (p === "store:genres") storeView.showCategories()
         else if (p === "store:discover") storeView.backToStore()
         if (p === "store:deals" && deals.length === 0) Backend.store.loadDeals()

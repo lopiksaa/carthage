@@ -56,6 +56,8 @@ ADULT_TAGS = {12095, 6650, 24904, 9130}
 
 _country = {"cc": None}
 HARDWARE = re.compile(r"^Steam (Deck|Frame|Machine|Controller|Link|Index)\b", re.I)
+# Soundtracks and artbooks Steam lists like games ("Morimens OST | …", "… Soundtrack").
+NOT_A_GAME = re.compile(r"\b(OST|Soundtrack|Original Score|Artbook|Art Book)\b", re.I)
 
 
 def country():
@@ -296,6 +298,7 @@ class Store(QObject):
 
     def _shown(self, items):
         """What a list shows: adult games left out ("Hide adult content"), owned ones marked."""
+        items = [i for i in items if not NOT_A_GAME.search(i.get("name", ""))]
         if self._hide_adult():
             items = [i for i in items if not i.get("adult")]
         owned = self._owned()
@@ -339,7 +342,8 @@ class Store(QObject):
             for key, title in SECTIONS:
                 seen, items = set(), []
                 for it in (d.get(key) or {}).get("items", []):
-                    if it.get("id") in seen or it.get("type", 0) != 0 or HARDWARE.match(it.get("name", "")):
+                    if it.get("id") in seen or it.get("type", 0) != 0 or HARDWARE.match(it.get("name", "")) \
+                            or NOT_A_GAME.search(it.get("name", "")):
                         continue  # skip duplicates, bundles and Valve hardware
                     seen.add(it["id"])
                     items.append(_item(it["id"], it.get("name", ""), it.get("final_price"),
@@ -783,7 +787,7 @@ class Store(QObject):
                 return
             items = []
             for it in d.get("items", []):
-                if it.get("type") != "app" or HARDWARE.match(it.get("name", "")) or "Soundtrack" in it.get("name", ""):
+                if it.get("type") != "app" or HARDWARE.match(it.get("name", "")) or NOT_A_GAME.search(it.get("name", "")):
                     continue
                 p = it.get("price") or {}
                 items.append(_item(it["id"], it.get("name", ""), p.get("final"), p.get("initial"),

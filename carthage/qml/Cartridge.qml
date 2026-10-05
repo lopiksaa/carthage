@@ -186,6 +186,34 @@ Item {
         asynchronous: !cart.flat
         smooth: true
     }
+    // Store art that never loads (every address failed): the game's name on a quiet panel,
+    // never a black window.
+    Rectangle {
+        readonly property bool failed: !!cart.artUrl && art.status === Image.Error
+                                       && art.fallbackIndex + 1 >= art.fallbacks.length
+        visible: failed
+        x: art.x
+        y: art.y
+        width: art.width
+        height: art.height
+        gradient: Gradient {
+            GradientStop { position: 0; color: "#3a3d4a" }
+            GradientStop { position: 1; color: "#23252e" }
+        }
+        Text {
+            anchors.fill: parent
+            anchors.margins: 40 * cart.u
+            text: cart.title.toUpperCase()
+            color: "#e8e8ee"
+            wrapMode: Text.Wrap
+            maximumLineCount: 4
+            elide: Text.ElideRight
+            verticalAlignment: Text.AlignVCenter
+            font.family: Ui.fontTitles
+            font.weight: Font.Black
+            font.pixelSize: Math.max(9, 50 * cart.u)
+        }
+    }
 
     Item {
         visible: cart.installing >= 0

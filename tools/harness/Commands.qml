@@ -217,6 +217,9 @@ QtObject {
             console.warn("WHERE", cmd.label || "", cmd.name, p ? Math.round(p.x) + "," + Math.round(p.y) + " " + it.width + "x" + it.height + " visible " + it.visible : "none")
             break
         }
+        case "storeY":
+            console.warn("STOREY", cmd.label || "", harness.find("storeShelves").contentY, harness.find("storeShelves").originY)
+            break
         case "whoFocus":  // prints what has the keyboard focus
             console.warn("FOCUS", app.Window.window.activeFocusItem, app.Window.window.activeFocusItem ? app.Window.window.activeFocusItem.objectName : "")
             break
