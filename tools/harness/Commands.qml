@@ -96,6 +96,12 @@ QtObject {
         case "inspectPlay":
             inspect.play()
             break
+        case "launchId":  // {"id": "fake9"} launches a demo game straight away (no flight)
+            Backend.launch(cmd.id)
+            break
+        case "sessionAct":  // {"act": "quit"|"forceQuit"|"eject", "id": "fake9"}
+            Backend.sessions[cmd.act](cmd.id)
+            break
         case "dump": { // print every session's title and state
             const out = []
             for (let i = 0; i < Backend.sessions.count; i++) {
