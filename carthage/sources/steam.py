@@ -50,6 +50,18 @@ def running_appid_windows():
         return 0
 
 
+def signed_in_windows():
+    """Is someone signed in to Steam on Windows? (ActiveProcess\\ActiveUser is 0 while it shows
+    its sign-in window, and while it's closed.)"""
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam\ActiveProcess") as k:
+            return int(winreg.QueryValueEx(k, "ActiveUser")[0] or 0) != 0
+    except (OSError, ValueError):
+        return True  # can't tell: don't claim it isn't
+
+
 def find_root():
     if os.name == "nt":
         for c in (_windows_steam_path(), Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Steam"):

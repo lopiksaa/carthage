@@ -43,6 +43,24 @@ CRASH_WINDOW = 5.0  # s: exiting this soon after starting counts as "closed righ
 _log = logging.getLogger("carthage.sessions")  # what the dock did, for Copy Diagnostics
 
 
+RELAUNCH_WAIT = 20  # s to wait for a game that closed right away to come back (see _apply_poll)
+
+
+def _program_name(exe):
+    """The program a native command starts, by file name ("Game.exe"), or "" when it's a
+    generic one (a shell, Wine…) that says nothing about which game it is."""
+    import os
+    import shlex
+
+    try:
+        program = shlex.split(exe, posix=os.name != "nt")[0]
+    except (ValueError, IndexError):
+        return ""
+    name = program.replace("\\", "/").rsplit("/", 1)[-1].strip('"')
+    bare = name.lower().removesuffix(".exe")
+    return name if len(bare) >= 3 and bare not in GENERIC_PROGRAMS else ""
+
+
 def _start_timeout(handle, steam_was_running):
     k = handle["kind"]
     if k == "steam":
@@ -164,6 +182,8 @@ class SessionModel(QAbstractListModel):
 
     def _status(self, s):
         if s.state == "starting":
+            if getattr(s, "signin", False):
+                return "Sign in to Steam…"
             return "Starting Steam…" if s.steam_cold else "Starting…"
         if s.state == "running":
             mins = int((time.time() - s.started) // 60)
@@ -363,9 +383,12 @@ class SessionModel(QAbstractListModel):
                 # (the real game a launcher starts, which may live outside the launch's tree).
                 related = {gid: snap.matching([rel]) for gid, h, rel in jobs}
                 pids = {gid: launcher.pids_for(h, snap, flatpaks) | related[gid] for gid, h, rel in jobs}
-                detected = {gid: h for gid, h in cands if launcher.pids_for(h, snap, flatpaks)}
+                detected = {gid: (h, found) for gid, h in cands if (found := launcher.pids_for(h, snap, flatpaks))}
+                steam = {appid: snap.tree([pid]) for appid, pid in snap.steam_games().items()}
+                signin = any(h.get("kind") == "steam" for _, h, _r in jobs) and not launcher.steam_signed_in()
                 self._polled.emit({"pids": pids, "related": {g: bool(r) for g, r in related.items()},
-                                   "steam": snap.steam_games(), "detected": detected})
+                                   "steam": steam, "detected": detected,
+                                   "steamSignIn": signin and snap.running("steam")})
             except Exception:
                 try:
                     self._polled.emit(None)
@@ -388,41 +411,62 @@ class SessionModel(QAbstractListModel):
             related = self._related.get(gid)
             if related and pids and result["related"].get(gid):
                 s.saw_related = True
+            if s.handle.get("kind") == "steam" and s.state in ("starting", "unconfirmed"):
+                # (A Steam starting from closed signs in by itself after a few seconds.)
+                waiting = bool(result.get("steamSignIn")) and (not s.steam_cold or now - s.launched > 20)
+                if waiting != getattr(s, "signin", False):
+                    s.signin = waiting
+                    s.started = now  # the wait for the game starts once someone has signed in
+                    if waiting and s.state == "unconfirmed":
+                        self._set_state(gid, "starting")
+                    self.dataChanged.emit(self.index(i), self.index(i))
             if s.state in ("starting", "unconfirmed", "handoff"):
+                if getattr(s, "signin", False) and not pids:
+                    continue  # Steam shows its sign-in window: wait for it, however long it takes
                 if pids and (s.state != "handoff" or result["related"].get(gid)):
                     s.started = now
                     self._set_state(gid, "running")
-                elif s.state == "starting" and now - s.started > _start_timeout(s.handle, not s.steam_cold):
-                    if s.handle["kind"] in ("scope", "proc") and not related:
+                elif s.state == "starting" and now - s.started > (RELAUNCH_WAIT if getattr(s, "relaunching", False)
+                                                                    else _start_timeout(s.handle, not s.steam_cold)):
+                    if (s.handle["kind"] in ("scope", "proc") and not related) or getattr(s, "relaunching", False):
                         self._end(gid, "crashed")
                     else:
                         self._set_state(gid, "unconfirmed")
             elif s.state == "running" and not pids:
+                name = _program_name(s.game.executable or "")
                 if related and not getattr(s, "saw_related", False) and now - s.launched < 180:
                     # The launcher closed before the game started: keep waiting for the game.
+                    self._set_state(gid, "starting")
+                elif (s.handle["kind"] in ("scope", "proc") and name and now - s.launched < CRASH_WINDOW
+                      and not getattr(s, "relaunching", False)):
+                    # Gone at once: often a game restarting itself through its store (Steam's
+                    # copy protection does that when its .exe is started directly) or a launcher
+                    # handing over. Look for the program by name for a while before calling it
+                    # a crash.
+                    s.relaunching = True
+                    s.handle = {"kind": "names", "names": [name]}
+                    s.started = now
                     self._set_state(gid, "starting")
                 else:
                     self._end(gid, "crashed")
             elif s.state in ("closing", "notresponding") and not pids:
                 self._end(gid, "killed" if getattr(s, "forced", False) else "quit")
 
-        for appid in result["steam"]:
-            gid = f"steam_{appid}"
-            if self._row(gid)[1]:
+        # Games started outside Carthage go in the dock, unless a game already there is those
+        # same processes (one game added twice, say by hand and through Steam).
+        claimed = set().union(*(s.pids for s in self._rows if s.state != "ended"))
+        found = [(f"steam_{appid}", {"kind": "steam", "appid": appid}, pids) for appid, pids in result["steam"].items()]
+        found += [(gid, handle, pids) for gid, (handle, pids) in (result.get("detected") or {}).items()]
+        for gid, handle, pids in found:
+            if self._row(gid)[1] or pids & claimed:
                 continue
             g = self._games.game(gid)
             if g is None:
                 continue
             s = self._add(g, "running")
-            s.handle = {"kind": "steam", "appid": appid}
-
-        for gid, handle in (result.get("detected") or {}).items():
-            if self._row(gid)[1]:
-                continue
-            g = self._games.game(gid)
-            if g is not None:
-                s = self._add(g, "running")
-                s.handle = handle
+            s.handle = handle
+            s.pids = set(pids)
+            claimed |= pids
 
     def _detect_candidates(self):
         """[(gameId, handle)] for games that can be recognized while running without Carthage
@@ -431,7 +475,6 @@ class SessionModel(QAbstractListModel):
         games are recognized separately (snap.steam_games). "Launch Without Slot" games are
         left alone: they're not meant to be docked."""
         import os
-        import shlex
 
         out = []
         for g in self._games._games:
@@ -446,13 +489,8 @@ class SessionModel(QAbstractListModel):
             elif exe.startswith("flatpak run ") and len(exe.split()) > 2:
                 out.append((g.game_id, {"kind": "flatpak", "app": exe.split()[2]}))
             elif g.source in ("custom", "desktop") and "://" not in exe and exe:
-                try:
-                    program = shlex.split(exe, posix=os.name != "nt")[0]
-                except ValueError:
-                    continue
-                name = program.replace("\\", "/").rsplit("/", 1)[-1].strip('"')
-                bare = name.lower().removesuffix(".exe")
-                if len(bare) >= 3 and bare not in GENERIC_PROGRAMS:
+                name = _program_name(exe)
+                if name:
                     out.append((g.game_id, {"kind": "names", "names": [name]}))
         return out
 

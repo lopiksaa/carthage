@@ -177,13 +177,17 @@ class Snapshot:
             self.started[pid] = i["create_time"] or 0
 
     def tree(self, roots):
+        """The processes and everything they started. Windows keeps a dead parent's id on its
+        children and reuses ids, so a "child" only counts if it started after its parent (or a
+        Windows program whose parent died long ago would look like the game's)."""
         found, pending = set(), list(roots)
         while pending:
             pid = pending.pop()
             if pid in found or pid not in self.parent:
                 continue
             found.add(pid)
-            pending.extend(self.children.get(pid, []))
+            born = self.started.get(pid, 0)
+            pending.extend(c for c in self.children.get(pid, []) if self.started.get(c, 0) >= born)
         return found
 
     @staticmethod
@@ -230,6 +234,10 @@ class Snapshot:
     def running(self, name):
         n = self._bare(name)
         return any(self._bare(x) == n for x in self.name.values())
+
+
+def steam_signed_in():
+    return _steam.signed_in_windows()
 
 
 def flatpak_instances():
