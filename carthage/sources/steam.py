@@ -279,10 +279,13 @@ def _dir_size(path):
 
 _LOG_TOTAL = re.compile(rb"AppID (\d+) update started : download (\d+)/(\d+).*?stage (\d+)/(\d+)")
 _LOG_STATE = re.compile(rb"AppID (\d+) App update changed : ([^\n]*)")
+# A preload (a game downloaded before its release): Steam stops, it isn't installing any more.
+_LOG_PRELOADED = re.compile(rb"AppID (\d+) update canceled : Finished preloading")
 
 
 def _log_state(root):
-    """From the tail of Steam's content log: {appid: (stage_total, latest_update_state)}."""
+    """From the tail of Steam's content log: {appid: (stage_total, latest_update_state)};
+    the state is "Preloaded" when the last thing Steam did was finish a preload."""
     path = root / "logs" / "content_log.txt"
     try:
         with open(path, "rb") as f:
@@ -298,6 +301,11 @@ def _log_state(root):
     for m in _LOG_STATE.finditer(tail):
         appid = int(m.group(1))
         info.setdefault(appid, [0, ""])[1] = m.group(2).decode(errors="replace").strip()
+    for m in _LOG_PRELOADED.finditer(tail):
+        appid = int(m.group(1))
+        started = tail.rfind(b"AppID %d update started" % appid)
+        if started < m.start():  # (a later start: the game came out and is installing for real)
+            info.setdefault(appid, [0, ""])[1] = "Preloaded"
     return {k: tuple(v) for k, v in info.items()}
 
 
@@ -326,6 +334,8 @@ def installing(root=None):
             if log is None:
                 log = _log_state(root)
             total, state = log.get(appid, (0, ""))
+            if state == "Preloaded":
+                continue
             total = total or int(st.get("bytestostage", 0) or 0) or int(st.get("bytestodownload", 0) or 0)
             if "Committing" in state:
                 out[appid] = 0.97

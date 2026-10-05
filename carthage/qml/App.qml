@@ -249,6 +249,14 @@ Item {
             notify("Starting " + data.title + "…")
             return result
         }
+        if (result.startsWith("notfound:")) {  // its program was moved or uninstalled
+            if (notFlying) notFlying()
+            const file = result.slice(9).split(/[\\/]/).pop()
+            const text = "Couldn't find " + file + ". It may have moved or been uninstalled."
+            if (gid.startsWith("manual_")) notify(text, "Remove…", function () { confirmRemove(gid, data.title) })
+            else notify(text)
+            return result
+        }
         if (result !== "slot") return result
 
         setHidden(gid, true)

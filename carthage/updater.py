@@ -47,7 +47,11 @@ def _install_kind():
     if not getattr(sys, "frozen", False):
         return ""  # running from source
     if sys.platform == "win32":
-        return "windows"
+        # Only the installed copy (the installer leaves its uninstaller beside it). A copy
+        # unpacked from the zip would install the update somewhere else and stay old itself,
+        # downloading it again at every start.
+        here = Path(sys.executable).resolve().parent
+        return "windows" if any(here.glob("unins*.exe")) else ""
     image = os.environ.get("APPIMAGE", "")
     if image and os.path.isfile(image) and os.access(os.path.dirname(image), os.W_OK):
         return "appimage"

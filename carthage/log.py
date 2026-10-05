@@ -15,11 +15,17 @@ def log_path():
     else:
         base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "carthage"
     base.mkdir(parents=True, exist_ok=True)
-    return base / "carthage.log"
+    # Test runs keep their own log, so they never wipe the one from real use.
+    return base / ("carthage-test.log" if os.environ.get("GC_DEMO") else "carthage.log")
 
 
 def setup():
-    handlers = [logging.FileHandler(log_path(), mode="w", encoding="utf-8")]
+    path = log_path()
+    try:  # the previous session's log is kept beside it (a problem is often noticed after a restart)
+        os.replace(path, path.with_name(path.stem + "-previous.log"))
+    except OSError:
+        pass
+    handlers = [logging.FileHandler(path, mode="w", encoding="utf-8")]
     if sys.stderr:
         handlers.append(logging.StreamHandler(sys.stderr))
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s",

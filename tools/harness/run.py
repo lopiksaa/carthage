@@ -105,7 +105,7 @@ def main():
         QQmlEngine.setObjectOwnership(commands, QQmlEngine.ObjectOwnership.CppOwnership)
         commands.setParent(root)
 
-    steps = json.loads(script.read_text(encoding="utf-8"))
+    steps = json.loads(script.read_text(encoding="utf-8-sig"))  # (Windows PowerShell writes a BOM)
     timers = []
     state = {"frames": 0, "t": 0.0, "started": False}
 

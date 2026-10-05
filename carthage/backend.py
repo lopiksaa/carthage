@@ -659,7 +659,8 @@ class Backend(QObject):
     @Slot(str, result=str)
     def launch(self, game_id):
         """Returns what the UI should show:
-        slot | noslot | running | install (handed to Steam) | install-elsewhere | missing."""
+        slot | noslot | running | install (handed to Steam) | install-elsewhere | missing |
+        notfound:<path> (its program isn't there any more)."""
         from . import launcher
 
         g = self._library.game(game_id)
@@ -667,6 +668,10 @@ class Backend(QObject):
             return "missing"
         from .library import TEST_CARTRIDGE_ID
 
+        # (Only looks at the disk, so test runs check it too.)
+        gone = launcher.missing_program(g) if g.installed and g.executable and not self._fake else ""
+        if gone and self._sessions.indexOf(game_id) < 0:
+            return "notfound:" + gone
         if self._test_run and game_id != TEST_CARTRIDGE_ID:
             # A scripted test (GC_DEMO) on the real library never starts anything, whatever
             # gets clicked. The Test Cartridge launches nothing, so it may run.

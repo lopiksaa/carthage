@@ -65,7 +65,9 @@ CDialog {
         }
         Text {
             width: parent.width
-            text: "For games no launcher knows about. Steam, Heroic, Lutris and installed apps show up on their own."
+            text: Qt.platform.os === "windows"
+                  ? "For games no launcher knows about. Steam, Epic, Battle.net and Riot games show up on their own."
+                  : "For games no launcher knows about. Steam, Heroic, Lutris and installed apps show up on their own."
             color: dlg.pal.panelTextDim
             font.family: Ui.fontText
             font.pixelSize: Ui.textBody
@@ -130,11 +132,13 @@ CDialog {
     FileDialog {
         id: picker
         title: "Choose the game's program"
+        nameFilters: Qt.platform.os === "windows"
+                     ? ["Programs and shortcuts (*.exe *.lnk *.url *.bat *.cmd)", "All files (*)"] : []
         onAccepted: {
             const path = Backend.localPath(selectedFile)
             commandField.text = '"' + path.replace(/"/g, '\\"') + '"'
             if (!nameField.text) {
-                const base = path.split(/[\\/]/).pop().replace(/\.(sh|x86_64|AppImage|exe|bin)$/i, "")
+                const base = path.split(/[\\/]/).pop().replace(/\.(sh|x86_64|AppImage|exe|bin|lnk|url|bat|cmd)$/i, "")
                 nameField.text = base.replace(/[_-]+/g, " ")
             }
         }
