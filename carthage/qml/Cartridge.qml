@@ -186,12 +186,13 @@ Item {
         asynchronous: !cart.flat
         smooth: true
     }
-    // Store art that never loads (every address failed): the game's name on a quiet panel,
-    // never a black window.
+    // Store art still loading, or that never loads (every address failed): the game's name on
+    // a quiet panel, never a black window.
     Rectangle {
         readonly property bool failed: !!cart.artUrl && art.status === Image.Error
                                        && art.fallbackIndex + 1 >= art.fallbacks.length
-        visible: failed
+        readonly property bool waiting: !!cart.artUrl && art.status !== Image.Ready && !failed
+        visible: failed || waiting
         x: art.x
         y: art.y
         width: art.width

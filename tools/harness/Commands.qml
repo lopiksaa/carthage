@@ -28,6 +28,24 @@ QtObject {
         return i
     }
 
+    // The window position of the nth visible item whose text is `text` ("" if none), including
+    // popups (menus, dialogs). Fast: the harness's click-by-label uses it.
+    function locate(text, nth) {
+        const hits = []
+        const win = app.Window.window
+        const walk = (item) => {
+            if (!item || !item.visible || item.opacity <= 0.01) return
+            if (typeof item.text === "string" && item.text.trim() === text && item.width > 0) {
+                const p = item.mapToItem(null, item.width / 2, item.height / 2)
+                if (p.x >= 0 && p.y >= 0 && p.x < win.width && p.y < win.height) hits.push(p)
+            }
+            for (const c of item.children) walk(c)
+        }
+        walk(win.contentItem)
+        if (win.overlay) walk(win.overlay)
+        const p = hits[nth || 0]
+        return p ? Math.round(p.x) + "," + Math.round(p.y) + "," + hits.length : "none," + hits.length
+    }
     function run(cmd) {
         const { addGameDialog, artPicker, autoScroll, colorPicker, confirm, cropEditor, dock, drawer, feedbackDialog, feedbackPrompt, header, headerPicker, inspect, mediaViewer, processPicker, setupWizard, slotPanel, sounds, storePage, storeView, textPrompt, tray, whatsNew } = app.parts
         const changeArt = (...a) => app.changeArt(...a)

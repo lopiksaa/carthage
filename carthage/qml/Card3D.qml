@@ -9,6 +9,16 @@ View3D {
     id: view
 
     property var game: ({})
+    // The face is drawn into a texture; with animations off nothing else asks the 3D view to
+    // redraw, so a new game (or store) kept the old face. Redraw now, and again as late art and
+    // header images arrive.
+    onGameChanged: { redraw.n = 0; redraw.restart(); update() }
+    Timer {
+        id: redraw
+        property int n: 0
+        interval: 150
+        onTriggered: { view.update(); if (++n < 4) restart() }
+    }
     property real spin: 0 // degrees around the vertical axis; 180 shows the back
     property real tiltX: 0
     property real tiltY: 0

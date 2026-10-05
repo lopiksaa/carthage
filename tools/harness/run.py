@@ -141,7 +141,11 @@ def main():
             QTest.mouseMove(root, QPoint(step["x"], step["y"]))
         elif step.get("do") == "click":  # a real mouse click at window coordinates
             button = Qt.RightButton if step.get("button") == "right" else Qt.LeftButton
+            if step.get("timing"):
+                print("TIMING click-start", int(time.time() * 1000) % 100000, flush=True)
             QTest.mouseClick(root, button, Qt.NoModifier, QPoint(step["x"], step["y"]))
+            if step.get("timing"):
+                print("TIMING click-end", int(time.time() * 1000) % 100000, flush=True)
         elif step.get("do") == "dblclick":
             QTest.mouseDClick(root, Qt.LeftButton, Qt.NoModifier, QPoint(step["x"], step["y"]))
         elif step.get("do") == "key":  # {"key": "Escape", "mods": "ctrl+shift"} a real key press
@@ -162,33 +166,20 @@ def main():
                                  Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False)
                 QGuiApplication.sendEvent(root, ev)
         elif step.get("do") in ("clickText", "hoverText", "rightClickText"):  # {"text": "Play", "nth": 0}
-            hits = []
-
-            def walk(item):
-                if not item.isVisible() or item.opacity() <= 0.01:
-                    return
-                t = item.property("text")
-                if isinstance(t, str) and t.strip() == step["text"]:
-                    r = item.mapRectToScene(item.boundingRect())
-                    if r.width() > 0 and 0 <= r.center().x() < root.width() and 0 <= r.center().y() < root.height():
-                        hits.append(r.center())
-                for c in item.childItems():
-                    walk(c)
-
-            walk(root.contentItem())
-            for popup_root in root.contentItem().childItems():
-                pass
-            n = step.get("nth", 0)
-            if len(hits) > n:
-                pt = QPoint(int(hits[n].x()), int(hits[n].y()))
+            from PySide6.QtCore import Q_RETURN_ARG
+            where = QMetaObject.invokeMethod(commands, "locate", Qt.DirectConnection, Q_RETURN_ARG("QVariant"),
+                                             Q_ARG("QVariant", step["text"]), Q_ARG("QVariant", step.get("nth", 0)))
+            parts = str(where).split(",")
+            if parts[0] == "none":
+                print(f"[harness] MISSING {step['text']!r} ({parts[1]} found)", flush=True)
+            else:
+                pt = QPoint(int(parts[0]), int(parts[1]))
                 QTest.mouseMove(root, pt)
                 if step["do"] == "clickText":
                     QTest.mouseClick(root, Qt.LeftButton, Qt.NoModifier, pt)
                 elif step["do"] == "rightClickText":
                     QTest.mouseClick(root, Qt.RightButton, Qt.NoModifier, pt)
                 print(f"[harness] {step['do']} {step['text']!r} at {pt.x()},{pt.y()}", flush=True)
-            else:
-                print(f"[harness] MISSING {step['text']!r} ({len(hits)} found)", flush=True)
         elif commands is not None:
             QMetaObject.invokeMethod(commands, "run", Qt.DirectConnection, Q_ARG("QVariant", step))
 
@@ -197,6 +188,7 @@ def main():
         for step in steps:
             t = QTimer()
             t.setSingleShot(True)
+            t.setTimerType(Qt.PreciseTimer)  # (coarse timers drift by up to 5%: steps ran out of order)
             t.timeout.connect(lambda step=step: fire(step))
             t.start(step["at"])
             timers.append(t)
