@@ -458,6 +458,8 @@ class SessionModel(QAbstractListModel):
                 s.later(2000, lambda: self._end(gid, "crashed"))
             elif s.game.sim == "handoff":
                 self._set_state(gid, "handoff")
+            elif s.game.sim == "unseen":  # never seen running (a launcher that didn't start it)
+                self._set_state(gid, "unconfirmed")
             else:
                 s.started = time.time()
                 self._set_state(gid, "running")

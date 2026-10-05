@@ -30,7 +30,7 @@ _FAKE = [
     ("Frostbyte", "lutris", True, "normal"),
     ("Sunset Arcade", "steam", False, "normal"),
     ("Clockwork Fox", "steam", True, "normal"),
-    ("Deep Sky Radio", "battlenet", True, "normal"),
+    ("Deep Sky Radio", "battlenet", True, "unseen"),
     ("Lantern Launcher", "flatpak", True, "normal"),
 ]
 
