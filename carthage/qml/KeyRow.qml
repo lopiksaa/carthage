@@ -66,7 +66,10 @@ Column {
             height: Ui.controlHeight
             width: parent.width - change.width - remove.width - 16
             radius: Ui.radiusMedium
-            color: Qt.alpha(Backend.theme.led.green, 0.14)
+            // Quiet: a saved key needs nothing from you (the green check says it's fine).
+            color: "transparent"
+            border.width: 1
+            border.color: row.pal.panelBorder
             Row {
                 anchors.left: parent.left
                 anchors.leftMargin: 10
@@ -78,12 +81,12 @@ Column {
                     height: 16
                     source: "checkmark-symbolic"
                     isMask: true
-                    color: row.pal.panelText
+                    color: Backend.theme.led.green
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Saved"
-                    color: row.pal.panelText
+                    text: "Key saved"
+                    color: row.pal.panelTextDim
                     font.family: Ui.fontText
                     font.weight: Font.Bold
                     font.pixelSize: Ui.textBody

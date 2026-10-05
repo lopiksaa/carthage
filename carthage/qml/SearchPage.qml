@@ -407,7 +407,7 @@ Flickable {
                 clip: true
                 PlayNextShelf {
                     id: libShelf
-                    x: page.tray.leftMargin
+                    // (libClip already starts at the tray's margin: the tray's columns exactly.)
                     width: page.width - page.tray.leftMargin - page.tray.rightMargin
                     asPage: true
                     tray: page.tray
@@ -462,20 +462,28 @@ Flickable {
             font.family: Ui.fontText
             font.pixelSize: Ui.textBody
         }
-        Flow {
+        Grid {  // in the tray's columns, like the library results above
+            id: resultsGrid  // (not `results`: that's the page's list)
             objectName: "search_results"  // (profiling)
-            width: parent.width
-            spacing: Ui.gapL
+            x: -page.tray.contentLeft + page.tray.leftMargin
+            columns: page.tray.columns
+            rowSpacing: Ui.gapL
             opacity: page.state_ === "loading" && !page.appending ? 0.5 : 1
             Behavior on opacity { NumberAnimation { duration: 120 * Backend.motion; easing.type: Easing.OutCubic } }
             Repeater {
                 model: page.results
-                delegate: StoreCard {
+                delegate: Item {
                     required property var modelData
-                    item: modelData
-                    cardW: Backend.settings.cardWidth
-                    appRoot: page.appRoot
-                    onChosen: (it, cart) => page.chosen(it, cart, page.results)
+                    width: page.tray.cellWidth
+                    height: resultCard.height
+                    StoreCard {
+                        id: resultCard
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        item: parent.modelData
+                        cardW: Backend.settings.cardWidth
+                        appRoot: page.appRoot
+                        onChosen: (it, cart) => page.chosen(it, cart, page.results)
+                    }
                 }
             }
         }

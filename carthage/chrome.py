@@ -36,12 +36,22 @@ _PALETTES = {
 }
 
 
+def colors(dark):
+    """The chrome palette as role → color (Main.qml sets it on the window: Qt Quick Controls
+    otherwise take each control's colors from the system theme, e.g. Windows' accent color
+    as the text selection). Accent, which Qt 6.6 added, is the highlight."""
+    out = {k[0].lower() + k[1:]: v for k, v in _PALETTES[bool(dark)].items()}
+    out["accent"] = out["highlight"]
+    return out  # (+ "disabled": the text color of disabled controls)
+
+
 def _palette(dark):
     colors = _PALETTES[bool(dark)]
     pal = QPalette()
     for name, value in colors.items():
         if name != "Disabled":
             pal.setColor(getattr(QPalette, name), QColor(value))
+    pal.setColor(QPalette.Accent, QColor(colors["Highlight"]))
     for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
         pal.setColor(QPalette.Disabled, role, QColor(colors["Disabled"]))
     return pal

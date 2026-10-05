@@ -275,7 +275,7 @@ Item {
                 if (gettingArt) return "getting art, " + Backend.artPicker.pending + " left"
                 return ""  // at rest: just "Ready"
             }
-            const d = s.state_ === "notresponding" ? "click the cartridge" : s.statusText
+            const d = s.state_ === "notresponding" ? "choose its cartridge to force quit" : s.statusText
             return dock.filled > 1 ? d + " · " + dock.filled + " running" : d
         }
         // Quiet at rest on the console base: words only when something happens.

@@ -11,7 +11,7 @@ CDialog {
     property string source
     readonly property string current: Backend.headerTick >= 0 && gameId ? Backend.headerOf(gameId) : "launcher"
     readonly property var options: [
-        { value: "launcher", text: "Launcher", hint: Qt.platform.os === "windows" ? "Where the game comes from (Steam, Epic…)" : "Where the game comes from (Steam, Heroic…)" },
+        { value: "launcher", text: "Launcher", hint: "Where the game comes from" },
         { value: "logo", text: "Game Logo", hint: "The game's own logo" },
         { value: "title", text: "Game Title", hint: "The name, printed" },
         { value: "carthage", text: "Carthage", hint: "A Carthage label" },
@@ -44,12 +44,27 @@ CDialog {
 
     contentItem: Column {
         spacing: Ui.gapS
-        Text {
-            text: "Cartridge Header"
-            color: picker.pal.panelText
-            font.family: Ui.fontText
-            font.weight: Font.Black
-            font.pixelSize: Ui.textTitle
+        Item {
+            width: parent.width
+            height: Math.max(heading.height, closeKey.height)
+            Text {
+                id: heading
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Cartridge Header"
+                color: picker.pal.panelText
+                font.family: Ui.fontText
+                font.weight: Font.Black
+                font.pixelSize: Ui.textTitle
+            }
+            CButton {  // like Choose Art's (Esc and a click outside close it too)
+                id: closeKey
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                kind: "ghost"
+                icon.name: "window-close-symbolic"
+                Accessible.name: "Close"
+                onClicked: picker.close()
+            }
         }
         Text {
             width: parent.width
@@ -114,11 +129,21 @@ CDialog {
                             smooth: true
                             cache: false
                         }
+                        CIcon {  // no image of your own yet: say what this option is for
+                            visible: opt.modelData.value === "image" && !opt.selected
+                            anchors.centerIn: parent
+                            width: 22
+                            height: 22
+                            source: "insert-image-symbolic"
+                            isMask: true
+                            color: Qt.rgba(0, 0, 0, 0.45)
+                        }
                     }
                     Column {
                         anchors.left: swatch.right
                         anchors.leftMargin: 14
                         anchors.right: parent.right
+                        anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
                         Text {
                             text: opt.modelData.text

@@ -14,6 +14,7 @@ Flickable {
     property string emptyText
     property string emptyHint
     property string emptyAction  // a button under the empty state
+    property string emptyIcon: "bookmark"
     signal emptyActionTriggered()
     readonly property int count: shelf.count
 
@@ -39,7 +40,7 @@ Flickable {
         visible: !shelf.visible
         anchors.centerIn: parent
         width: parent.width - 80
-        iconName: "bookmark"
+        iconName: page.emptyIcon
         text: page.emptyText
         explanation: page.emptyHint
         actionText: page.emptyAction

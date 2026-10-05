@@ -282,6 +282,13 @@ class Backend(QObject):
     def theme(self):
         return self._theme
 
+    @Slot(bool, result="QVariantMap")
+    def chromeColors(self, dark):
+        """The standard controls' fixed palette (chrome.py), for Main.qml to set on the window."""
+        from . import chrome
+
+        return chrome.colors(dark)
+
     @Property(QObject, constant=True)
     def settings(self):
         return self._settings

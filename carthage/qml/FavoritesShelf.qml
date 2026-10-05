@@ -129,7 +129,7 @@ Column {
                 Text {
                     visible: !fs.dragging
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "or right-click one › Add to Favorites"
+                    text: "or choose Add to Favorites in its menu"
                     color: fs.pal.trayTextDim
                     font.family: Ui.fontText
                     font.pixelSize: Ui.textCaption

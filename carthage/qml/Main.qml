@@ -21,6 +21,29 @@ QQC2.ApplicationWindow {
     property int reloadCount: 0
     property Item searchField: null
 
+    // Carthage's own palette, set here so every control inherits it: otherwise Qt Quick
+    // Controls take their colors from the system theme (on Windows, text selections came out
+    // in the desktop's accent color).
+    readonly property var chromePal: Backend.chromeColors(Backend.theme.dark)
+    palette.window: chromePal.window
+    palette.windowText: chromePal.windowText
+    palette.base: chromePal.base
+    palette.alternateBase: chromePal.alternateBase
+    palette.text: chromePal.text
+    palette.placeholderText: chromePal.placeholderText
+    palette.button: chromePal.button
+    palette.buttonText: chromePal.buttonText
+    palette.highlight: chromePal.highlight
+    palette.highlightedText: chromePal.highlightedText
+    palette.toolTipBase: chromePal.toolTipBase
+    palette.toolTipText: chromePal.toolTipText
+    palette.link: chromePal.link
+    palette.linkVisited: chromePal.linkVisited
+    palette.accent: chromePal.accent
+    palette.disabled.text: chromePal.disabled
+    palette.disabled.windowText: chromePal.disabled
+    palette.disabled.buttonText: chromePal.disabled
+
     Binding {
         target: Backend.theme
         property: "hardware"

@@ -22,6 +22,8 @@ FocusScope {
     ]
     readonly property var current: sections.find(s => s.id === section) || sections[0]
     readonly property bool narrow: width < 760  // the list shows icons only
+    // The list, the divider, the 640-px column and their margins.
+    readonly property int naturalWidth: Ui.gapM + 236 + Ui.gapM + 1 + 2 + 2 * Ui.gapXL + 640 + 2
 
     Keys.onEscapePressed: closeRequested()
 

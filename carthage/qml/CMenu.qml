@@ -24,6 +24,20 @@ QQC2.Menu {
         Ui.openMenus = Math.max(0, Ui.openMenus - 1)
     }
     onOpened: if (!counted) { counted = true; Ui.openMenus++ }
+
+    // Open from a button: below it, starting at its left edge, or ending at its right edge when
+    // that side has no room; above it when there's no room below. (Qt alone would push the
+    // menu over its own button.)
+    function openFrom(button) {
+        const win = button.Window.window
+        const p = button.mapToItem(null, 0, 0)
+        const w = Math.max(width, implicitWidth), h = Math.max(height, implicitHeight)
+        const gap = 6
+        const x = p.x + w > win.width - margins ? button.width - w : 0
+        const below = p.y + button.height + gap + h <= win.height - margins
+        const y = below || p.y - gap - h < margins ? button.height + gap : -gap - h
+        popup(button, x, y)
+    }
     onClosed: release()
     Component.onDestruction: release()
 

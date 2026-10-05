@@ -809,7 +809,7 @@ FocusScope {
                 QQC2.ToolTip.visible: hovered
                 QQC2.ToolTip.text: "More"
                 QQC2.ToolTip.delay: 300
-                onClicked: otherMenu.popup(otherButton, 0, otherButton.height + 6)
+                onClicked: otherMenu.openFrom(otherButton)
             }
             }
 
@@ -941,7 +941,7 @@ FocusScope {
         QQC2.Action {
             objectName: "optional"
             text: "Show in Steam Library"
-            icon.name: "view-list-icons-symbolic"
+            icon.name: "document-open-symbolic"
             enabled: otherMenu.steamGame
             onTriggered: Backend.openUrl("steam://nav/games/details/" + inspect.game.extId)
         }

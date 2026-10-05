@@ -149,7 +149,7 @@ QQC2.Popup {
             width: parent.width
             text: "Other"
             icon.name: "overflow-menu-symbolic"
-            onClicked: editMenu.popup(otherButton, 0, otherButton.height + 6)
+            onClicked: editMenu.openFrom(otherButton)
         }
 
         CButton {

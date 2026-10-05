@@ -23,7 +23,7 @@ CButton {
     kind: "plain"
     implicitWidth: row_.implicitWidth + 2 * Ui.gapM
     Accessible.name: label + ": " + currentText
-    onClicked: dd.chipColumns > 0 ? chipPanel.open() : menu.popup(dd, 0, dd.height + 6)
+    onClicked: dd.chipColumns > 0 ? chipPanel.open() : menu.openFrom(dd)
 
     contentItem: Item {
         implicitWidth: row_.implicitWidth

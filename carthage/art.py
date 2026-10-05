@@ -170,6 +170,8 @@ class ArtManager(QObject):
     def _store(self, gid, img, source, crop=None):
         """img is the original (uncropped) image; the cartridge crop is derived from it."""
         entry = {"t": int(time.time()), "source": source}
+        if img is not None and img.info.get("carthage_url"):
+            entry["url"] = img.info["carthage_url"]
         if img is not None:
             orig = img.convert("RGB")
             if max(orig.size) > ORIG_MAX:
@@ -226,7 +228,9 @@ class ArtManager(QObject):
     def _download(self, url):
         req = urllib.request.Request(url, headers={"User-Agent": UA})
         with urllib.request.urlopen(req, timeout=30) as r:
-            return Image.open(io.BytesIO(r.read()))
+            img = Image.open(io.BytesIO(r.read()))
+        img.info["carthage_url"] = url  # (remembered with the art, so Choose Art can mark it)
+        return img
 
     def _search(self, key, title):
         data = self._get(key, "search/autocomplete/" + urllib.parse.quote(title))
@@ -394,6 +398,12 @@ class ArtManager(QObject):
             self.candidatesReady.emit(game_id, items)
 
         threading.Thread(target=work, daemon=True).start()
+
+    @Slot(str, result=str)
+    def currentUrl(self, game_id):
+        """Where the cartridge's art came from (a SteamGridDB address), or "" if it wasn't one
+        image from there (a file, a composite, Steam's own…)."""
+        return (self._index.get(game_id) or {}).get("url", "")
 
     @Slot(str, result="QVariantMap")
     def cropInfo(self, game_id):

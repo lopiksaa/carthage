@@ -1,5 +1,4 @@
-// A color chip for the hardware and cartridge colors. With no color it shows "=" (same as the
-// hardware).
+// A color chip for the hardware and cartridge colors.
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -12,6 +11,7 @@ Item {
     property color plastic: "transparent"
     property bool selected: false
     property bool rainbow: false // "pick your own color" (opens the color picker)
+    property bool linked: false  // "same as the hardware": its color, with a link mark
     readonly property bool plain: plastic.a === 0
     signal picked()
 
@@ -65,14 +65,14 @@ Item {
             border.width: chip.selected ? 3 : 1
             border.color: chip.selected ? Backend.theme.accent.accent
                         : chip.plain && !chip.rainbow ? Backend.theme.p.panelTextDim : Qt.rgba(0, 0, 0, 0.25)
-            Text {
-                visible: chip.plain && !chip.rainbow
+            CIcon {
+                visible: chip.linked
                 anchors.centerIn: parent
-                text: "="
-                color: Backend.theme.p.panelText
-                font.family: Ui.fontText
-                font.weight: Font.Black
-                font.pixelSize: Math.round(chip.size * 0.55)
+                width: Math.round(chip.size * 0.55)
+                height: width
+                source: "link-symbolic"
+                isMask: true
+                color: chip.plastic.hslLightness > 0.6 ? "#1d1f24" : "#ffffff"
             }
         }
     }

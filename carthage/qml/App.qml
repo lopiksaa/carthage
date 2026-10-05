@@ -864,7 +864,9 @@ Item {
                         listModel: Backend.playNext
                         storeItems: Backend.playNextStore
                         emptyText: "Nothing to play next"
-                        emptyHint: "Add games from their page: Play Next. Store games can go here too."
+                        emptyHint: "Choose the bookmark on a game's page to keep it here. Store games can go here too."
+                        emptyAction: "Browse the Store"
+                        onEmptyActionTriggered: app.navigate("store:discover")
                     }
                     ListPage {
                         id: customListPage
@@ -879,7 +881,7 @@ Item {
                         listModel: Backend.customList
                         storeItems: []
                         emptyText: "Nothing in this list yet"
-                        emptyHint: "Pick its games, or right-click any cartridge › Add to List…"
+                        emptyHint: "Pick its games here, or choose Add to List… in any cartridge's menu."
                         emptyAction: "Add Games…"
                         onEmptyActionTriggered: app.editListGames(app.customListId)
                     }
@@ -896,7 +898,10 @@ Item {
                         listModel: Backend.favoritesList
                         storeItems: []
                         emptyText: "No favorites yet"
-                        emptyHint: "Right-click a cartridge › Add to Favorites."
+                        emptyIcon: "starred"
+                        emptyHint: "Choose Add to Favorites in any cartridge's menu."
+                        emptyAction: "Show All Games"
+                        onEmptyActionTriggered: app.navigate("library:all")
                     }
                     StoreView {
                         id: storeView
@@ -972,7 +977,9 @@ Item {
                         anchors.bottom: parent.bottom
                         anchors.leftMargin: tray.contentLeft  // on the page grid
                         anchors.bottomMargin: Math.max(24, dock.clearance)  // clear of the dock while a game runs
-                        width: Math.min(tray.contentRight - tray.contentLeft, 1040)  // a settings window, not a wall
+                        // A settings window, not a wall: as wide as its list and its 640-px column
+                        // need, so the controls end as far from its right edge as they start.
+                        width: Math.min(tray.contentRight - tray.contentLeft, settingsPage.naturalWidth)
                         onCloseRequested: app.navigateBack()
                     }
                 }

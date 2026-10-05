@@ -129,7 +129,7 @@ QtObject {
             break
         case "otherMenu":
             const b = harness.find("inspectOtherButton")
-            harness.find("inspectOtherMenu").popup(b, 0, b.height + 6)
+            harness.find("inspectOtherMenu").openFrom(b)
             break
         case "state":
             console.warn("STATE inspect.open=" + inspect.open + " picker=" + artPicker.opened

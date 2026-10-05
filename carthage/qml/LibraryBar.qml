@@ -113,7 +113,7 @@ Item {
             height: 36
             icon.name: "overflow-menu-symbolic"
             Accessible.name: "List options"
-            onClicked: listMenu.popup(listMenuKey, 0, listMenuKey.height + 6)
+            onClicked: listMenu.openFrom(listMenuKey)
         }
     }
 

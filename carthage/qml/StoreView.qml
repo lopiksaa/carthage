@@ -318,7 +318,11 @@ Item {
                     columns: view.tray ? view.tray.columns : Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
                     rowSpacing: Ui.gapL
                     Repeater {
-                        model: shelf.modelData.items
+                        // Whole rows only: a shelf ending in a half-empty row looks unfinished.
+                        model: {
+                            const all = shelf.modelData.items
+                            return all.length > grid.columns ? all.slice(0, all.length - all.length % grid.columns) : all
+                        }
                         delegate: Item {
                             required property var modelData
                             width: grid.cellW

@@ -248,6 +248,9 @@ Column {
                 ColorChip {
                     size: look.chipSize
                     label: "Cartridges: same as hardware"
+                    linked: true
+                    plastic: (look.options.find(o => o.value === Backend.settings.hardware) || {}).color
+                             || Backend.theme.plasticOf(Backend.settings.hardware)
                     selected: Backend.settings.cardColor === "same"
                     onPicked: Backend.settings.cardColor = "same"
                 }
@@ -463,7 +466,7 @@ Column {
                 width: parent.width
                 text: "Other stores"
                 hint: Backend.keys.has["itad"] ? "Prices from GOG, Microsoft Store, EA and Battle.net too, from IsThereAnyDeal"
-                                                : "Prices from GOG, Microsoft Store, EA and Battle.net too. Needs an IsThereAnyDeal key (Keys)"
+                                                : "Prices from GOG, Microsoft Store, EA and Battle.net too. Needs an IsThereAnyDeal key, in Accounts & Keys"
                 enabled: Backend.keys.has["itad"] === true
                 checked: Backend.settings.otherStores && Backend.keys.has["itad"] === true
                 onToggled: Backend.settings.otherStores = checked
