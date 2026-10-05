@@ -232,12 +232,34 @@ QtObject {
         {
             const it = harness.find(cmd.name)
             const p = it ? it.mapToItem(null, 0, 0) : null
-            console.warn("WHERE", cmd.label || "", cmd.name, p ? Math.round(p.x) + "," + Math.round(p.y) + " " + it.width + "x" + it.height + " visible " + it.visible : "none")
+            console.warn("WHERE", cmd.label || "", cmd.name, p ? Math.round(p.x) + "," + Math.round(p.y) + " " + it.width + "x" + it.height + " visible " + it.visible + " opacity " + it.opacity.toFixed(3) : "none")
             break
         }
         case "storeY":
             console.warn("STOREY", cmd.label || "", harness.find("storeShelves").contentY, harness.find("storeShelves").originY)
             break
+        case "settingsState":
+            console.warn("SETTINGS", cmd.label || "", "section", app.parts.settingsPage.section, "page", app.page, "sidebarOpen", app.sidebarOpen,
+                         "settingsVisible", app.parts.settingsPage.visible, "enabled", app.parts.settingsPage.enabled, "modal", app.modalOpen)
+            break
+        case "hitTest": // {"x","y"}: the chain of items under that point, top first (overlay included)
+        {
+            const win = app.Window.window
+            const chain = []
+            const dive = (item) => {
+                let p = item.mapFromItem(null, cmd.x, cmd.y)
+                let c = item.childAt(p.x, p.y)
+                while (c) {
+                    chain.push(c.toString().slice(0, 40) + (c.objectName ? "#" + c.objectName : "") + (c.enabled ? "" : "(disabled)"))
+                    p = c.mapFromItem(null, cmd.x, cmd.y)
+                    c = c.childAt(p.x, p.y)
+                }
+            }
+            if (win.overlay) { chain.push("[overlay]"); dive(win.overlay) }
+            chain.push("[content]"); dive(win.contentItem)
+            console.warn("HIT", cmd.x, cmd.y, chain.join(" > "))
+            break
+        }
         case "whoFocus":  // prints what has the keyboard focus
             console.warn("FOCUS", app.Window.window.activeFocusItem, app.Window.window.activeFocusItem ? app.Window.window.activeFocusItem.objectName : "")
             break

@@ -117,6 +117,23 @@ def main():
         if step.get("release", True):
             QTest.mouseRelease(root, Qt.LeftButton, Qt.NoModifier, QPoint(x0 + dx, y0 + dy), 10)
 
+    def send_click(pt, button=Qt.LeftButton, double=False):
+        """A press and a release (and a double-click) sent straight to the window: unlike QTest's
+        click, it doesn't spin a nested event loop for a second (later steps fired inside it)."""
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QMouseEvent
+        p = QPointF(pt)
+        g = QPointF(root.mapToGlobal(pt))
+        def ev(kind, buttons):
+            return QMouseEvent(kind, p, p, g, button, buttons, Qt.NoModifier)
+        QGuiApplication.sendEvent(root, QMouseEvent(QMouseEvent.Type.MouseMove, p, p, g, Qt.NoButton, Qt.NoButton, Qt.NoModifier))
+        QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonPress, button))
+        QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonRelease, Qt.NoButton))
+        if double:
+            QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonPress, button))
+            QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonDblClick, button))
+            QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonRelease, Qt.NoButton))
+
     def fire(step):
         if step.get("do") == "fps_start":
             state["frames"] = 0
@@ -143,11 +160,22 @@ def main():
             button = Qt.RightButton if step.get("button") == "right" else Qt.LeftButton
             if step.get("timing"):
                 print("TIMING click-start", int(time.time() * 1000) % 100000, flush=True)
-            QTest.mouseClick(root, button, Qt.NoModifier, QPoint(step["x"], step["y"]))
+            send_click(QPoint(step["x"], step["y"]), button)
             if step.get("timing"):
                 print("TIMING click-end", int(time.time() * 1000) % 100000, flush=True)
+        elif step.get("do") == "pressOnly":  # press without release, then report who grabbed the mouse
+            from PySide6.QtCore import QPointF
+            from PySide6.QtGui import QMouseEvent
+            p = QPointF(step["x"], step["y"]); g = QPointF(root.mapToGlobal(p.toPoint()))
+            QGuiApplication.sendEvent(root, QMouseEvent(QMouseEvent.Type.MouseButtonPress, p, p, g, Qt.LeftButton, Qt.LeftButton, Qt.NoModifier))
+            gi = root.mouseGrabberItem()
+            print("PRESSGRAB", gi.metaObject().className() if gi else None, gi.objectName() if gi else "", gi.parentItem().metaObject().className() if gi and gi.parentItem() else "", flush=True)
+            QGuiApplication.sendEvent(root, QMouseEvent(QMouseEvent.Type.MouseButtonRelease, p, p, g, Qt.LeftButton, Qt.NoButton, Qt.NoModifier))
+        elif step.get("do") == "grabber":  # prints which item holds the mouse (debugging clicks)
+            g = root.mouseGrabberItem()
+            print("GRABBER", step.get("label", ""), g.metaObject().className() if g else None, g.objectName() if g else "", flush=True)
         elif step.get("do") == "dblclick":
-            QTest.mouseDClick(root, Qt.LeftButton, Qt.NoModifier, QPoint(step["x"], step["y"]))
+            send_click(QPoint(step["x"], step["y"]), double=True)
         elif step.get("do") == "key":  # {"key": "Escape", "mods": "ctrl+shift"} a real key press
             mods = Qt.NoModifier
             for m in (step.get("mods") or "").split("+"):
@@ -174,11 +202,12 @@ def main():
                 print(f"[harness] MISSING {step['text']!r} ({parts[1]} found)", flush=True)
             else:
                 pt = QPoint(int(parts[0]), int(parts[1]))
-                QTest.mouseMove(root, pt)
                 if step["do"] == "clickText":
-                    QTest.mouseClick(root, Qt.LeftButton, Qt.NoModifier, pt)
+                    send_click(pt)
                 elif step["do"] == "rightClickText":
-                    QTest.mouseClick(root, Qt.RightButton, Qt.NoModifier, pt)
+                    send_click(pt, Qt.RightButton)
+                else:
+                    QTest.mouseMove(root, pt)
                 print(f"[harness] {step['do']} {step['text']!r} at {pt.x()},{pt.y()}", flush=True)
         elif commands is not None:
             QMetaObject.invokeMethod(commands, "run", Qt.DirectConnection, Q_ARG("QVariant", step))

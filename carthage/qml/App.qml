@@ -723,6 +723,7 @@ Item {
 
             // Over the content while open: a dimmed tray (choose it to close) and the sidebar.
             Rectangle {
+                objectName: "sidebarScrim"  // for the test harness
                 anchors.top: header.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -756,8 +757,10 @@ Item {
                 }
                 appRoot: app
                 page: app.page
-                onNavigate: (p) => { app.navigate(p); app.sidebarOpen = false }
-                onSearchRequested: { app.navigate("search"); app.sidebarOpen = false }
+                // After the click has finished: disabling the sidebar inside its own click left
+                // the mouse grabbed, and the next click anywhere did nothing.
+                onNavigate: (p) => Qt.callLater(() => { app.navigate(p); app.sidebarOpen = false })
+                onSearchRequested: Qt.callLater(() => { app.navigate("search"); app.sidebarOpen = false })
                 z: 4
             }
 
