@@ -748,11 +748,14 @@ Item {
                 anchors.bottom: parent.bottom
                 x: app.sidebarOpen ? 0 : -width - 16
                 visible: x > -width - 16
-                // In with ease-out; out a little faster with ease-in.
+                // In with ease-out; out a little faster with ease-in. (From where it's heading:
+                // the open flag isn't settled yet when the move starts.)
                 Behavior on x {
+                    id: sidebarSlide
                     NumberAnimation {
-                        duration: (app.sidebarOpen ? Ui.motionSlow - 60 : Ui.motionMedium) * app.motion
-                        easing.type: app.sidebarOpen ? Easing.OutCubic : Easing.InCubic
+                        readonly property bool leaving: sidebarSlide.targetValue < 0
+                        duration: (leaving ? Ui.motionMedium : Ui.motionSlow - 60) * app.motion
+                        easing.type: leaving ? Easing.InCubic : Easing.OutCubic
                     }
                 }
                 appRoot: app
@@ -1024,9 +1027,11 @@ Item {
                     hideY: wanted ? 0 : height + rise + protrude + 20
                     // Rises with ease-out; leaves faster with ease-in (exits shorter than entrances).
                     Behavior on hideY {
+                        id: dockSlide
                         NumberAnimation {
-                            duration: (dock.wanted ? Ui.motionSlow - 60 : Ui.motionMedium - 20) * app.motion
-                            easing.type: dock.wanted ? Easing.OutCubic : Easing.InCubic
+                            readonly property bool leaving: dockSlide.targetValue > 0
+                            duration: (leaving ? Ui.motionMedium - 20 : Ui.motionSlow - 60) * app.motion
+                            easing.type: leaving ? Easing.InCubic : Easing.OutCubic
                         }
                     }
                     // The band across the bottom (a margin each side for its sloped ends).

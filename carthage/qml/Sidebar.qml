@@ -8,6 +8,7 @@ import QtQuick.Controls as QQC2
 
 Item {
     id: bar
+    objectName: "sidebar"  // for the test harness
 
     property Item appRoot
     property string page: "library:all"
