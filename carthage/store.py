@@ -260,6 +260,18 @@ def _strip_html(html):
     return re.sub(r"\n{3,}", "\n\n", unescape(text)).strip()
 
 
+def _requirements(data):
+    """A store page's minimum requirements for this system (Linux's on Linux, Windows' on
+    Windows), else the other one's."""
+    def minimum(key):
+        r = data.get(key)
+        return r.get("minimum", "") if isinstance(r, dict) else ""
+
+    keys = ["pc_requirements", "linux_requirements"] if os.name == "nt" else ["linux_requirements", "pc_requirements"]
+    text = minimum(keys[0]) or minimum(keys[1])
+    return _strip_html(text).replace("Minimum:", "").strip()[:1200]
+
+
 def _about_without(about, short):
     """About This Game without its first paragraph when that's just the short description again
     (it's already shown above it)."""
@@ -901,6 +913,7 @@ class Store(QObject):
                 "background": data.get("background_raw") or data.get("background") or "",
                 "genres": [g.get("description", "") for g in data.get("genres") or []][:4],
                 "linux": bool((data.get("platforms") or {}).get("linux")),
+                "windows": bool((data.get("platforms") or {}).get("windows", True)),
                 "screenshots": [s.get("path_thumbnail", "") for s in data.get("screenshots") or []][:12],
                 "screenshotsFull": [s.get("path_full", "") for s in data.get("screenshots") or []][:12],
                 "movies": [{"thumb": m.get("thumbnail", ""), "name": m.get("name", ""),
@@ -921,10 +934,7 @@ class Store(QObject):
                 "metacriticUrl": (data.get("metacritic") or {}).get("url") or "",
                 "ageRating": int(data.get("required_age") or 0),
                 "website": data.get("website") or "",
-                "requirements": _strip_html(((data.get("linux_requirements") or {}) if isinstance(data.get("linux_requirements"), dict)
-                                             else {}).get("minimum", "")
-                                            or ((data.get("pc_requirements") or {}) if isinstance(data.get("pc_requirements"), dict)
-                                                else {}).get("minimum", "")).replace("Minimum:", "").strip()[:1200],
+                "requirements": _requirements(data),
                 "reviews": "",
                 "reviewPct": -1,
                 "reviewCount": "",

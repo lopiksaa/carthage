@@ -567,7 +567,7 @@ FocusScope {
                     font.pixelSize: Ui.textTitle
                 }
                 CIcon {
-                    visible: page.info.linux === true
+                    visible: page.info.linux === true && Qt.platform.os === "linux"
                     anchors.verticalCenter: parent.verticalCenter
                     width: 18
                     height: 18
@@ -679,7 +679,8 @@ FocusScope {
                             [page.info.controller || "",
                              page.info.achievements ? page.info.achievements + (page.info.achievements === 1 ? " achievement" : " achievements") : "",
                              page.info.dlcCount ? page.info.dlcCount + " DLC" : "",
-                             page.info.linux ? "Runs natively on Linux" : "",
+                             Qt.platform.os === "windows" ? (page.info.windows === false ? "Doesn't run on Windows" : "")
+                                 : page.info.linux ? "Runs natively on Linux" : "",
                              page.info.ageRating ? "Rated " + page.info.ageRating + "+" : ""].filter(x => x).join("  ·  "),
                             (page.info.features || []).length ? "Features: " + page.info.features.join(", ") : "",
                             (page.info.languages || []).length ? "Languages: " + page.info.languages.map(x => x.trim()).join(", ") : "",
