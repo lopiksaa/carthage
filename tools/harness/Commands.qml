@@ -205,7 +205,19 @@ QtObject {
         case "listPicker":
             app.addToList(cmd.id, cmd.title || "")
             break
-        case "focus":  // prints what has the keyboard focus
+        case "state2":  // one line: what's open
+            console.warn("STATE", cmd.label || "", "inspect", app.parts.inspect.open, "modal", app.modalOpen,
+                         "color", app.parts.colorPicker.opened, "page", app.page,
+                         "otherMenu", !!harness.find("inspectOtherMenu") && harness.find("inspectOtherMenu").opened)
+            break
+        case "where":  // {"name": objectName} prints that item's window position
+        {
+            const it = harness.find(cmd.name)
+            const p = it ? it.mapToItem(null, 0, 0) : null
+            console.warn("WHERE", cmd.label || "", cmd.name, p ? Math.round(p.x) + "," + Math.round(p.y) + " " + it.width + "x" + it.height + " visible " + it.visible : "none")
+            break
+        }
+        case "whoFocus":  // prints what has the keyboard focus
             console.warn("FOCUS", app.Window.window.activeFocusItem, app.Window.window.activeFocusItem ? app.Window.window.activeFocusItem.objectName : "")
             break
         case "toggleSidebar":

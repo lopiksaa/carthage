@@ -8,6 +8,10 @@ import QtQuick.Controls as QQC2
 
 QQC2.Menu {
     id: cmenu  // not `menu`: each MenuItem has its own `menu` property, empty once it's removed
+    // A click outside only closes the menu (it doesn't also reach what's underneath, e.g. the
+    // game view's backdrop, which would close the whole view).
+    modal: true
+    dim: false
 
     readonly property var pal: Backend.theme.p
 

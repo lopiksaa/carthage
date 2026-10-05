@@ -694,12 +694,12 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: inspect.wide ? inspect.height - 2 * Ui.gapXL
+        readonly property real avail: inspect.wide ? inspect.height - inspect.heroY - Ui.gapXL
                                                    : inspect.height - (inspect.heroY + inspect.heroH + 28) - 20
         x: inspect.panelBaseX - inspect.galleryLevel * 40
-        y: inspect.wide ? Math.max(Ui.gapXL, Math.min(Math.round(inspect.heroY + (inspect.heroH - height) / 2),
-                                                      inspect.height - height - Ui.gapXL))
-                        : inspect.heroY + inspect.heroH + 28
+        // Level with the cartridge's top, and it stays there: the details arrive in stages, and
+        // a panel that re-centered would move Play out from under the pointer.
+        y: inspect.wide ? inspect.heroY : inspect.heroY + inspect.heroH + 28
         Behavior on y {
             enabled: inspect.settled
             NumberAnimation { duration: 200 * inspect.motion; easing.type: Easing.OutCubic }

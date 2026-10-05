@@ -467,10 +467,10 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: page.wide ? page.height - 80 : page.height - (20 + page.heroH + 24) - 20
+        readonly property real avail: page.wide ? page.height - page.heroTop - 40 : page.height - (20 + page.heroH + 24) - 20
         x: page.panelBaseX - page.galleryLevel * 40
-        y: page.wide ? Math.max(40, Math.min(Math.round(page.heroTop + (page.heroH - height) / 2), page.height - height - 40))
-                     : 20 + page.heroH + 24
+        // Level with the cartridge's top, and it stays there while the details arrive.
+        y: page.wide ? page.heroTop : 20 + page.heroH + 24
         Behavior on y {
             enabled: page.open
             NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }
