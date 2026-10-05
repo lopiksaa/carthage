@@ -123,6 +123,8 @@ Item {
                 width: parent.width
                 text: engraved.text
                 font: engraved.font
+                fontSizeMode: engraved.fontSizeMode
+                minimumPixelSize: engraved.minimumPixelSize
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 maximumLineCount: 3
@@ -136,6 +138,9 @@ Item {
                 font.family: Ui.fontTitles
                 font.weight: Font.ExtraBold
                 font.pixelSize: Math.max(8, cell.cardW * 0.085)
+                // Long names shrink to fit rather than being cut (down to 70%).
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Math.max(7, cell.cardW * 0.06)
                 font.letterSpacing: 1
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap

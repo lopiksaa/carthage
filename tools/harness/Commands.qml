@@ -262,6 +262,15 @@ QtObject {
             console.warn("HIT", cmd.x, cmd.y, chain.join(" > "))
             break
         }
+        case "perfToggle":  // {"part": "results"|"library"|"chips", "on": bool} hides a part of the search page (profiling)
+        {
+            const sp = app.parts.searchPage
+            const find = (n) => { const out = []; const w = (i) => { if (!i) return; if (i.objectName === n) out.push(i); for (const c of i.children) w(c) }; w(sp); return out[0] }
+            const it = find("search_" + cmd.part)
+            if (it) it.visible = cmd.on
+            console.warn("PERF toggle", cmd.part, !!it)
+            break
+        }
         case "whoFocus":  // prints what has the keyboard focus
             console.warn("FOCUS", app.Window.window.activeFocusItem, app.Window.window.activeFocusItem ? app.Window.window.activeFocusItem.objectName : "")
             break

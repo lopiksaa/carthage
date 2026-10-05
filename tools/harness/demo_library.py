@@ -53,6 +53,14 @@ def demo_games():
         if title == "Lantern Launcher":
             g.no_slot = True
         games.append(g)
+    # Edge cases: GC_DEMO_EMPTY=1 for no games at all; GC_LONG_TITLES=1 for very long names.
+    if os.environ.get("GC_DEMO_EMPTY"):
+        return []
+    if os.environ.get("GC_LONG_TITLES"):
+        long = ["The Legend of the Extraordinarily Long Title: Remastered Definitive Collector's Edition",
+                "Supercalifragilisticexpialidocious", "東方紅魔郷 ～ the Embodiment of Scarlet Devil", "A", "Ω"]
+        for k, t in enumerate(long):
+            games[k].title = t
     # Stress test: GC_FAKE_COUNT=500 pads the library with generated titles.
     for i in range(len(games), count):
         games.append(Game(f"fake{i}", f"Test Game {i}", "steam", str(2_000_000 + i), installed=i % 5 != 0, added=now - i))

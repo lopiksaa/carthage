@@ -1012,7 +1012,15 @@ Item {
                         : "No games yet"
                     explanation: Backend.games.filterText ? "Try a different name, or clear the search."
                         : filter !== "all" ? "Set Show to All in the bar above to see the rest."
-                        : "Carthage finds games from Steam, Heroic, Lutris and more. Add any other game with + above."
+                        : "Carthage finds games from Steam, Heroic, Lutris and more. Add any other game yourself."
+                    // The way out of each empty state, as a button.
+                    actionText: Backend.games.filterText ? "Clear Search"
+                        : filter !== "all" ? "Show All" : "Add a Game…"
+                    onAction: {
+                        if (Backend.games.filterText) Backend.games.filterText = ""
+                        else if (filter !== "all") Backend.games.filterMode = "all"
+                        else app.addGame()
+                    }
                 }
 
                 Dock {

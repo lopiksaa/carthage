@@ -55,7 +55,7 @@ GridView {
     flickableDirection: Flickable.VerticalFlick
     cellWidth: shelf ? mainTray.cellWidth : Math.floor((width - leftMargin - rightMargin) / columns)
     cellHeight: cardW * Backend.theme.ratio + 2 * pad + Ui.spacingLarge * 3 + titleHeight
-    cacheBuffer: cellHeight * 2
+    cacheBuffer: shelf ? 0 : cellHeight * 2  // (a shelf shows all it builds)
     clip: true
     focus: true
     keyNavigationEnabled: true

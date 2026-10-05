@@ -135,7 +135,22 @@ def main():
             QGuiApplication.sendEvent(root, ev(QMouseEvent.Type.MouseButtonRelease, Qt.NoButton))
 
     def fire(step):
-        if step.get("do") == "fps_start":
+        if step.get("do") == "lag_start":  # the event loop's worst lateness: real freezes, not idle gaps
+            state["lag"] = 0.0
+            state["lag_prev"] = time.monotonic()
+            t = QTimer()
+            t.setTimerType(Qt.PreciseTimer)
+            def tick():
+                now = time.monotonic()
+                state["lag"] = max(state["lag"], now - state["lag_prev"] - 0.010)
+                state["lag_prev"] = now
+            t.timeout.connect(tick)
+            t.start(10)
+            state["lag_timer"] = t
+        elif step.get("do") == "lag_stop":
+            state["lag_timer"].stop()
+            print(f"[harness] LAG {step.get('label', '')}: worst freeze {state['lag'] * 1000:.0f} ms", flush=True)
+        elif step.get("do") == "fps_start":
             state["frames"] = 0
             state["worst"] = 0.0
             state["t"] = state["last"] = time.monotonic()

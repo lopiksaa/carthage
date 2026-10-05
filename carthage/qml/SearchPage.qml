@@ -313,6 +313,7 @@ Flickable {
 
         // The chips.
         Row {
+            objectName: "search_chips"  // (profiling)
             width: parent.width
             spacing: Ui.gapS
             RowLabel { text: "Genres" }
@@ -379,6 +380,7 @@ Flickable {
 
         // In your library.
         Item {
+            objectName: "search_library"  // (profiling)
             visible: page.libraryShown && libShelf.count > 0
             width: parent.width
             height: visible ? libTitle.height + Ui.gapS + libClip.height : 0
@@ -412,6 +414,7 @@ Flickable {
                     appRoot: page.appRoot
                     listModel: Backend.searchLibrary
                     storeItems: []
+                    maxRows: 2
                 }
             }
         }
@@ -460,6 +463,7 @@ Flickable {
             font.pixelSize: Ui.textBody
         }
         Flow {
+            objectName: "search_results"  // (profiling)
             width: parent.width
             spacing: Ui.gapL
             opacity: page.state_ === "loading" && !page.appending ? 0.5 : 1

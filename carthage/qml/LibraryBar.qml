@@ -94,6 +94,7 @@ Item {
         DiceButton {
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
+            enabled: Backend.games.count + Backend.favorites.count > 1  // nothing to pick from otherwise
             onRolled: bar.appRoot.rollDice()
         }
         CButton {

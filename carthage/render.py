@@ -606,9 +606,22 @@ def render_generated_art(w, h, title):
 
     font = QFont("Nunito")
     font.setWeight(QFont.Black)
-    font.setPixelSize(max(6, int(w * 0.12)))
-    p.setFont(font)
     rect = QRectF(w * 0.07, h * 0.08, w * 0.86, h * 0.6)
+    # As big as fits: the longest word on one line and the whole title in the box (long names
+    # used to be cut mid-word).
+    from PySide6.QtGui import QFontMetricsF
+
+    text = title.upper()
+    size = max(6, int(w * 0.12))
+    while size > 6:
+        font.setPixelSize(size)
+        fm = QFontMetricsF(font)
+        longest = max((fm.horizontalAdvance(word) for word in text.split()), default=0)
+        box = fm.boundingRect(rect, int(Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap), text)
+        if longest <= rect.width() and box.height() <= rect.height():
+            break
+        size -= 1
+    p.setFont(font)
     p.setPen(QColor(0, 0, 0, 110))
     p.drawText(rect.translated(w * 0.012, w * 0.016), Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap, title.upper())
     p.setPen(QColor(255, 255, 255))

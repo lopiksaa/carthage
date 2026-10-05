@@ -361,7 +361,7 @@ Item {
                 onClicked: { bar.appRoot.sidebarOpen = false; bar.appRoot.newList("") }
             }
 
-            Heading { text: "Sources" }
+            Heading { text: "Sources"; visible: Backend.games.launchers.length > 0 }
             Repeater {
                 model: Backend.games.launchers
                 delegate: Entry {

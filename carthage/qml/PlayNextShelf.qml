@@ -13,6 +13,7 @@ Column {
     property var listModel: Backend.playNext
     property var storeItems: Backend.playNextStore
     property bool asPage: false
+    property int maxRows: 0  // 0: every row; else only this many are built (the search page shows 2)
     readonly property var pal: Backend.theme.p
     readonly property int libraryCount: shelfLoader.item ? shelfLoader.item.count : 0
     readonly property int count: libraryCount + storeItems.length
@@ -48,7 +49,9 @@ Column {
             visible: pn.libraryCount > 0
             x: -pn.tray.leftMargin
             width: pn.tray.width
-            height: Math.ceil(pn.libraryCount / pn.columns) * pn.tray.cellHeight
+            readonly property int rows: Math.ceil(pn.libraryCount / pn.columns)
+            // Only as tall as what shows: the cartridges below aren't built at all.
+            height: (pn.maxRows > 0 ? Math.min(rows, pn.maxRows) : rows) * pn.tray.cellHeight
             Component.onCompleted: setSource(Qt.resolvedUrl("Tray.qml"), {
                 shelf: true,
                 trayModel: pn.listModel,
