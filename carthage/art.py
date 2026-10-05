@@ -379,7 +379,7 @@ class ArtManager(QObject):
 
         def work():
             if g is None or not key:
-                self.choiceFailed.emit(game_id, "Add your SteamGridDB key in the menu to choose art.")
+                self.choiceFailed.emit(game_id, "Add your SteamGridDB key in Settings → Accounts & Keys to choose art.")
                 return
             ids = self._ids_for(key, g)
             data = self._get(key, f"{endpoint}/{ids[0]}/{ids[1]}?{dims}types=static&nsfw=false&humor=false") if ids else None

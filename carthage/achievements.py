@@ -34,7 +34,7 @@ def fetch(appid, key, steam_id):
     next ones within reach come first). A locked hidden achievement keeps its secret."""
     out = {"appid": appid, "total": 0, "unlocked": 0, "items": [], "error": ""}
     if not key or not steam_id:
-        out["error"] = "Add your Steam key in Menu → Accounts & Keys to see achievements."
+        out["error"] = "Add your Steam key in Settings → Accounts & Keys to see achievements."
         return out
     try:
         mine = _call("GetPlayerAchievements/v1/", {"appid": appid, "steamid": steam_id, "key": key, "l": "english"})

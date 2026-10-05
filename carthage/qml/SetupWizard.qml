@@ -115,7 +115,7 @@ CDialog {
             }
             Body_ {
                 visible: wiz.steamStep
-                text: "A free Steam key shows every Steam game you own. It's optional — skip it and add it later in Menu → Accounts & Keys."
+                text: "A free Steam key shows every Steam game you own. It's optional — skip it and add it later in Settings → Accounts & Keys."
             }
         }
 
@@ -124,7 +124,7 @@ CDialog {
             width: parent.width
             spacing: Ui.gapM
             Title_ { text: "Steam library access" }
-            Body_ { text: "Carthage will show you all the games already installed on your PC. To access your full library and your play time, Carthage needs your Steam API key. If you want, you can set it up later from Menu → Accounts & Keys." }
+            Body_ { text: "Carthage will show you all the games already installed on your PC. To access your full library and your play time, Carthage needs your Steam API key. If you want, you can set it up later from Settings → Accounts & Keys." }
             KeyRow {
                 width: parent.width
                 service: "steam"
