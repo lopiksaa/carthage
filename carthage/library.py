@@ -162,10 +162,11 @@ def real_games():
             install_dir=g.get("install_dir", ""),
         ))
     if os.name == "nt":
-        from .sources import battlenet, epic, riot
+        from .sources import battlenet, epic, riot, standalone
 
+        # (Games with their own launcher count as installed apps, as on Linux.)
         for label, source, module in (("Battle.net", "battlenet", battlenet), ("Epic Games", "epic", epic),
-                                      ("Riot Client", "riot", riot)):
+                                      ("Riot Client", "riot", riot), ("own launchers", "desktop", standalone)):
             for g in _read(label, module.load):
                 games.append(Game(
                     game_id=g["id"], title=g["name"], source=source, ext_id=g["short_id"],

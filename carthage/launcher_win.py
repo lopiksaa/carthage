@@ -248,17 +248,24 @@ def folder_key(path):
     return _folder_key(path)
 
 
+# Sources whose games are tracked by their install folder (see launch()).
+FOLDER_SOURCES = ("battlenet", "epic", "riot", "desktop")
+
+
 def launch(game):
     exe = game.executable
     kind = kind_of(exe)
-    if game.source in ("battlenet", "epic", "riot") and game.install_dir:
+    if game.source in FOLDER_SOURCES and game.install_dir:
         # Each hands the launch to its own client (Battle.net's "<Game> Launcher.exe" stub,
-        # Epic's com.epicgames.launcher:// link, RiotClientServices.exe --launch-product);
-        # the game itself then runs from its install folder, which is what gets tracked.
+        # Epic's com.epicgames.launcher:// link, RiotClientServices.exe --launch-product, a
+        # game's own launcher); the game itself then runs from its install folder, which is
+        # what gets tracked.
         if kind_of(exe) == "handoff":  # a link (Epic's)
             os.startfile(exe)
         else:
-            subprocess.Popen(exe, cwd=game.install_dir,
+            # A game's own launcher starts in its own folder, like its shortcut does.
+            cwd = os.path.dirname(_program(exe)) if game.source == "desktop" else game.install_dir
+            subprocess.Popen(exe, cwd=cwd or game.install_dir,
                              creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)
         return {"kind": "folder", "dir": _folder_key(game.install_dir)}
     if kind == "steam":
@@ -286,7 +293,7 @@ def missing_program(game):
     uninstalled), else "". Only commands naming a file by its path are checked: a bare
     program name may be found on the PATH, and links go to their launcher."""
     exe = game.executable or ""
-    if kind_of(exe) != "proc" or game.source in ("battlenet", "epic", "riot"):
+    if kind_of(exe) != "proc" or game.source in ("battlenet", "epic", "riot"):  # (they check their own)
         return ""
     program = os.path.expandvars(_program(exe))
     if not (os.path.isabs(program) or "\\" in program or "/" in program):
