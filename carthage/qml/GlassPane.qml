@@ -100,9 +100,12 @@ Item {
         source: stack
         autoPaddingEnabled: false
         blurEnabled: true
-        // CSS blur(26px) is a Gaussian of that deviation; MultiEffect's blurMax is a radius.
+        // CSS blur(26px) is a Gaussian of that deviation, far wider than MultiEffect's radius
+        // at the same number: full strength, spread further (the design's dock hides what's
+        // behind; ours still showed logos through it).
         blurMax: 64
-        blur: Math.min(1, pane.blurPx * 2 / 64)
+        blur: Math.min(1, pane.blurPx / 26)
+        blurMultiplier: 1.0
         saturation: pane.saturation
         maskEnabled: true
         maskSource: pane.shape ? shapeMask : roundMask

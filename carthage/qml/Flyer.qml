@@ -27,11 +27,10 @@ Item {
 
     property var onNear      // called at 70 % of a launch (the slot opens its flaps)
     property real flightMs: 370
-    // Into the dock (Spec §6): a straight path, eased out, 370 ms + 0.12 ms per pixel up to
-    // 480; it scales to the dock's size with no overshoot.
+    // Into the dock: a short press, then a curved flight with a little spin (Sam preferred it
+    // to the design's straight line).
     function launch(tx, ty, tScale, done, near) {
         toX = tx; toY = ty; toScale = tScale; onDone = done; onNear = near
-        flightMs = Math.min(480, 370 + 0.12 * Math.hypot(tx - x, ty - y))
         ctrlX = x + (tx - x) * 0.25
         ctrlY = Math.min(y, ty) - height * 0.35
         launchAnim.restart()
@@ -75,17 +74,27 @@ Item {
         }
     }
 
-    readonly property var flightCurve: [0.22, 0.9, 0.24, 1, 1, 1]
     SequentialAnimation {
         id: launchAnim
+        NumberAnimation { target: flyer; property: "scale"; to: flyer.scale * 0.97; duration: 80 * flyer.motion; easing.type: Easing.OutQuad }
         ParallelAnimation {
-            NumberAnimation { target: flyer; property: "x"; to: flyer.toX; duration: flyer.flightMs * flyer.motion; easing.type: Easing.BezierSpline; easing.bezierCurve: flyer.flightCurve }
-            NumberAnimation { target: flyer; property: "y"; to: flyer.toY; duration: flyer.flightMs * flyer.motion; easing.type: Easing.BezierSpline; easing.bezierCurve: flyer.flightCurve }
-            NumberAnimation { target: flyer; property: "scale"; to: flyer.toScale; duration: flyer.flightMs * flyer.motion; easing.type: Easing.BezierSpline; easing.bezierCurve: flyer.flightCurve }
-            NumberAnimation { target: flyer; property: "lift"; to: 0.35; duration: flyer.flightMs * flyer.motion; easing.type: Easing.BezierSpline; easing.bezierCurve: flyer.flightCurve }
-            SequentialAnimation {
-                PauseAnimation { duration: 0.7 * flyer.flightMs * flyer.motion }
+            PathAnimation {
+                target: flyer
+                duration: 370 * flyer.motion
+                easing.type: Easing.InOutCubic
+                path: Path {
+                    PathQuad { x: flyer.toX; y: flyer.toY; controlX: flyer.ctrlX; controlY: flyer.ctrlY }
+                }
+            }
+            NumberAnimation { target: flyer; property: "scale"; to: flyer.toScale; duration: 370 * flyer.motion; easing.type: Easing.InOutCubic }
+            NumberAnimation { target: flyer; property: "lift"; to: 0.35; duration: 370 * flyer.motion; easing.type: Easing.InOutCubic }
+            SequentialAnimation {  // the slot opens its flaps at 70 % of the flight
+                PauseAnimation { duration: 0.7 * 370 * flyer.motion }
                 ScriptAction { script: if (flyer.onNear) flyer.onNear() }
+            }
+            SequentialAnimation {
+                NumberAnimation { target: flyer; property: "spin"; to: -4; duration: 150 * flyer.motion; easing.type: Easing.OutQuad }
+                NumberAnimation { target: flyer; property: "spin"; to: 0; duration: 220 * flyer.motion; easing.type: Easing.InOutQuad }
             }
         }
         ScriptAction { script: if (flyer.onDone) flyer.onDone() }

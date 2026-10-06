@@ -44,10 +44,10 @@ Item {
     property real shown: cartH
     property bool instant: false
     Behavior on shown {
-        enabled: slot.seated && !slot.instant
+        enabled: slot.seated && !slot.instant && !seatAnim.running
         NumberAnimation { duration: 100 * slot.motion; easing.type: Easing.OutCubic }
     }
-    Binding on shown { value: slot.visibleTarget; when: slot.seated && slot.lift === 0 }
+    Binding on shown { value: slot.visibleTarget; when: slot.seated && slot.lift === 0 && !seatAnim.running }
     property real nudgeX: 0
 
     height: dockItem.height
@@ -63,10 +63,33 @@ Item {
         NumberAnimation { duration: (slot.open_ > 0.5 ? 140 : 120) * slot.motion; easing.type: slot.open_ > 0.5 ? Easing.InCubic : Easing.OutCubic }
     }
 
+    // Seating (the old insert, Sam's pick): it touches the flaps, pushes in with a slight side
+    // wiggle, sinks a hair past its seat, clicks, and settles with a small bounce.
     function seatIn() {
+        if (motion <= 0) {
+            seated = true
+            dockItem.clicked()
+            return
+        }
+        seatAnim.target_ = visibleTarget
         seated = true
-        if (motion > 0) dockItem.nudgeShell()
-        dockItem.clicked()
+        seatAnim.restart()
+    }
+    SequentialAnimation {
+        id: seatAnim
+        property real target_: 62
+        NumberAnimation { target: slot; property: "shown"; to: seatAnim.target_ + 10; duration: 100 * slot.motion; easing.type: Easing.InQuad }
+        ParallelAnimation {
+            NumberAnimation { target: slot; property: "shown"; to: seatAnim.target_ + 1; duration: 190 * slot.motion; easing.type: Easing.OutQuad }
+            SequentialAnimation {
+                NumberAnimation { target: slot; property: "nudgeX"; to: 0.8; duration: 60 * slot.motion }
+                NumberAnimation { target: slot; property: "nudgeX"; to: -0.6; duration: 70 * slot.motion }
+                NumberAnimation { target: slot; property: "nudgeX"; to: 0; duration: 60 * slot.motion }
+            }
+        }
+        NumberAnimation { target: slot; property: "shown"; to: seatAnim.target_ - 2; duration: 50 * slot.motion; easing.type: Easing.InQuad }
+        ScriptAction { script: { slot.dockItem.clicked(); slot.dockItem.nudgeShell() } }
+        NumberAnimation { target: slot; property: "shown"; to: seatAnim.target_; duration: 140 * slot.motion; easing.type: Easing.OutBack }
     }
     function seatInstant() {
         instant = true
@@ -174,7 +197,15 @@ Item {
             visible: slot.seated && !slot.empty
             x: 30 + slot.nudgeX
             y: 300 + slot.slotLine - slot.shown - slot.lift * (slot.cartH - slot.shown)
-            width: slot.cartW
+            // A full-size cartridge shrunk (like the design), so its art and lettering keep their
+            // proportions; drawn at 64 px wide, generated art and text came out oversized.
+            readonly property real fullW: 187
+            width: fullW
+            scale: slot.cartW / fullW
+            transformOrigin: Item.TopLeft
+            layer.enabled: visible
+            layer.mipmap: true      // shrinking ×0.34 stays smooth
+            layer.smooth: true
             gameId: slot.gameId
             title: slot.title
             source: slot.source
@@ -185,10 +216,10 @@ Item {
             Rectangle {
                 visible: slot.activeFocus
                 anchors.fill: parent
-                anchors.margins: -3
-                radius: Backend.theme.geo.radius * cart.u + 3
+                anchors.margins: -3 / cart.scale
+                radius: Backend.theme.geo.radius * cart.u + 3 / cart.scale
                 color: "transparent"
-                border.width: 2
+                border.width: 2 / cart.scale
                 border.color: Ui.focusColor
             }
         }
