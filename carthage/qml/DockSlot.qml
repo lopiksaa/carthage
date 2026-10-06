@@ -40,9 +40,11 @@ Item {
     readonly property real visibleTarget: state_ === "starting" ? 62
                                         : state_ === "closing" ? 52
                                         : several ? (selected ? 46 : 34) : 40
-    property real shown: 62
+    // A flight lands with the whole cartridge above the slot line; seating slides it in.
+    property real shown: cartH
+    property bool instant: false
     Behavior on shown {
-        enabled: slot.seated
+        enabled: slot.seated && !slot.instant
         NumberAnimation { duration: 100 * slot.motion; easing.type: Easing.OutCubic }
     }
     Binding on shown { value: slot.visibleTarget; when: slot.seated && slot.lift === 0 }
@@ -55,7 +57,8 @@ Item {
     Accessible.onPressAction: openMenu()
 
     // Flaps: shut when nothing is in the slot, open while a cartridge is in it.
-    property real open_: seated && !empty ? 1 : 0
+    property bool arriving: false         // a flight is about to land (flaps open at 70 % of it)
+    property real open_: (seated || arriving) && !empty ? 1 : 0
     Behavior on open_ {
         NumberAnimation { duration: (slot.open_ > 0.5 ? 140 : 120) * slot.motion; easing.type: slot.open_ > 0.5 ? Easing.InCubic : Easing.OutCubic }
     }
@@ -66,7 +69,10 @@ Item {
         dockItem.clicked()
     }
     function seatInstant() {
+        instant = true
         seated = true
+        shown = visibleTarget
+        instant = false
     }
     // Eject: the cartridge lifts out (ease-in), then `done` gets its top-left.
     function riseOut(done) {

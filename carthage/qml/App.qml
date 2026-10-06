@@ -275,13 +275,16 @@ Item {
             motion: app.motion, lift: start.lift,
         })
         copyCard(data, f.cart)
-        const seat = dock.seatPos(Backend.sessions.indexOf(gid))
-        const target = dock.mapToItem(flightLayer, seat.x, seat.y - dock.riseHeight - dock.hideY)
+        const seat = dock.landingPos(Backend.sessions.indexOf(gid))
+        const target = dock.parent.mapToItem(flightLayer, seat.x, seat.y)
         f.launch(target.x, target.y, dock.cartW / start.cardWidth, function () {
             delete app.pendingSeat[gid]
             const s = dock.slotFor(gid)
             if (s) s.seatIn()
             f.destroy()
+        }, function () {
+            const s = dock.slotFor(gid)
+            if (s) s.arriving = true  // the flaps part as it comes in
         })
         return result
     }

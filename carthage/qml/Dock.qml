@@ -79,9 +79,18 @@ Item {
         return null
     }
     function bayX(i) { return x0 + i * pitch }      // a bay's left edge (each is 88 wide)
-    // Where a flying cartridge lands: its top-left as it rides high (Starting), in dock coordinates.
+    // Where a flying cartridge lands: its top-left, the whole cartridge just above the slot
+    // line (seating then slides it in), in dock coordinates.
     function seatPos(i) {
-        return Qt.point(bayX(Math.max(0, i)) + Math.round((88 - cartW) / 2), lipY - 62)
+        return Qt.point(bayX(Math.max(0, i)) + Math.round((88 - cartW) / 2), lipY - cartH)
+    }
+    // The same, in the dock's parent, once the dock has finished growing or shrinking: a flight
+    // aims there, so the cartridge doesn't drift with the shell after it lands.
+    function landingPos(i) {
+        const x0T = pad + leftWTarget + wingGap + curve
+        const wT = x0T + flatTarget + curve + wingGap + rightWTarget + pad
+        const left = parent ? (parent.width - wT) / 2 : x
+        return Qt.point(left + x0T + Math.max(0, i) * pitch + Math.round((88 - cartW) / 2), y + lipY - cartH)
     }
     function focusFirst() {
         const s = slots.itemAt(0)
