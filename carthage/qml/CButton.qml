@@ -1,8 +1,10 @@
 // Carthage's button: rounded, soft, in the hardware's palette.
 //   kind: "primary" (Play), "danger" (Quit), "plain", "ghost" (icon-only close etc.),
 //         "scrim" (secondary actions over the dark backdrop of the closer look / store page),
-//         "key" (a physical key on the hardware: sits in a well, travels 3 px when pressed;
-//         in the hardware's plastic)
+//         "key" (a physical key on the hardware: its side shows under the face, it travels
+//         keyDepth px when pressed; in the hardware's plastic)
+//   glyph: "plus" / "more": drawn on the pixel grid in the label's weight (keys), instead of
+//          an icon file (Breeze's 16-px icons blur and sit half a pixel off when scaled)
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -14,6 +16,9 @@ QQC2.AbstractButton {
     property bool big: false
     property bool iconAfter: false // the icon after the text (a forward arrow: "All Categories →")
     property color tint: "transparent" // overrides the foreground, e.g. on a dark backdrop
+    property string glyph: ""
+    // Even, so the face's centre (and everything on it) lands on whole pixels, up and down.
+    readonly property int keyDepth: 4
 
     readonly property var pal: Backend.theme.p
     readonly property var acc: Backend.theme.accent
@@ -64,8 +69,8 @@ QQC2.AbstractButton {
         id: keyFace
         visible: btn.isKey
         anchors.fill: parent
-        anchors.topMargin: btn.down ? 3 : 0
-        anchors.bottomMargin: btn.down ? 0 : 3
+        anchors.topMargin: btn.down ? btn.keyDepth : 0
+        anchors.bottomMargin: btn.down ? 0 : btn.keyDepth
         radius: Ui.radiusMedium
         opacity: btn.looksDisabled ? 0.45 : 1
         gradient: Gradient {
@@ -119,14 +124,28 @@ QQC2.AbstractButton {
         implicitWidth: row.implicitWidth
         implicitHeight: row.implicitHeight
         opacity: btn.looksDisabled ? 0.4 : 1  // a button that can't be used looks it, label included
-        transform: Translate { y: btn.isKey ? (btn.down ? 1.5 : -1.5) : 0 }
+        transform: Translate { y: btn.isKey ? (btn.down ? btn.keyDepth / 2 : -btn.keyDepth / 2) : 0 }
         Row {
             id: row
-            anchors.centerIn: parent
+            // On whole pixels (anchors.centerIn would put an odd leftover on a half pixel).
+            x: Math.round((parent.width - width) / 2)
+            y: Math.round((parent.height - height) / 2)
             spacing: Ui.gapS
             layoutDirection: btn.iconAfter ? Qt.RightToLeft : Qt.LeftToRight
+            Item {  // a drawn glyph: 2-px strokes, the weight of a bold label
+                visible: btn.glyph !== ""
+                width: 18
+                height: 18
+                anchors.verticalCenter: parent.verticalCenter
+                Rectangle { visible: btn.glyph === "plus"; x: 2; y: 8; width: 14; height: 2; radius: 1; color: btn.fg }
+                Rectangle { visible: btn.glyph === "plus"; x: 8; y: 2; width: 2; height: 14; radius: 1; color: btn.fg }
+                Repeater {
+                    model: btn.glyph === "more" ? 3 : 0
+                    Rectangle { required property int index; x: 7; y: 1 + index * 6; width: 4; height: 4; radius: 2; color: btn.fg }
+                }
+            }
             CIcon {
-                visible: btn.icon.name !== ""
+                visible: btn.icon.name !== "" && btn.glyph === ""
                 anchors.verticalCenter: parent.verticalCenter
                 width: btn.big ? 22 : 18
                 height: width

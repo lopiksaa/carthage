@@ -100,7 +100,7 @@ Item {
         CButton {
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
-            icon.name: "list-add-symbolic"
+            glyph: "plus"
             Accessible.name: "Add Game"
             onClicked: bar.appRoot.addGame()
         }
@@ -111,7 +111,7 @@ Item {
             kind: "key"
             width: 36
             height: 36
-            icon.name: "overflow-menu-symbolic"
+            glyph: "more"
             Accessible.name: "List options"
             onClicked: listMenu.openFrom(listMenuKey)
         }

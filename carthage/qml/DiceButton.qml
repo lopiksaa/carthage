@@ -29,18 +29,21 @@ CButton {
 
     Item {
         id: die
-        anchors.centerIn: parent
-        width: btn.big ? 20 : 16
+        // On the key's face, on whole pixels, travelling with it (like CButton's label).
+        width: btn.big ? 22 : 18
         height: width
+        x: Math.round((btn.width - width) / 2)
+        y: Math.round((btn.height - height) / 2) + (btn.isKey ? (btn.down ? btn.keyDepth / 2 : -btn.keyDepth / 2) : 0)
+        opacity: btn.looksDisabled ? 0.4 : 1
         property real hop: 0
         transform: Translate { y: die.hop }
 
-        Rectangle {
+        Rectangle {  // 2-px outline: the weight of the bold labels beside it
             anchors.fill: parent
-            radius: width * 0.24
+            radius: 5
             antialiasing: true
             color: "transparent"
-            border.width: 1.5
+            border.width: 2
             border.color: btn.fg
         }
         readonly property var layouts: [[4], [0, 8], [0, 4, 8], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]]
@@ -48,14 +51,14 @@ CButton {
             model: die.layouts[btn.face - 1]
             Rectangle {
                 required property int modelData
-                readonly property real cell: die.width * 0.26
-                width: die.width * 0.18
-                height: width
-                radius: width / 2
+                readonly property int cell: 4  // pip spacing
+                width: 3
+                height: 3
+                radius: 1.5
                 antialiasing: true
                 color: btn.fg
-                x: die.width / 2 + ((modelData % 3) - 1) * cell - width / 2
-                y: die.height / 2 + (Math.floor(modelData / 3) - 1) * cell - height / 2
+                x: (die.width - width) / 2 + ((modelData % 3) - 1) * cell
+                y: (die.height - height) / 2 + (Math.floor(modelData / 3) - 1) * cell
             }
         }
     }
