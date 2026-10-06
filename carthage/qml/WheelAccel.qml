@@ -1,4 +1,7 @@
 // Wheel scrolling that speeds up while the wheel keeps turning; touchpads scroll natively.
+// A wheel is told by what it sends, not by the device type: under Wayland, Qt reports a mouse
+// wheel as a "touchpad" (whole 120-unit notches, no pixel distance), and a real touchpad sends
+// pixel distances.
 //   WheelAccel { flickable: myList; step: 120 }
 import QtQuick
 import Carthage
@@ -15,9 +18,13 @@ WheelHandler {
     // The wheel turned up while the view was already at its top (e.g. leave a gallery).
     signal pastStart()
 
-    acceptedDevices: PointerDevice.Mouse
+    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
     target: null
     onWheel: (event) => {
+        if (event.pixelDelta.x !== 0 || event.pixelDelta.y !== 0) {
+            event.accepted = false  // a touchpad: the view's own kinetic scrolling
+            return
+        }
         const f = wa.flickable
         if (!f) return
         const now = Date.now()
