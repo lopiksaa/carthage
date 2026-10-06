@@ -10,6 +10,8 @@ QtObject {
     // The page is blocked under an overlay (App.qml's body): its buttons don't look disabled
     // for that (CButton), the overlay already says the page is out of reach.
     property bool bodyBlocked: false
+    // What glass panes frost (App sets it): the backdrop and the pages, bottom first.
+    property var glassLayers: []
 
     // Interface fonts, one per kind of text, chosen in Settings → Appearance (all bundled).
     // The codes and labels printed on cartridges keep their own fonts.

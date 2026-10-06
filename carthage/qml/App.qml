@@ -737,6 +737,7 @@ Item {
             // The glass look's ground, behind the header and the pages (Plastic draws its own).
             Backdrop {
                 id: ground
+                Component.onCompleted: Ui.glassLayers = [ground, pages]
                 anchors.fill: parent
                 visible: Backend.theme.glassy
             }
@@ -1058,7 +1059,7 @@ Item {
                     id: dock
                     appRoot: app
                     valley: true
-                    behind: [ground, pages]  // what the glass frosts
+                    behind: Ui.glassLayers  // what the glass frosts
                     // Always there in the library; elsewhere only while it has something: a game
                     // in it, an install, a drag.
                     readonly property bool wanted: app.libraryGrid || app.listPageShown

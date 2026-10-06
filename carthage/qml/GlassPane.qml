@@ -19,6 +19,18 @@ Item {
     // position (a binding can't see an ancestor move by itself).
     property point track: Qt.point(0, 0)
 
+    // The layers it can frost: never one that contains the pane itself (Qt can't capture an item
+    // from inside it), e.g. a panel that lives in the pages frosts only the backdrop.
+    readonly property var layers: {
+        const out = []
+        for (const l of behind || []) {
+            let inside = false
+            for (let q = pane.parent; q; q = q.parent) if (q === l) { inside = true; break }
+            if (!inside) out.push(l)
+        }
+        return out
+    }
+
     // Room around the pane for the blur to pull colour from.
     readonly property real pad: Math.ceil(blurPx)
 
@@ -32,7 +44,7 @@ Item {
         width: pane.width + 2 * pane.pad
         height: pane.height + 2 * pane.pad
         Repeater {
-            model: pane.behind
+            model: pane.layers
             ShaderEffectSource {
                 required property var modelData
                 anchors.fill: parent

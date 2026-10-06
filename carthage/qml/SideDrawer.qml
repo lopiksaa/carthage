@@ -26,7 +26,20 @@ FocusScope {
     width: 360
     Keys.onEscapePressed: closeRequested()
 
-    Plastic { anchors.fill: parent }
+    // Glass: frosted over the library behind (live: it slides over it), tinted. Plastic: plastic.
+    GlassPane {
+        visible: Backend.theme.glassy
+        anchors.fill: parent
+        radius: 0
+        behind: visible ? Ui.glassLayers : []
+        track: Qt.point(drawer.x + 0 * drawer.width, drawer.y)
+    }
+    Rectangle {
+        visible: Backend.theme.glassy
+        anchors.fill: parent
+        color: Backend.theme.glass.tint
+    }
+    Plastic { anchors.fill: parent; visible: !Backend.theme.glassy }
     RecessedPanel {
         id: well
         anchors.fill: parent

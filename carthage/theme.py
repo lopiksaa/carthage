@@ -314,6 +314,8 @@ GLASS = {
         "field": _rgba(0, 0, 0, .24), "well": _rgba(255, 255, 255, .035),
         "mouth": _rgba(0, 0, 0, .55), "readout": _rgba(0, 0, 0, .28),
         "warn": "#F2B544", "accent": "#3F9BEA",
+        # Panels (menus, dialogs) float over busy cartridge art: a denser tint keeps text readable.
+        "panelTint": _rgba(26, 28, 36, .80), "hover": "#3A3D48",  # (opaque: code fades it with Qt.alpha)
         "bg": "#121318",
         "fields": [_rgba(116, 198, 70, .34), _rgba(139, 79, 217, .40), _rgba(60, 140, 220, .36), _rgba(226, 120, 80, .22)],
     },
@@ -325,6 +327,7 @@ GLASS = {
         "field": _rgba(255, 255, 255, .45), "well": _rgba(255, 255, 255, .28),
         "mouth": _rgba(0, 0, 0, .55), "readout": _rgba(0, 0, 0, .28),
         "warn": "#7A4E00", "accent": "#1272C4",
+        "panelTint": _rgba(255, 255, 255, .80), "hover": "#E1E4EC",
         "bg": "#ECEEF3",
         "fields": [_rgba(160, 222, 110, .42), _rgba(184, 150, 240, .42), _rgba(120, 180, 240, .42), _rgba(250, 170, 140, .32)],
     },
@@ -494,7 +497,9 @@ class Theme(QObject):
         # Glass: text over the panes and the backdrop comes from the glass tokens.
         g = glass_for(self.edition)
         return {**pal, "trayText": g["text"], "trayTextDim": g["text2"],
-                "dockText": g["keyText"], "dockTextDim": g["keyDim"]}
+                "dockText": g["keyText"], "dockTextDim": g["keyDim"],
+                "panel": g["panelTint"], "panelText": g["text"], "panelTextDim": g["text2"],
+                "panelBorder": g["ring"], "panelHover": g["hover"]}
 
     @Property(float, constant=True)
     def ratio(self):

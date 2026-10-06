@@ -33,12 +33,25 @@ Item {
     width: layoutWidth
     Behavior on width { NumberAnimation { duration: 170 * Backend.motion; easing.type: Easing.OutCubic } }
 
-    Plastic { anchors.fill: parent }
-    Rectangle { // the seam against the tray
+    // Glass: frosted over the library behind (live: it slides over it), tinted. Plastic: plastic.
+    GlassPane {
+        visible: Backend.theme.glassy
+        anchors.fill: parent
+        radius: 0
+        behind: visible ? Ui.glassLayers : []
+        track: Qt.point(bar.x + 0 * bar.width, bar.y)
+    }
+    Rectangle {
+        visible: Backend.theme.glassy
+        anchors.fill: parent
+        color: Backend.theme.glass.tint
+    }
+    Plastic { anchors.fill: parent; visible: !Backend.theme.glassy }
+    Rectangle { // the seam against the tray (glass: the faint ring line)
         anchors.right: parent.right
         width: 1
         height: parent.height
-        color: bar.pal.dockSeam
+        color: Backend.theme.glassy ? Backend.theme.glass.ring : bar.pal.dockSeam
     }
     // The panel's shadow on the tray (light from the top left).
     Rectangle {
