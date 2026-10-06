@@ -251,9 +251,9 @@ Item {
             strokeWidth: -1
             fillGradient: LinearGradient {
                 x1: 0; y1: 0; x2: 0; y2: dock.shellH
-                GradientStop { position: 0.0; color: dock.glassy ? Qt.tint(dock.g.tint, dock.g.sheen) : dock.pal.dockTop }
-                GradientStop { position: 0.7; color: dock.glassy ? dock.g.tint : Qt.tint(dock.pal.dockTop, Qt.alpha(dock.pal.dockBottom, 0.7)) }
-                GradientStop { position: 1.0; color: dock.glassy ? dock.g.tint : dock.pal.dockBottom }
+                GradientStop { position: 0.0; color: dock.glassy ? Qt.tint(dock.g.busyTint, dock.g.sheen) : dock.pal.dockTop }
+                GradientStop { position: 0.7; color: dock.glassy ? dock.g.busyTint : Qt.tint(dock.pal.dockTop, Qt.alpha(dock.pal.dockBottom, 0.7)) }
+                GradientStop { position: 1.0; color: dock.glassy ? dock.g.busyTint : dock.pal.dockBottom }
             }
             PathSvg { path: dock.shellPath }
         }

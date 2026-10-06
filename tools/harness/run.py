@@ -174,6 +174,7 @@ def main():
         elif step.get("do") == "frames_stop":
             iv = state.pop("intervals", None) or []
             print(f"[harness] FRAMES {step.get('label', '')}: {len(iv)} frames, intervals {iv[:40]}", flush=True)
+            if iv: print("[harness] FRAMESTATS", step.get("label", ""), "n", len(iv), "median", sorted(iv)[len(iv)//2], "p95", sorted(iv)[int(len(iv)*.95)], "max", max(iv[1:] or iv), flush=True)
         elif step.get("do") == "fps_start":
             state["frames"] = 0
             state["worst"] = 0.0

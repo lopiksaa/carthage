@@ -37,7 +37,7 @@ FocusScope {
     Rectangle {
         visible: Backend.theme.glassy
         anchors.fill: parent
-        color: Backend.theme.glass.tint
+        color: Backend.theme.glass.busyTint
     }
     Plastic { anchors.fill: parent; visible: !Backend.theme.glassy }
     RecessedPanel {
