@@ -55,9 +55,9 @@ FocusScope {
     // The cartridge and the details as one group, centered on a wide screen.
     readonly property real heroX: wide ? Math.max(sideM, Math.round((width - (heroW + gap + panelW)) / 2))
                                        : Math.round((width - heroW) / 2)
-    // The cartridge sits in the middle of the window's height; the details center on it
-    // (and stay inside the window when they're long and scroll).
-    readonly property real heroY: wide ? Math.round((height - heroH) / 2) : 28
+    // Near the top (Sam: "put the title up"): the source label starts 72 px down and the
+    // title's capitals line up with the cartridge's top; never lower than centred.
+    readonly property real heroY: wide ? Math.round(Math.min((height - heroH) / 2, 72 + detailsPanel.titleLift)) : 28
     // Once the cartridge has arrived, it follows its place when the place moves (the window is
     // resized, the details arrive and the group re-centers).
     readonly property bool settled: open && !openAnim.running && !closeAnim.running && !stepAnim.running
