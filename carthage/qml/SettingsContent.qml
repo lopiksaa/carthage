@@ -197,6 +197,8 @@ Column {
             readonly property real chipSize: 30
             // All on one line when there's room, else rows of 9 (both grids line up).
             readonly property int chipColumns: width >= 17 * (chipSize + Ui.gapS) ? 17 : 9
+            // What the choices below look like, live.
+            LookPreview { width: parent.width }
             Label_ { text: "Hardware  ·  " + ((look.options.find(o => o.value === Backend.settings.hardware) || {}).text || "Custom") }
             Grid {
                 columns: look.chipColumns

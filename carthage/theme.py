@@ -351,12 +351,28 @@ def glass_for(edition):
     t = dict(GLASS["dark" if pal["isDark"] else "light"])
     _h, light, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
     if sat > 0.18 and 0.08 < light < 0.95:
-        mixed = []
+        # A colourful hardware colours the whole look (neutrals keep the handoff's values): the
+        # ground takes a third of it (darkened or lightened to stay a ground), the fields move
+        # most of the way to it and glow a little more, and the glass takes a faint tint.
+        dark = pal["isDark"]
+
+        def mix(c1, c2, k):
+            return tuple(round(a + (b - a) * k) for a, b in zip(c1, c2))
+
+        def hexa(argb):
+            return tuple(int(argb[i:i + 2], 16) for i in (1, 3, 5, 7))
+
+        hw = (r, g, b)
+        ground = mix(hw, (0, 0, 0), 0.72) if dark else mix(hw, (255, 255, 255), 0.78)
+        bg = tuple(int(t["bg"][i:i + 2], 16) for i in (1, 3, 5))
+        t["bg"] = "#%02x%02x%02x" % mix(bg, ground, 0.35)
+        fields = []
         for f in t["fields"]:
-            a, fr, fg, fb = (int(f[i:i + 2], 16) for i in (1, 3, 5, 7))
-            k = 0.6  # how far each field moves toward the hardware colour
-            mixed.append("#%02x%02x%02x%02x" % (a, round(fr + (r - fr) * k), round(fg + (g - fg) * k), round(fb + (b - fb) * k)))
-        t["fields"] = mixed
+            fa, *frgb = hexa(f)
+            fields.append("#%02x%02x%02x%02x" % ((min(255, round(fa * 1.35)),) + mix(frgb, hw, 0.85)))
+        t["fields"] = fields
+        ta, *trgb = hexa(t["tint"])
+        t["tint"] = "#%02x%02x%02x%02x" % ((ta,) + mix(trgb, ground, 0.22))
         t["accent"] = accent_for(edition)["accent"]
     t["centres"] = [list(c) for c in GLASS_FIELDS]
     return t
