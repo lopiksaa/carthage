@@ -185,7 +185,7 @@ Item {
     HoverHandler {
         id: hh
         cursorShape: Qt.PointingHandCursor
-        enabled: !card.appRoot.modalOpen
+        enabled: !card.appRoot.modalOpen && !Ui.bodyBlocked
         onHoveredChanged: {
             liftAnim.to = hovered ? 1 : 0
             liftAnim.restart()
@@ -194,7 +194,7 @@ Item {
     }
     TapHandler {
         gesturePolicy: TapHandler.ReleaseWithinBounds
-        enabled: !card.appRoot.modalOpen
+        enabled: !card.appRoot.modalOpen && !Ui.bodyBlocked
         onTapped: card.chosen(card.item, cart)
     }
     Accessible.role: Accessible.Button

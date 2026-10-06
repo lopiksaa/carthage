@@ -253,7 +253,7 @@ Item {
         HoverHandler {
             id: hover
             cursorShape: Qt.PointingHandCursor
-            enabled: !cell.appRoot.modalOpen
+            enabled: !cell.appRoot.modalOpen && !Ui.bodyBlocked  // (a handler isn't switched off with its item)
             onHoveredChanged: if (hovered && !cell.out) cell.appRoot.sound("hover")
         }
         DragHandler {
@@ -307,7 +307,7 @@ Item {
         text: cell.title
         // The name opens the game too (people aim for it).
         TapHandler { onTapped: if (!cell.out) cell.appRoot.choose(cell) }
-        HoverHandler { cursorShape: Qt.PointingHandCursor }
+        HoverHandler { cursorShape: Qt.PointingHandCursor; enabled: !Ui.bodyBlocked }
         color: cell.installed ? cell.pal.trayText : cell.pal.trayTextDim
         font.family: Ui.fontText  // the chosen text font (was the app default, Nunito)
         font.pixelSize: Ui.textBody

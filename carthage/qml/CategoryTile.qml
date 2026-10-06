@@ -102,6 +102,6 @@ Item {
 
     property real lift: hover.hovered ? 1 : 0
     Behavior on lift { NumberAnimation { duration: 110 * Backend.motion; easing.type: Easing.OutCubic } }
-    HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
+    HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor; enabled: !Ui.bodyBlocked }
     TapHandler { id: tap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: tile.chosen() }
 }

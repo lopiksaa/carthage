@@ -156,10 +156,10 @@ Item {
     HoverHandler {
         id: hh
         cursorShape: Qt.PointingHandCursor
-        enabled: !banner.appRoot.modalOpen
+        enabled: !banner.appRoot.modalOpen && !Ui.bodyBlocked
     }
     TapHandler {
-        enabled: !banner.appRoot.modalOpen
+        enabled: !banner.appRoot.modalOpen && !Ui.bodyBlocked
         gesturePolicy: TapHandler.ReleaseWithinBounds
         onTapped: (ev) => {
             const x = ev.position.x
