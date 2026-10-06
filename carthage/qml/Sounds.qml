@@ -26,7 +26,7 @@ Item {
     readonly property int hoverGap: 90
 
     function play(name) {
-        if (!Backend.settings.soundsEnabled) return
+        if (!Backend.settings.soundsEnabled || Backend.testSilent) return
         const w = Window.window
         if (!w || w.visibility === Window.Minimized || w.visibility === Window.Hidden) return
         if (name === "hover") {

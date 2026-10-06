@@ -76,7 +76,7 @@ QQC2.Popup {
             MediaPlayer {
                 id: player
                 videoOutput: video
-                audioOutput: AudioOutput { volume: 0.6 }
+                audioOutput: AudioOutput { volume: 0.6; muted: Backend.testSilent }
                 source: viewer.opened && viewer.cur.kind === "video" ? viewer.cur.url : ""
                 onSourceChanged: if (source.toString() !== "") play()
             }

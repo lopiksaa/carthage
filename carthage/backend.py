@@ -263,6 +263,13 @@ class Backend(QObject):
         return chrome.animation_factor()
 
     @Property(bool, constant=True)
+    def testSilent(self):
+        """Test runs (GC_DEMO) make no sound unless GC_SOUND=1: they run beside someone working."""
+        import os
+
+        return bool(os.environ.get("GC_DEMO")) and not os.environ.get("GC_SOUND")
+
+    @Property(bool, constant=True)
     def testPlacedShow(self):
         """Test runs on a chosen screen (GC_SCREEN): the harness shows the window once it's
         there, so it never flashes up on the screen someone is using."""
