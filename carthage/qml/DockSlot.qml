@@ -1,4 +1,6 @@
-// One dock slot and its cartridge. The empty slot uses the same component with `empty: true`.
+// One bay of the dock: the slot's mouth (flaps shut when empty), the docked mini cartridge
+// clipped at the slot line, and the front lip over it (design handoff, Spec §5). The empty bay
+// uses the same component with `empty: true`. The bay is `width` wide; the mouth is centred.
 import QtQuick
 import Carthage
 
@@ -20,23 +22,30 @@ Item {
 
     property Item appRoot
     property Item dockItem
+    property bool selected: false
+    property bool several: false          // two or more games in the dock
 
     readonly property var pal: Backend.theme.p
+    readonly property var g: Backend.theme.glass
+    readonly property bool glassy: Backend.theme.glassy
     readonly property real motion: appRoot ? appRoot.motion : 1
     readonly property real cartW: dockItem.cartW
-    readonly property real innerX: Math.round((width - cartW) / 2) // opening centered in the slot
-    readonly property real lipY: dockItem.lipY
+    readonly property real cartH: dockItem.cartH
+    readonly property real slotLine: dockItem.lipY        // the cartridge is cut off here
+    readonly property real mouthY: dockItem.saddle - 2
 
+    // How much of the cartridge shows above the slot line (Spec §5 "Visible above slot").
     property bool seated: false
-    property real seatOffset: 0
-    property real pressOffset: (state_ === "closing" || state_ === "notresponding") ? 4 : 0
-    Behavior on pressOffset {
+    property real lift: 0                 // extra rise while ejecting
+    readonly property real visibleTarget: state_ === "starting" ? 62
+                                        : state_ === "closing" ? 52
+                                        : several ? (selected ? 46 : 34) : 40
+    property real shown: 62
+    Behavior on shown {
+        enabled: slot.seated
         NumberAnimation { duration: 100 * slot.motion; easing.type: Easing.OutCubic }
     }
-    property real hoverOffset: hover.hovered && seated && seatOffset === 0 ? -2 : 0
-    Behavior on hoverOffset {
-        NumberAnimation { duration: 100 * slot.motion; easing.type: Easing.OutCubic }
-    }
+    Binding on shown { value: slot.visibleTarget; when: slot.seated && slot.lift === 0 }
     property real nudgeX: 0
 
     height: dockItem.height
@@ -45,27 +54,32 @@ Item {
     Accessible.name: empty ? "Empty slot. Choose a game" : title + ", " + statusText
     Accessible.onPressAction: openMenu()
 
+    // Flaps: shut when nothing is in the slot, open while a cartridge is in it.
+    property real open_: seated && !empty ? 1 : 0
+    Behavior on open_ {
+        NumberAnimation { duration: (slot.open_ > 0.5 ? 140 : 120) * slot.motion; easing.type: slot.open_ > 0.5 ? Easing.InCubic : Easing.OutCubic }
+    }
+
     function seatIn() {
         seated = true
-        if (motion <= 0) {
-            seatOffset = 0
-            dockItem.clicked()
-            return
-        }
-        seatOffset = -dockItem.riseHeight
-        seatAnim.restart()
+        if (motion > 0) dockItem.nudgeShell()
+        dockItem.clicked()
     }
     function seatInstant() {
         seated = true
-        seatOffset = 0
     }
-    // `done` gets the risen card's top-left.
+    // Eject: the cartridge lifts out (ease-in), then `done` gets its top-left.
     function riseOut(done) {
         riseAnim.onDone = done
+        if (motion <= 0) {
+            lift = 1
+            done()
+            return
+        }
         riseAnim.restart()
     }
     function cartTopLeft(item) {
-        return cartHolder.mapToItem(item, cart.x, cart.y)
+        return cart.mapToItem(item, 0, 0)
     }
     function nudge() {
         if (motion > 0) nudgeAnim.restart()
@@ -75,45 +89,11 @@ Item {
     }
     readonly property bool hovered: hover.hovered
 
-    readonly property real contactOffset: -(dockItem.riseHeight - 12)
-    SequentialAnimation {
-        id: seatAnim
-        NumberAnimation { target: slot; property: "seatOffset"; to: slot.contactOffset; duration: 100 * slot.motion; easing.type: Easing.InQuad }
-        ParallelAnimation {
-            NumberAnimation { target: slot; property: "seatOffset"; to: -3; duration: 190 * slot.motion; easing.type: Easing.OutQuad }
-            SequentialAnimation {
-                NumberAnimation { target: slot; property: "nudgeX"; to: 0.8; duration: 60 * slot.motion }
-                NumberAnimation { target: slot; property: "nudgeX"; to: -0.6; duration: 70 * slot.motion }
-                NumberAnimation { target: slot; property: "nudgeX"; to: 0; duration: 60 * slot.motion }
-            }
-        }
-        NumberAnimation { target: slot; property: "seatOffset"; to: 2; duration: 50 * slot.motion; easing.type: Easing.InQuad }
-        ScriptAction { script: { slot.dockItem.clicked(); slot.boot() } }
-        NumberAnimation { target: slot; property: "seatOffset"; to: 0; duration: 140 * slot.motion; easing.type: Easing.OutBack }
-    }
     SequentialAnimation {
         id: riseAnim
         property var onDone
-        NumberAnimation { target: slot; property: "seatOffset"; to: 2; duration: 60 * slot.motion; easing.type: Easing.OutQuad }
-        NumberAnimation {
-            target: slot; property: "seatOffset"; to: -slot.dockItem.riseHeight
-            duration: 260 * slot.motion; easing.type: Easing.OutBack; easing.overshoot: 1.2
-        }
+        NumberAnimation { target: slot; property: "lift"; to: 1; duration: 120 * slot.motion; easing.type: Easing.InCubic }
         ScriptAction { script: if (riseAnim.onDone) riseAnim.onDone() }
-    }
-    property bool booting: false
-    function boot() {
-        if (motion > 0) bootAnim.restart()
-    }
-    SequentialAnimation {
-        id: bootAnim
-        PropertyAction { target: slot; property: "booting"; value: true }
-        PauseAnimation { duration: 70 }
-        PropertyAction { target: slot; property: "booting"; value: false }
-        PauseAnimation { duration: 60 }
-        PropertyAction { target: slot; property: "booting"; value: true }
-        PauseAnimation { duration: 110 }
-        PropertyAction { target: slot; property: "booting"; value: false }
     }
     SequentialAnimation {
         id: nudgeAnim
@@ -122,124 +102,72 @@ Item {
         NumberAnimation { target: slot; property: "nudgeX"; to: 0; duration: 40 * slot.motion }
     }
 
-    // Drawn in three layers so a docked cartridge sits inside the port: the housing and opening
-    // behind it, the cartridge, then the port's front lip over its lower edge. open_ goes 0 → 1
-    // as the cartridge pushes the flaps open.
-    readonly property real open_: !seated || empty ? 0
-                                  : Math.max(0, Math.min(1, (seatOffset - contactOffset) / 16))
-    readonly property bool dark: Backend.theme.dark
-    readonly property real mouthX: innerX - 1
-    readonly property real mouthW: cartW + 2
-    readonly property real mouthTop: lipY - 7
-    readonly property real lipTop: lipY - 2
-    // On the console base the opening is cut straight into the valley floor: no frame, and the
-    // face takes the body's own colors at its height.
-    readonly property bool flush: !!dockItem && dockItem.valley === true
-    function bodyAt(y) {
-        const t = Math.max(0, Math.min(1, (y + dockItem.rise) / (dockItem.height + dockItem.rise + 4)))
-        const a = Qt.color(pal.dockTop), b = Qt.color(pal.dockBottom)
-        return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1)
-    }
-    // Opaque, so the front lip can continue the same gradient over the cartridge.
-    readonly property color frameTop: flush ? bodyAt(mouthTop - 6) : Qt.lighter(pal.dockTop, dark ? 1.12 : 1.0)
-    readonly property color frameBottom: flush ? bodyAt(lipY + 7) : Qt.darker(pal.dockBottom, dark ? 1.12 : 1.06)
-    readonly property color plasticDeep: Qt.darker(pal.dockBottom, dark ? 1.5 : 1.12)
+    readonly property real mouthX: Math.round((width - 76) / 2)
 
-    Rectangle {
-        visible: !slot.flush
-        x: slot.mouthX - 16
-        y: slot.mouthTop - 7
-        width: slot.mouthW + 32
-        height: slot.lipY + 13 - y
-        radius: 7
-        color: Qt.darker(slot.frameBottom, 1.2)
-        border.width: 1
-        border.color: Qt.rgba(0, 0, 0, slot.dark ? 0.5 : 0.2)
-    }
-    Rectangle {
-        id: portFace
-        x: slot.mouthX - (slot.flush ? 6 : 15)
-        y: slot.mouthTop - 6
-        width: slot.mouthW + (slot.flush ? 12 : 30)
-        height: slot.lipY + 7 - y
-        radius: 6
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: slot.frameTop }
-            GradientStop { position: 1.0; color: slot.frameBottom }
-        }
-        Rectangle {
-            visible: !slot.flush
-            x: parent.radius
-            y: 1
-            width: parent.width - 2 * parent.radius
-            height: 1
-            color: slot.pal.dockHi
-        }
-    }
-    // On the console base: the opening's rim, cut into the floor. Its far wall is in shade and
-    // its near edge catches the light (light from the top left).
-    Rectangle {
-        visible: slot.flush
-        x: slot.mouthX - 5
-        y: slot.mouthTop - 4
-        width: slot.mouthW + 10
-        height: slot.lipTop - slot.mouthTop + 9
-        radius: 5
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, slot.dark ? 0.55 : 0.28) }
-            GradientStop { position: 0.6; color: Qt.rgba(0, 0, 0, slot.dark ? 0.25 : 0.10) }
-            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
-        }
-        Rectangle {
-            anchors.bottom: parent.bottom
-            x: 4
-            width: parent.width - 8
-            height: 1
-            color: Qt.rgba(1, 1, 1, slot.dark ? 0.14 : 0.55)
-        }
-    }
+    // The mouth: gloss black, or the two flaps meeting at a seam when empty.
     Rectangle {
         x: slot.mouthX
-        y: slot.mouthTop
-        width: slot.mouthW
-        height: slot.lipTop - slot.mouthTop + 1
-        radius: 2
-        clip: true
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#2a2a2e" }
-            GradientStop { position: 0.4; color: "#0d0d10" }
-            GradientStop { position: 1.0; color: "#040405" }
-        }
-        Rectangle {
-            width: parent.width
-            height: parent.height * (1 - slot.open_)
-            radius: 2
+        y: slot.mouthY
+        width: 76
+        height: 8
+        radius: 4
+        color: slot.glassy ? slot.g.mouth : "#0a0a0c"
+        Rectangle {  // the inner shadow at its top
+            anchors.fill: parent
+            radius: 4
             gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.lighter(slot.plasticDeep, 1.4) }
-                GradientStop { position: 1.0; color: slot.plasticDeep }
+                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, slot.glassy ? 0.6 : 0.85) }
+                GradientStop { position: 0.6; color: "transparent" }
+            }
+        }
+        Rectangle {  // its near edge catches the light
+            x: 3
+            y: parent.height
+            width: parent.width - 6
+            height: 1
+            color: slot.glassy ? slot.g.edge : slot.pal.dockHi
+        }
+        Item {  // the flaps (they part from the middle as a cartridge goes in)
+            anchors.fill: parent
+            clip: true
+            opacity: 1 - slot.open_
+            Rectangle {
+                width: parent.width / 2 - 1
+                height: parent.height
+                radius: 4
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: slot.glassy ? slot.g.sheen : Qt.darker(slot.pal.dockBottom, 1.2) }
+                    GradientStop { position: 1.0; color: slot.glassy ? slot.g.ring : slot.pal.dockTop }
+                }
             }
             Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: 1
+                x: parent.width / 2 + 1
+                width: parent.width / 2 - 1
                 height: parent.height
-                color: Qt.rgba(0, 0, 0, 0.6)
+                radius: 4
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: slot.glassy ? slot.g.ring : slot.pal.dockTop }
+                    GradientStop { position: 1.0; color: slot.glassy ? slot.g.sheen : Qt.darker(slot.pal.dockBottom, 1.2) }
+                }
             }
         }
     }
 
+    // The cartridge, cut off at the slot line.
     Item {
-        id: cartHolder
-        x: slot.innerX - 30
-        y: -400
+        id: cartClip
+        x: Math.round((slot.width - slot.cartW) / 2) - 30
+        y: -300
         width: slot.cartW + 60
-        height: 400 + slot.lipY - 2
+        height: 300 + slot.slotLine
         clip: true
-
         Cartridge {
             id: cart
             visible: slot.seated && !slot.empty
             x: 30 + slot.nudgeX
-            y: 400 + slot.lipY - slot.dockItem.protrude + slot.seatOffset + slot.pressOffset + slot.hoverOffset
+            y: 300 + slot.slotLine - slot.shown - slot.lift * (slot.cartH - slot.shown)
             width: slot.cartW
             gameId: slot.gameId
             title: slot.title
@@ -248,58 +176,56 @@ Item {
             sourceIcon: slot.sourceIcon
             code: slot.code
             extId: slot.extId
-
             Rectangle {
                 visible: slot.activeFocus
                 anchors.fill: parent
-                anchors.margins: -4
-                radius: Backend.theme.geo.radius * cart.u + 4
+                anchors.margins: -3
+                radius: Backend.theme.geo.radius * cart.u + 3
                 color: "transparent"
-                border.width: 3
+                border.width: 2
                 border.color: Ui.focusColor
             }
         }
     }
 
+    // The front lip over the cartridge's lower edge: a lit line, then shade.
     Rectangle {
-        id: portLip
-        readonly property real from: (slot.lipTop - portFace.y) / portFace.height
-        x: portFace.x + 1
-        y: slot.lipTop
-        width: portFace.width - 2
-        height: portFace.y + portFace.height - 1 - slot.lipTop
-        radius: portFace.radius - 1
+        visible: !slot.empty && slot.seated
+        x: Math.round((slot.width - 70) / 2)
+        y: slot.slotLine - 1
+        width: 70
+        height: 3
+        radius: 1
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.tint(slot.frameTop, Qt.rgba(slot.frameBottom.r, slot.frameBottom.g, slot.frameBottom.b, portLip.from)) }
-            GradientStop { position: 1.0; color: slot.frameBottom }
-        }
-        Rectangle {  // the lip's edge, lit from above
-            x: 3
-            width: parent.width - 6
-            height: 1
-            color: slot.pal.dockHi
-            opacity: 0.8
+            GradientStop { position: 0.0; color: slot.glassy ? slot.g.edge : slot.pal.dockHi }
+            GradientStop { position: 0.34; color: slot.glassy ? slot.g.edge : slot.pal.dockHi }
+            GradientStop { position: 0.35; color: Qt.rgba(0, 0, 0, slot.glassy ? 0.2 : 0.28) }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, slot.glassy ? 0.2 : 0.28) }
         }
     }
 
-    Item {
+    Item {  // what takes the pointer: the cartridge above the slot
         visible: !slot.empty && slot.seated
-        x: slot.innerX
-        y: slot.lipY - slot.dockItem.protrude
+        x: Math.round((slot.width - slot.cartW) / 2)
+        y: slot.slotLine - slot.shown
         width: slot.cartW
-        height: slot.dockItem.protrude
-
+        height: slot.shown
         HoverHandler {
             id: hover
             cursorShape: Qt.PointingHandCursor
         }
-        // Exclusive grabs: a tap on a docked cartridge must never also reach the cards
-        // behind it (the default, shared grab would pass it on).
+        // Exclusive grabs: a tap on a docked cartridge must never also reach the cards behind it.
         TapHandler {
             gesturePolicy: TapHandler.ReleaseWithinBounds
             grabPermissions: PointerHandler.CanTakeOverFromAnything
             enabled: !slot.appRoot.modalOpen || slot.appRoot.slotPanelFor(slot)
-            onTapped: slot.appRoot.slotPanelFor(slot) ? slot.appRoot.closeSlotPanel() : slot.openMenu()
+            // A tap selects the cartridge (the dock's keys act on it); tapping the selected one
+            // opens its panel (art, name, play time…).
+            onTapped: {
+                if (slot.appRoot.slotPanelFor(slot)) slot.appRoot.closeSlotPanel()
+                else if (slot.selected || !slot.several) slot.openMenu()
+                else slot.dockItem.select(slot.gameId)
+            }
         }
         TapHandler {
             acceptedButtons: Qt.RightButton
@@ -312,48 +238,12 @@ Item {
 
     Keys.onReturnPressed: openMenu()
     Keys.onEnterPressed: openMenu()
-    Keys.onSpacePressed: openMenu()
+    Keys.onSpacePressed: dockItem.select(gameId)
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Menu || (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))) {
             openMenu()
             event.accepted = true
         }
     }
-
-    // The status line spells out what the LED means, so color is never the only cue.
-    Led {
-        id: ledItem
-        visible: !slot.empty
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: slot.lipY + 12
-        size: 7
-        fade: 0  // the boot flicker is sharp
-        color: slot.booting ? Backend.theme.led.amber
-             : slot.led === "green" ? Backend.theme.led.green
-             : slot.led === "amber" ? Backend.theme.led.amber : slot.pal.ledOff
-        readonly property bool pulsing: slot.state_ === "starting" || slot.state_ === "closing"
-        readonly property bool active: slot.state_ === "running" || slot.state_ === "handoff"
-
-        SequentialAnimation {
-            running: ledItem.pulsing && slot.motion > 0
-            loops: Animation.Infinite
-            alwaysRunToEnd: true
-            NumberAnimation { target: ledItem.light; property: "opacity"; to: 0.35; duration: 500; easing.type: Easing.InOutSine }
-            NumberAnimation { target: ledItem.light; property: "opacity"; to: 1; duration: 500; easing.type: Easing.InOutSine }
-        }
-        Timer {
-            running: ledItem.active && slot.motion > 0
-            repeat: true
-            interval: 3000
-            onTriggered: {
-                interval = 3000 + Math.random() * 4000
-                blink.restart()
-            }
-        }
-        SequentialAnimation {
-            id: blink
-            NumberAnimation { target: ledItem.light; property: "opacity"; to: 0.7; duration: 260; easing.type: Easing.InOutSine }
-            NumberAnimation { target: ledItem.light; property: "opacity"; to: 1; duration: 420; easing.type: Easing.InOutSine }
-        }
-    }
+    onActiveFocusChanged: if (activeFocus && !empty) dockItem.select(gameId)
 }

@@ -1,50 +1,61 @@
-// Frosted glass over moving content: what's behind the pane (`behind`, which must not contain
-// the pane) is captured live, blurred and saturated, clipped to the pane's shape, then tinted.
-// Live capture costs a pass every frame, so it's only for panes with moving content behind
-// (the dock over the scrolling tray); panes over the still backdrop use a baked look instead.
-//   GlassPane { behind: body; shape: shellShape; tint: glass.tint; blurPx: 26 }
+// Frosted glass over moving content: the layers behind the pane (`behind`, bottom first; none
+// may contain the pane) are captured live, stacked, blurred and saturated, then clipped to the
+// pane's shape. Live capture costs a pass every frame, so it's only for panes with moving content
+// behind (the dock over the scrolling tray); panes over the still backdrop use GlassSurface.
+//   GlassPane { behind: [backdrop, pages]; shape: shellMask; blurPx: 26 }
 import QtQuick
 import QtQuick.Effects
 
 Item {
     id: pane
 
-    property Item behind
+    property var behind: []             // Items, bottom layer first
     property real blurPx: 26
     property real saturation: 0.5       // MultiEffect's scale: 0.5 ≈ CSS saturate(1.5)
-    property color tint: "transparent"
-    property Item shape: null           // an item drawing the pane's shape in opaque white; a rounded rect if null
+    property Item shape: null           // an item drawing the pane's shape in opaque white (pane-sized); a rounded rect if null
     property real radius: 22
     property real captureScale: 1       // < 1 captures at lower resolution (cheaper; the blur hides it)
+    // Where the pane is on screen, for the capture to follow it: bind to the moving ancestor's
+    // position (a binding can't see an ancestor move by itself).
+    property point track: Qt.point(0, 0)
 
     // Room around the pane for the blur to pull colour from.
     readonly property real pad: Math.ceil(blurPx)
 
-    ShaderEffectSource {
-        id: capture
+    Item {
+        id: stack
         visible: false
-        sourceItem: pane.behind
-        live: true
-        recursive: false
+        layer.enabled: true
+        layer.textureSize: Qt.size(Math.ceil(width * pane.captureScale), Math.ceil(height * pane.captureScale))
         x: -pane.pad
         y: -pane.pad
         width: pane.width + 2 * pane.pad
         height: pane.height + 2 * pane.pad
-        textureSize: Qt.size(Math.ceil(width * pane.captureScale), Math.ceil(height * pane.captureScale))
-        sourceRect: {
-            if (!pane.behind) return Qt.rect(0, 0, 0, 0)
-            // (depends on the pane's geometry, so it follows the pane as it moves)
-            const p = pane.mapToItem(pane.behind, -pane.pad + 0 * pane.x + 0 * pane.y, -pane.pad)
-            return Qt.rect(p.x, p.y, width, height)
+        Repeater {
+            model: pane.behind
+            ShaderEffectSource {
+                required property var modelData
+                anchors.fill: parent
+                sourceItem: modelData
+                live: true
+                recursive: false
+                textureSize: Qt.size(Math.ceil(width * pane.captureScale), Math.ceil(height * pane.captureScale))
+                sourceRect: {
+                    if (!modelData) return Qt.rect(0, 0, 0, 0)
+                    // (bound to the pane's geometry, so it follows the pane as it moves)
+                    const p = pane.mapToItem(modelData, -pane.pad + 0 * pane.x + 0 * pane.y + 0 * pane.width + 0 * pane.track.x,
+                                             -pane.pad + 0 * pane.track.y + 0 * pane.height)
+                    return Qt.rect(p.x, p.y, width, height)
+                }
+            }
         }
     }
-    Rectangle {
+    Item {
         id: roundMask
         visible: false
         layer.enabled: true
-        width: capture.width
-        height: capture.height
-        color: "transparent"
+        width: stack.width
+        height: stack.height
         Rectangle {
             x: pane.pad
             y: pane.pad
@@ -54,24 +65,34 @@ Item {
             color: "white"
         }
     }
+    Item {
+        id: shapeMask
+        visible: false
+        layer.enabled: true
+        width: stack.width
+        height: stack.height
+        ShaderEffectSource {
+            x: pane.pad
+            y: pane.pad
+            width: pane.width
+            height: pane.height
+            sourceItem: pane.shape
+            hideSource: true
+        }
+    }
     MultiEffect {
-        x: capture.x
-        y: capture.y
-        width: capture.width
-        height: capture.height
-        source: capture
+        x: stack.x
+        y: stack.y
+        width: stack.width
+        height: stack.height
+        source: stack
         autoPaddingEnabled: false
         blurEnabled: true
-        blurMax: 32
-        blur: Math.min(1, pane.blurPx / 32)
+        // CSS blur(26px) is a Gaussian of that deviation; MultiEffect's blurMax is a radius.
+        blurMax: 64
+        blur: Math.min(1, pane.blurPx * 2 / 64)
         saturation: pane.saturation
         maskEnabled: true
-        maskSource: pane.shape ? pane.shape : roundMask
-    }
-    Rectangle {  // the tint, in the same shape
-        anchors.fill: parent
-        radius: pane.radius
-        color: pane.tint
-        visible: !pane.shape
+        maskSource: pane.shape ? shapeMask : roundMask
     }
 }

@@ -733,6 +733,7 @@ Item {
 
             // The glass look's ground, behind the header and the pages (Plastic draws its own).
             Backdrop {
+                id: ground
                 anchors.fill: parent
                 visible: Backend.theme.glassy
             }
@@ -999,7 +1000,7 @@ Item {
                 Rectangle {
                     id: dockFade
                     // The cartridges fade into the tray before they pass behind the band.
-                    visible: dock.valley && dock.hideY < 1
+                    visible: dock.valley && dock.hideY < 1 && !Backend.theme.glassy
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: dock.top   // down to the valley floor: nothing sharp peeks into the valley
@@ -1054,12 +1055,13 @@ Item {
                     id: dock
                     appRoot: app
                     valley: true
+                    behind: [ground, pages]  // what the glass frosts
                     // Always there in the library; elsewhere only while it has something: a game
                     // in it, an install, a drag.
                     readonly property bool wanted: app.libraryGrid || app.listPageShown
                                                    || Backend.sessions.count > 0 || app.dragging || installing !== null
                     // Room to keep clear above it: its body, plus the cartridges standing in it.
-                    readonly property real clearance: wanted ? height + rise + (filled > 0 ? protrude - lipY - rise : 0) + Ui.spacingLarge
+                    readonly property real clearance: wanted ? 18 + height + (filled > 0 ? protrude - lipY : 0) + Ui.spacingLarge
                                                              : Ui.spacingLarge
                     hideY: wanted ? 0 : height + rise + protrude + 20
                     // Rises with ease-out; leaves faster with ease-in (exits shorter than entrances).
@@ -1071,10 +1073,10 @@ Item {
                             easing.type: leaving ? Easing.InCubic : Easing.OutCubic
                         }
                     }
-                    // The band across the bottom (a margin each side for its sloped ends).
-                    width: parent.width - 24
+                    // Floating, centred, 18 px above the window's bottom; its width follows what's in it.
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 18
                     onClicked: {
                         sounds.play("click_in")
                         dock.bump()
@@ -1305,7 +1307,7 @@ Item {
         anchors.left: parent.left
         anchors.leftMargin: 20
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: dock.height + 16
+        anchors.bottomMargin: dock.height + 18 + 16
     }
     Timer {
         interval: 60000

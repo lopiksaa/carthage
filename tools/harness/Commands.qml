@@ -446,9 +446,9 @@ QtObject {
             const comp = Qt.createComponent("../../carthage/qml/GlassPane.qml")
             if (comp.status !== Component.Ready) { console.warn("GLASS", comp.errorString()); break }
             const host = dock.parent
-            const pane = comp.createObject(host, { behind: tray, z: 20, width: 768, height: 64, radius: 22,
+            const pane = comp.createObject(host, { behind: [tray], z: 20, width: 768, height: 64, radius: 22,
                                                    x: (host.width - 768) / 2, y: cmd.y !== undefined ? cmd.y : host.height - 18 - 64,
-                                                   captureScale: cmd.scale || 1, tint: Qt.rgba(26/255, 28/255, 36/255, 0.48) })
+                                                   captureScale: cmd.scale || 1 })
             let inside = false
             for (let q = pane ? pane.parent : null; q; q = q.parent) if (q === body) inside = true
             console.warn("GLASS probe", !!pane, "behind", !!body, "pane inside body:", inside, "body", body.width, body.height)
