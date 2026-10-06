@@ -488,7 +488,13 @@ class Theme(QObject):
 
     @Property("QVariantMap", notify=changed)
     def p(self):
-        return EDITIONS[self.edition]
+        pal = EDITIONS[self.edition]
+        if self._look != "glass":
+            return pal
+        # Glass: text over the panes and the backdrop comes from the glass tokens.
+        g = glass_for(self.edition)
+        return {**pal, "trayText": g["text"], "trayTextDim": g["text2"],
+                "dockText": g["keyText"], "dockTextDim": g["keyDim"]}
 
     @Property(float, constant=True)
     def ratio(self):

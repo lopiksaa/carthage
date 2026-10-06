@@ -13,17 +13,48 @@ Item {
 
     height: 58
 
+    readonly property bool glassy: Backend.theme.glassy
+    readonly property var g: Backend.theme.glass
+
+    // Glass: a tinted pane, a lit top line, a faint ring line along the bottom, a soft shadow.
+    GlassSurface {
+        visible: header.glassy
+        anchors.fill: parent
+        radius: 0
+        sheen: "transparent"
+        edges: false
+        shadowY: 12
+        shadowBlur: 30
+        shadowSpread: -14
+    }
+    Rectangle {
+        visible: header.glassy
+        width: parent.width
+        height: 1
+        color: header.g.edge
+    }
+    Rectangle {
+        visible: header.glassy
+        width: parent.width
+        anchors.bottom: parent.bottom
+        height: 1
+        color: header.g.ring
+    }
+
     Plastic {
+        visible: !header.glassy
         anchors.fill: parent
         bottomColor: Qt.darker(header.pal.dockTop, Backend.theme.dark ? 1.12 : 1.04)
     }
     Rectangle {
+        visible: !header.glassy
         anchors.left: parent.left
         anchors.right: parent.right
         height: 1
         color: header.pal.dockHi
     }
     Rectangle {
+        visible: !header.glassy
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -31,6 +62,7 @@ Item {
         color: header.pal.dockSeam
     }
     Rectangle {
+        visible: !header.glassy
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.bottom
@@ -122,16 +154,18 @@ Item {
 
         background: Rectangle {
             radius: height / 2
-            color: Backend.theme.dark ? Qt.darker(header.pal.dockBottom, 1.35) : Qt.darker(header.pal.dockTop, 1.06)
+            color: header.glassy ? header.g.field
+                 : Backend.theme.dark ? Qt.darker(header.pal.dockBottom, 1.35) : Qt.darker(header.pal.dockTop, 1.06)
             border.width: search.activeFocus ? 2 : 1
-            border.color: search.activeFocus ? Ui.focusColor : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.14)
+            border.color: search.activeFocus ? Ui.focusColor
+                        : header.glassy ? header.g.ring : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.14)
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: 1
                 radius: parent.radius
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.25 : 0.06) }
-                    GradientStop { position: 0.35; color: "transparent" }
+                    GradientStop { position: 0.0; color: header.glassy ? Qt.rgba(0, 0, 0, 0.2) : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.25 : 0.06) }
+                    GradientStop { position: header.glassy ? 0.12 : 0.35; color: "transparent" }
                 }
             }
         }

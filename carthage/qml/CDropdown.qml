@@ -30,7 +30,7 @@ CButton {
         implicitWidth: row_.implicitWidth
         implicitHeight: valueText.implicitHeight
         opacity: dd.looksDisabled ? 0.4 : 1
-        transform: Translate { y: dd.isKey ? (dd.down ? dd.keyDepth / 2 : -dd.keyDepth / 2) : 0 }
+        transform: Translate { y: dd.faceShift }
         // Optical centre: the capitals sit on the middle line, on whole pixels; the label shares
         // the value's baseline, the chevron centres on the capitals.
         FontMetrics { id: capFm; font: valueText.font }

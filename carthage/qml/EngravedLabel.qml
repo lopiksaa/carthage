@@ -14,7 +14,8 @@ Item {
     Accessible.role: Accessible.Heading
     Accessible.name: text
 
-    Text {
+    Text {  // the cut's lit lower edge (plastic only: glass titles are plain)
+        visible: !Backend.theme.glassy
         x: 1
         y: 1
         text: cut.text
@@ -24,7 +25,7 @@ Item {
     Text {
         id: cut
         text: label.text.toUpperCase()
-        color: label.pal.trayTextDim
+        color: Backend.theme.glassy ? Backend.theme.glass.title : label.pal.trayTextDim
         font.family: Ui.fontLabels
         font.weight: Font.Black
         font.pixelSize: label.pixelSize

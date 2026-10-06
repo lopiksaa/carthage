@@ -25,6 +25,10 @@ QQC2.AbstractButton {
     readonly property bool tipWanted: hovered && !usedSinceHover
     // Even, so the face's centre (and everything on it) lands on whole pixels, up and down.
     readonly property int keyDepth: 4
+    readonly property bool glassy: Backend.theme.glassy
+    // How far a key's face (and its label) sits from centre: plastic keys stand on their side
+    // wall and sink by keyDepth; glass keys have no wall and the pane itself moves 2 px down.
+    readonly property real faceShift: !isKey ? 0 : glassy ? (down ? 2 : 0) : (down ? keyDepth / 2 : -keyDepth / 2)
 
     readonly property var pal: Backend.theme.p
     readonly property var acc: Backend.theme.accent
@@ -56,8 +60,20 @@ QQC2.AbstractButton {
 
     background: Item {
       // A raised key: its darker side shows under the face and disappears when pressed.
+      GlassSurface { // glass: a pane with no side wall; pressing sinks it and tightens its shadow
+        visible: btn.isKey && btn.glassy
+        width: parent.width
+        height: parent.height
+        y: btn.faceShift
+        radius: Ui.radiusMedium
+        opacity: btn.looksDisabled ? 0.5 : 1
+        sheen: btn.hovered ? Qt.alpha(g.sheen, Math.min(1, g.sheen.a * 1.8 + 0.04)) : g.sheen
+        shadowY: btn.down ? 3 : 8
+        shadowBlur: btn.down ? 8 : 18
+        shadowSpread: btn.down ? -4 : -8
+      }
       Rectangle { // soft shadow where the key meets the surface
-        visible: btn.isKey
+        visible: btn.isKey && !btn.glassy
         anchors.fill: parent
         anchors.topMargin: 2
         anchors.bottomMargin: -1
@@ -65,7 +81,7 @@ QQC2.AbstractButton {
         color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.35 : 0.15)
       }
       Rectangle { // the key's side
-        visible: btn.isKey
+        visible: btn.isKey && !btn.glassy
         anchors.fill: parent
         radius: Ui.radiusMedium
         opacity: btn.looksDisabled ? 0.45 : 1
@@ -73,7 +89,7 @@ QQC2.AbstractButton {
       }
       Rectangle { // the face, lit from above
         id: keyFace
-        visible: btn.isKey
+        visible: btn.isKey && !btn.glassy
         anchors.fill: parent
         anchors.topMargin: btn.down ? btn.keyDepth : 0
         anchors.bottomMargin: btn.down ? 0 : btn.keyDepth
@@ -130,7 +146,7 @@ QQC2.AbstractButton {
         implicitWidth: row.implicitWidth
         implicitHeight: row.implicitHeight
         opacity: btn.looksDisabled ? 0.4 : 1  // a button that can't be used looks it, label included
-        transform: Translate { y: btn.isKey ? (btn.down ? btn.keyDepth / 2 : -btn.keyDepth / 2) : 0 }
+        transform: Translate { y: btn.faceShift }
         Row {
             id: row
             // On whole pixels (anchors.centerIn would put an odd leftover on a half pixel).

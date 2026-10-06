@@ -33,7 +33,7 @@ CButton {
         width: btn.big ? 22 : 18
         height: width
         x: Math.round((btn.width - width) / 2)
-        y: Math.round((btn.height - height) / 2) + (btn.isKey ? (btn.down ? btn.keyDepth / 2 : -btn.keyDepth / 2) : 0)
+        y: Math.round((btn.height - height) / 2) + btn.faceShift
         opacity: btn.looksDisabled ? 0.4 : 1
         property real hop: 0
         transform: Translate { y: die.hop }
