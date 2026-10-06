@@ -274,6 +274,10 @@ Item {
             x: start.x, y: start.y, scale: start.scale, cardWidth: start.cardWidth,
             motion: app.motion, lift: start.lift,
         })
+        // The ground answers: a pulse of light from the cartridge as it leaves.
+        const pc = flightLayer.mapToItem(stage, start.x + start.cardWidth * start.scale / 2,
+                                         start.y + start.cardWidth * Backend.theme.ratio * start.scale / 2)
+        Ui.groundPulse(pc.x, pc.y)
         copyCard(data, f.cart)
         const seat = dock.landingPos(Backend.sessions.indexOf(gid))
         const target = dock.parent.mapToItem(flightLayer, seat.x, seat.y)
@@ -735,6 +739,13 @@ Item {
             anchors.fill: parent
 
             // The glass look's ground, behind the header and the pages (Plastic draws its own).
+            // What the glass ground responds to: the pointer, the library's scroll.
+            HoverHandler {
+                id: groundHover
+                onPointChanged: Ui.groundPointer = point.position
+                onHoveredChanged: Ui.groundPointerIn = hovered
+            }
+            Binding { target: Ui; property: "groundScroll"; value: app.libraryGrid ? tray.contentY / Math.max(1, app.height) : 0 }
             Backdrop {
                 id: ground
                 Component.onCompleted: Ui.glassLayers = [ground, pages]

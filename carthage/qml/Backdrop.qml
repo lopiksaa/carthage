@@ -1,49 +1,91 @@
-// The glass look's ground: a dark or light base with four soft colour fields glowing through
-// the panes (Backend.theme.glass: bg, fields, centres). Each field is an ellipse — a circular
-// radial gradient squashed to its radii — fading out at 70 %, as in the design handoff.
+// The glass look's ground: four colour fields in the chosen motion (Settings → Appearance →
+// Background: Drift, Aurora, Silk, Lava or Still), drawn by one shader (shaders/backdrop.frag).
+// It responds to what you do: a soft glow follows the pointer, the colours drift a little as the
+// library scrolls, and playing or opening a game sends a pulse of light from it (Ui.groundPulse).
+// Night (dark hardware): the colours glow; day (light): pastel washes.
+// The motion pauses when Carthage isn't the active window, while a game runs (no GPU taken from
+// it) and with animations off.
 import QtQuick
-import QtQuick.Shapes
 import Carthage
 
-Rectangle {
+Item {
     id: bd
 
+    property bool interactive: true      // the Settings preview turns this off
+    property string variantName: Backend.settings.background || "drift"
     readonly property var g: Backend.theme.glass
+    readonly property int variant: ({ still: 0, drift: 1, aurora: 2, silk: 3, lava: 4 })[variantName] ?? 1
+    readonly property bool moving: variant !== 0 && Backend.motion > 0
+                                   && (Qt.application.state === Qt.ApplicationActive || Backend.testNoFocus)  // (test windows never take focus)
+                                   && Backend.sessions.count === 0
+    property real time: 37   // (not 0: the first frame already looks like a moment in the motion)
 
-    color: g.bg
-    clip: true
+    // 30 steps a second: the motion is slow enough to look smooth, and the window doesn't
+    // redraw at the screen's full rate just for the ground (the pointer and everything you do
+    // still draw at full rate).
+    Timer {
+        interval: 33
+        repeat: true
+        running: bd.moving && bd.visible
+        onTriggered: bd.time += 0.033 * Backend.motion
+    }
 
-    Repeater {
-        model: 4
-        Item {
-            id: fieldItem
-            required property int index
-            readonly property var c: bd.g.centres[index]
-            readonly property color tone: bd.g.fields[index]
-            readonly property real rx: Math.max(1, bd.width * c[2])
-            readonly property real ry: Math.max(1, bd.height * c[3])
-            x: bd.width * c[0] - rx
-            y: bd.height * c[1] - ry
-            width: 2 * rx
-            height: 2 * rx
-            transform: Scale { yScale: fieldItem.ry / fieldItem.rx }
+    function v4(c) { const q = Qt.color(c); return Qt.vector4d(q.r, q.g, q.b, q.a) }
 
-            Shape {
-                anchors.fill: parent
-                ShapePath {
-                    strokeWidth: -1
-                    fillGradient: RadialGradient {
-                        centerX: fieldItem.rx
-                        centerY: fieldItem.rx
-                        centerRadius: fieldItem.rx
-                        focalX: fieldItem.rx
-                        focalY: fieldItem.rx
-                        GradientStop { position: 0.0; color: fieldItem.tone }
-                        GradientStop { position: 0.7; color: Qt.alpha(fieldItem.tone, 0) }
-                    }
-                    PathRectangle { width: 2 * fieldItem.rx; height: 2 * fieldItem.rx }
-                }
-            }
+    // The pointer's glow follows lazily; it fades in over the window and out when it leaves.
+    property real px: 0.5
+    property real py: 0.5
+    property real pIn: 0
+    Behavior on px { enabled: Backend.motion > 0; SmoothedAnimation { velocity: 0.6 } }
+    Behavior on py { enabled: Backend.motion > 0; SmoothedAnimation { velocity: 0.6 } }
+    Behavior on pIn { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
+    Binding on px { when: bd.interactive && bd.width > 0; value: Ui.groundPointer.x / bd.width }
+    Binding on py { when: bd.interactive && bd.height > 0; value: Ui.groundPointer.y / bd.height }
+    Binding on pIn { when: bd.interactive; value: Ui.groundPointerIn && Backend.motion > 0 ? 1 : 0 }
+
+    // A pulse: a ring of light spreading from a point.
+    property real pulseX: 0.5
+    property real pulseY: 0.5
+    property real pulseT: 1
+    NumberAnimation {
+        id: pulseAnim
+        target: bd
+        property: "pulseT"
+        from: 0
+        to: 1
+        duration: 1400
+        easing.type: Easing.OutCubic
+    }
+    Connections {
+        target: Ui
+        enabled: bd.interactive
+        function onGroundPulse(x, y) {
+            if (Backend.motion <= 0 || bd.width <= 0) return
+            bd.pulseX = x / bd.width
+            bd.pulseY = y / bd.height
+            pulseAnim.restart()
         }
+    }
+
+    ShaderEffect {
+        anchors.fill: parent
+        fragmentShader: Qt.resolvedUrl("shaders/backdrop.frag.qsb")
+        property real time: bd.time
+        property real variant: bd.variant
+        property real aspect: bd.width / Math.max(1, bd.height)
+        property real dark: Backend.theme.dark ? 1 : 0
+        property vector4d bg: bd.v4(bd.g.bg)
+        property vector4d c0: bd.v4(bd.g.fields[0])
+        property vector4d c1: bd.v4(bd.g.fields[1])
+        property vector4d c2: bd.v4(bd.g.fields[2])
+        property vector4d c3: bd.v4(bd.g.fields[3])
+        property vector4d p0: Qt.vector4d(bd.g.centres[0][0], bd.g.centres[0][1], bd.g.centres[0][2], bd.g.centres[0][3])
+        property vector4d p1: Qt.vector4d(bd.g.centres[1][0], bd.g.centres[1][1], bd.g.centres[1][2], bd.g.centres[1][3])
+        property vector4d p2: Qt.vector4d(bd.g.centres[2][0], bd.g.centres[2][1], bd.g.centres[2][2], bd.g.centres[2][3])
+        property vector4d p3: Qt.vector4d(bd.g.centres[3][0], bd.g.centres[3][1], bd.g.centres[3][2], bd.g.centres[3][3])
+        property vector4d pointer: Qt.vector4d(bd.px, bd.py, bd.pIn, 0)
+        property vector4d pulse: Qt.vector4d(bd.pulseX, bd.pulseY, bd.pulseT, bd.pulseT < 1 ? 1 : 0)
+        property vector4d accent: bd.v4(bd.g.accent)
+        property real scroll: bd.interactive ? Ui.groundScroll : 0
     }
 }

@@ -45,7 +45,7 @@ Item {
             transformOrigin: Item.TopLeft
 
             // The ground.
-            Backdrop { anchors.fill: parent; visible: preview.glassy }
+            Backdrop { anchors.fill: parent; visible: preview.glassy; interactive: false }
             Rectangle { anchors.fill: parent; visible: !preview.glassy; color: preview.pal.tray }
             Image {
                 anchors.fill: parent

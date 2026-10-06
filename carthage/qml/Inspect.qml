@@ -133,6 +133,8 @@ FocusScope {
         // Build the whole object before assigning it: bindings only see a new `game`, not
         // later changes to its fields.
         const g = appRoot.cardData(cell)
+        const pc = cell.mapToItem(null, cell.cardX + cell.cardW / 2, cell.cardY + cell.cardH / 2)
+        Ui.groundPulse(pc.x, pc.y)  // the ground answers the opening
         g.lastPlayed = cell.lastPlayed
         g.playtime = cell.playtime
         g.developer = cell.developer

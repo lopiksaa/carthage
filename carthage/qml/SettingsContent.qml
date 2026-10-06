@@ -278,6 +278,14 @@ Column {
                     names: ({ glass: "Glass", plastic: "Plastic" })
                     current: Backend.theme.look
                 }
+                Choice {
+                    visible: Backend.theme.glassy
+                    label: "Background"
+                    key: "background"
+                    choices: ["drift", "aurora", "silk", "lava", "still"]
+                    names: ({ drift: "Drift", aurora: "Aurora", silk: "Silk", lava: "Lava", still: "Still" })
+                    current: Backend.settings.background || "drift"
+                }
             }
             Label_ { text: "Card size" }
             Row { // − ● ● ● ○ ○ ○ +  : card widths from Ui.cardMin to Ui.cardMax in steps of Ui.cardStep
