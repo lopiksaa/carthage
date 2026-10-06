@@ -263,6 +263,14 @@ class Backend(QObject):
         return chrome.animation_factor()
 
     @Property(bool, constant=True)
+    def testPlacedShow(self):
+        """Test runs on a chosen screen (GC_SCREEN): the harness shows the window once it's
+        there, so it never flashes up on the screen someone is using."""
+        import os
+
+        return bool(os.environ.get("GC_DEMO") and os.environ.get("GC_SCREEN"))
+
+    @Property(bool, constant=True)
     def testNoFocus(self):
         """Test runs with GC_NOFOCUS: the window never takes the keyboard focus (so a test can
         run on another screen while someone uses this one)."""

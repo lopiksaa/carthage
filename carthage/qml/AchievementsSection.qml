@@ -24,7 +24,15 @@ Column {
     property Item chosenItem: null
     readonly property Item bubbleFor: pointedItem || chosenItem
 
-    visible: appid > 0 && (loading || !!result.error || items.length > 0)
+    // "Loading…" only once it's slow: most answers come quickly, and a game without
+    // achievements would otherwise show the heading for a moment and pull the page up after.
+    visible: appid > 0 && ((loading && slowLoad.done) || !!result.error || items.length > 0)
+    Timer {
+        id: slowLoad
+        property bool done: false
+        interval: 600
+        onTriggered: done = true
+    }
     spacing: Ui.gapS
 
     onAppidChanged: {
@@ -34,8 +42,10 @@ Column {
         pointed = -1
         chosenItem = null
         pointedItem = null
+        slowLoad.done = false
         if (appid > 0) {
             loading = true
+            slowLoad.restart()
             Backend.achievements.load(appid)
         }
     }
@@ -45,6 +55,7 @@ Column {
             if (id !== sec.appid) return
             sec.result = result
             sec.loading = false
+            slowLoad.stop()
         }
     }
 

@@ -621,7 +621,9 @@ FocusScope {
         }
         NumberAnimation { target: inspect; property: "level"; to: 1; duration: 220 * inspect.motion; easing.type: Easing.OutQuad }
         SequentialAnimation {
-            PauseAnimation { duration: 90 * inspect.motion }
+            // The details wait until the flying card has crossed their side (at 40 % of its
+            // flight, eased, it's ~80 % of the way): earlier, its back passed over the title.
+            PauseAnimation { duration: inspect.openDuration * 0.4 }
             NumberAnimation { target: inspect; property: "panelLevel"; to: 1; duration: 240 * inspect.motion; easing.type: Easing.OutCubic }
         }
     }

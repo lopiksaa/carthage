@@ -7,7 +7,10 @@ and checks. Not part of the app or the downloads (the build packs only the carth
 Each step: {"at": ms, "do": "<command>", ...} or {"at": ms, "shot": "file.png"}. Times count
 from the first frame. Commands here: fps_start, fps_stop, exit, drag, click, move, genres; every other
 command goes to Commands.qml. QT_QPA_PLATFORM=offscreen runs without a window (at the design
-size); GC_SCREEN=<screen name> opens it on that screen.
+size); GC_SCREEN=<screen name> opens it on that screen. GC_RECORD=<file.mp4> records every frame from
+the first one to the end (needs ffmpeg): animations then advance one screen refresh per frame
+(QML_FIXED_ANIMATION_STEP), so the video is exact however long grabbing takes; timed steps still
+run on the clock. (Screen capture on XWayland skipped animation frames.)
 
 A test run never saves settings or play time, never sends anything and never starts a real
 game: the app's own guards check GC_DEMO, which this sets.
@@ -15,6 +18,7 @@ game: the app's own guards check GC_DEMO, which this sets.
 
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -25,6 +29,8 @@ sys.path.insert(0, str(HERE))
 
 
 def main():
+    if os.environ.get("GC_RECORD"):
+        os.environ["QML_FIXED_ANIMATION_STEP"] = "1"  # (read when the app starts)
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
         sys.exit(__doc__)
@@ -32,7 +38,7 @@ def main():
     os.environ["GC_DEMO"] = str(script)  # switches on the app's test-run guards
 
     from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QPoint, Qt, QTimer, QUrl, Slot
-    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtGui import QGuiApplication, QImage
     from PySide6.QtQml import QQmlComponent, QQmlEngine
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -51,10 +57,16 @@ def main():
 
     wanted = os.environ.get("GC_SCREEN", "")
     screen = next((sc for sc in QGuiApplication.screens() if sc.name() == wanted), None)
+    if wanted and screen is None and os.environ.get("QT_QPA_PLATFORM") != "offscreen":
+        # Never fall back to the main screen: a test window there lands on whoever is using it.
+        names = ", ".join(sc.name() for sc in QGuiApplication.screens())
+        print(f"[harness] no screen called {wanted!r} (screens: {names}); not opening a window", flush=True)
+        return 2
     if screen is not None and os.environ.get("QT_QPA_PLATFORM") != "offscreen":
         geo = screen.availableGeometry()
         root.setScreen(screen)
         root.setPosition(geo.x() + (geo.width() - root.width()) // 2, geo.y() + (geo.height() - root.height()) // 2)
+        root.show()  # (Main.qml waits for this on test runs: Backend.testPlacedShow)
     elif os.environ.get("QT_QPA_PLATFORM") == "offscreen":
         # The offscreen screen is small; checks compare shots at the design size.
         root.setWidth(1180)
@@ -176,6 +188,7 @@ def main():
         elif step.get("do") == "size":  # {"w": 1900, "h": 1020}: the window's size
             root.resize(step["w"], step["h"])
         elif step.get("do") == "exit":
+            stop_recording()
             app.quit()
         elif step.get("do") == "drag":  # press, move in steps, optionally release
             drag(step)
@@ -243,6 +256,7 @@ def main():
 
     def begin():
         attach()
+        start_recording()
         for step in steps:
             t = QTimer()
             t.setSingleShot(True)
@@ -262,8 +276,48 @@ def main():
             state["started"] = True
             QTimer.singleShot(0, begin)
 
+    recorder = {}
+
+    def start_recording():
+        out = os.environ.get("GC_RECORD")
+        if out:
+            # Frame-exact: animations advance one fixed step per frame, and every frame is
+            # grabbed, so the video shows every animation frame however slow grabbing is.
+            # Qt's fixed step is one refresh of this screen: play the video back at that rate.
+            fps = round(root.screen().refreshRate()) or 60
+            dpr = root.devicePixelRatio()
+            w, h = int(root.width() * dpr) // 2 * 2, int(root.height() * dpr) // 2 * 2
+            recorder["p"] = subprocess.Popen(
+                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba",
+                 "-s", f"{w}x{h}", "-framerate", str(fps), "-i", "-",
+                 "-c:v", "libx264", "-preset", "ultrafast", "-crf", "16", "-pix_fmt", "yuv420p", out],
+                stdin=subprocess.PIPE)
+            recorder["size"] = (w, h)
+
+            def grab():
+                p = recorder.get("p")
+                if not p:
+                    return
+                img = root.grabWindow().convertToFormat(QImage.Format_RGBA8888)
+                if img.width() != w or img.height() != h:
+                    img = img.copy(0, 0, w, h)
+                p.stdin.write(bytes(img.constBits()))
+                recorder["frames"] = recorder.get("frames", 0) + 1
+            root.frameSwapped.connect(grab)
+            print(f"[harness] frame-exact recording to {out}", flush=True)
+            return
+    def stop_recording():
+        p = recorder.pop("p", None)
+        if p:
+            p.stdin.close()
+            p.wait(timeout=30)
+            print(f"[harness] recorded {recorder.get('frames', 0)} frames", flush=True)
+
     root.frameSwapped.connect(on_frame)
-    return app.exec()
+    try:
+        return app.exec()
+    finally:
+        stop_recording()
 
 
 if __name__ == "__main__":
