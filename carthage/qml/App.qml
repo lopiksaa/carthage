@@ -61,6 +61,7 @@ Item {
     property real pageIn: 1
     NumberAnimation { id: pageInAnim; target: app; property: "pageIn"; from: 0; to: 1; duration: 180 * app.motion; easing.type: Easing.OutCubic }
     function navigate(p, back) {
+        if (p === "library:source:family") p = "library:source:steam"  // (Steam Family is part of Steam now)
         if (inspect.open) inspect.close()
         if (storePage.open) storePage.close()
         if (p === page) return

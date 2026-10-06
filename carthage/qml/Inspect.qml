@@ -138,6 +138,7 @@ FocusScope {
         g.developer = cell.developer
         g.publisher = cell.publisher
         g.released = cell.released
+        g.family = Backend.gameInfo(g.gameId).family === true
         game = g
         loadFacts()
 
@@ -720,13 +721,39 @@ FocusScope {
             Column {
                 width: parent.width
                 spacing: Ui.gapS
-                Text {
-                    text: (inspect.game.sourceName || "").toUpperCase()
-                    color: Ui.onScrimDim
-                    font.family: Ui.fontLabels
-                    font.weight: Font.Black
-                    font.pixelSize: Ui.textBody
-                    font.letterSpacing: 2.5
+                Row {  // where it's from; a game lent by the Steam Family says so
+                    spacing: Ui.gapM
+                    Text {
+                        id: sourceEyebrow
+                        text: (inspect.game.sourceName || "").toUpperCase()
+                        color: Ui.onScrimDim
+                        font.family: Ui.fontLabels
+                        font.weight: Font.Black
+                        font.pixelSize: Ui.textBody
+                        font.letterSpacing: 2.5
+                    }
+                    Row {
+                        visible: inspect.game.family === true
+                        spacing: 6
+                        anchors.verticalCenter: sourceEyebrow.verticalCenter
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: "Shared by your Steam Family"
+                        CIcon {
+                            width: 16
+                            height: 16
+                            anchors.verticalCenter: parent.verticalCenter
+                            source: "group-symbolic"
+                            color: Ui.onScrimDim
+                        }
+                        Text {
+                            text: "FAMILY"
+                            color: Ui.onScrimDim
+                            font.family: Ui.fontLabels
+                            font.weight: Font.Black
+                            font.pixelSize: Ui.textBody
+                            font.letterSpacing: 2.5
+                        }
+                    }
                 }
                 Text {
                     width: parent.width

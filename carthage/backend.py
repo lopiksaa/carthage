@@ -752,11 +752,8 @@ class Backend(QObject):
         counts = {}
         for g in self._library._games:
             if g.source != "carthage":
-                src = "family" if g.family else g.source  # (counted like the sidebar: the family's on its own)
-                counts[src] = counts.get(src, 0) + 1
-        # (Steam Family straight after Steam, whatever its count.)
-        order = lambda kv: (-counts.get("steam", 0), 1) if kv[0] == "family" else (-kv[1], 0)  # noqa: E731
-        return [{"name": source_label(s), "count": n} for s, n in sorted(counts.items(), key=order)]
+                counts[g.source] = counts.get(g.source, 0) + 1
+        return [{"name": source_label(s), "count": n} for s, n in sorted(counts.items(), key=lambda kv: -kv[1])]
 
     @Slot(result=bool)
     def copyDiagnostics(self):
@@ -1001,6 +998,7 @@ class Backend(QObject):
             "sourceIcon": icon, "code": g.code, "extId": g.ext_id, "installed": g.installed,
             "noSlot": g.no_slot, "lastPlayed": g.last_played, "playtime": g.playtime,
             "developer": g.developer, "publisher": g.publisher, "released": g.released,
+            "family": g.family,  # lent by the Steam Family, not on your own account
         }
 
     @Slot(str, result=str)

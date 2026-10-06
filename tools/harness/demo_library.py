@@ -52,6 +52,8 @@ def demo_games():
         )
         if title == "Lantern Launcher":
             g.no_slot = True
+        if title == "Neon Drift II":
+            g.family = True  # lent by the Steam Family
         games.append(g)
     # Edge cases: GC_DEMO_EMPTY=1 for no games at all; GC_LONG_TITLES=1 for very long names.
     if os.environ.get("GC_DEMO_EMPTY"):
