@@ -846,7 +846,8 @@ Item {
                         anchors.right: parent.right
                         height: visible ? 52 : 0
                         Row {
-                            x: tray.contentLeft  // the page grid's left edge
+                            // The page grid's left edge; on Settings, the centred panel's.
+                            x: app.page === "settings" ? settingsPage.x : tray.contentLeft
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Ui.gapM
                             EngravedLabel {
@@ -990,9 +991,9 @@ Item {
                         visible: app.page === "settings"
                         appRoot: app
                         anchors.top: pageBar.bottom
-                        anchors.left: parent.left
                         anchors.bottom: parent.bottom
-                        anchors.leftMargin: tray.contentLeft  // on the page grid
+                        // Centred: in a wide window a left-pinned panel left the right half empty.
+                        x: Math.round((parent.width - width) / 2)
                         anchors.bottomMargin: Math.max(24, dock.clearance)  // clear of the dock while a game runs
                         // A settings window, not a wall: as wide as its list and its 640-px column
                         // need, so the controls end as far from its right edge as they start.

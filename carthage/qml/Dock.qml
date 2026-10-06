@@ -251,9 +251,9 @@ Item {
             strokeWidth: -1
             fillGradient: LinearGradient {
                 x1: 0; y1: 0; x2: 0; y2: dock.shellH
-                GradientStop { position: 0.0; color: dock.glassy ? Qt.tint(dock.g.busyTint, dock.g.sheen) : dock.pal.dockTop }
-                GradientStop { position: 0.7; color: dock.glassy ? dock.g.busyTint : Qt.tint(dock.pal.dockTop, Qt.alpha(dock.pal.dockBottom, 0.7)) }
-                GradientStop { position: 1.0; color: dock.glassy ? dock.g.busyTint : dock.pal.dockBottom }
+                GradientStop { position: 0.0; color: dock.glassy ? Qt.tint(dock.g.tint, dock.g.sheen) : dock.pal.dockTop }
+                GradientStop { position: 0.7; color: dock.glassy ? dock.g.tint : Qt.tint(dock.pal.dockTop, Qt.alpha(dock.pal.dockBottom, 0.7)) }
+                GradientStop { position: 1.0; color: dock.glassy ? dock.g.tint : dock.pal.dockBottom }
             }
             PathSvg { path: dock.shellPath }
         }
@@ -270,6 +270,40 @@ Item {
             strokeColor: dock.glassy ? "transparent" : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.42 : 0.24)
             strokeWidth: 1.5
             PathSvg { path: dock.bottomEdge }
+        }
+    }
+
+    // Glass: a soft plate under the words only, so the shell stays real glass (the handoff's
+    // tint) while the text keeps ≥ 4.5:1 over the brightest art scrolling behind (measured).
+    Item {
+        id: textPlate
+        visible: dock.glassy
+        x: statusWing.x - 10
+        y: Math.round((dock.shellH - 46) / 2)
+        width: Math.min(dock.leftW, 28 + Math.max(line1.implicitWidth, line2.visible ? line2.implicitWidth : 0)) + 56
+        height: 46
+        // Full strength under the words, fading out to the right; blurred so it has no edge —
+        // a shadow under the words, not a box.
+        Rectangle {
+            id: plateShape
+            anchors.fill: parent
+            radius: 23
+            visible: false
+            readonly property color c: Backend.theme.dark ? Qt.rgba(0, 0, 0, 0.46) : Qt.rgba(1, 1, 1, 0.40)
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: plateShape.c }
+                GradientStop { position: 0.72; color: plateShape.c }
+                GradientStop { position: 1.0; color: Qt.alpha(plateShape.c, 0) }
+            }
+        }
+        MultiEffect {
+            source: plateShape
+            anchors.fill: parent
+            blurEnabled: true
+            blurMax: 32
+            blur: 1
+            autoPaddingEnabled: true
         }
     }
 
@@ -349,6 +383,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             opacity: 1
             Text {
+                id: line1
                 width: parent.width
                 textFormat: Text.StyledText
                 text: Ui.escapeHtml(dock.status.a) + (dock.status.b ? "<b>" + Ui.escapeHtml(dock.status.b) + "</b>" : "")
@@ -361,6 +396,7 @@ Item {
                 elide: Text.ElideRight
             }
             Text {
+                id: line2
                 visible: text !== ""
                 width: parent.width
                 text: dock.status.two

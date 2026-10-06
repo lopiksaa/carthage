@@ -705,7 +705,9 @@ FocusScope {
         x: inspect.panelBaseX - inspect.galleryLevel * 40
         // Level with the cartridge's top, and it stays there: the details arrive in stages, and
         // a panel that re-centered would move Play out from under the pointer.
-        y: inspect.wide ? inspect.heroY : inspect.heroY + inspect.heroH + 28
+        // The title's capitals line up with the cartridge's top edge; the source label hangs above.
+        readonly property real titleLift: Math.round(sourceRow.height + Ui.gapS + titleText.y0)
+        y: inspect.wide ? inspect.heroY - titleLift : inspect.heroY + inspect.heroH + 28
         Behavior on y {
             enabled: inspect.settled
             NumberAnimation { duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
@@ -727,6 +729,7 @@ FocusScope {
                 width: parent.width
                 spacing: Ui.gapS
                 Row {  // where it's from; a game lent by the Steam Family says so
+                    id: sourceRow
                     spacing: Ui.gapM
                     Text {
                         id: sourceEyebrow
@@ -761,6 +764,11 @@ FocusScope {
                     }
                 }
                 Text {
+                    id: titleText
+                    // From the top of the text box to the top of the capitals (an H's real outline:
+                    // the font's declared cap height was 3 px off).
+                    readonly property real y0: Math.max(0, titleText.baselineOffset + titleFm.tightBoundingRect("H").y)
+                    FontMetrics { id: titleFm; font: titleText.font }
                     width: parent.width
                     text: inspect.game.title || ""
                     color: Ui.onScrim
