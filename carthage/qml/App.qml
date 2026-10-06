@@ -731,6 +731,12 @@ Item {
             id: stage
             anchors.fill: parent
 
+            // The glass look's ground, behind the header and the pages (Plastic draws its own).
+            Backdrop {
+                anchors.fill: parent
+                visible: Backend.theme.glassy
+            }
+
             // Over the content while open: a dimmed tray (choose it to close) and the sidebar.
             Rectangle {
                 objectName: "sidebarScrim"  // for the test harness
@@ -791,10 +797,12 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
+                    visible: !Backend.theme.glassy
                     color: app.pal.tray
                 }
                 Image {
                     anchors.fill: parent
+                    visible: !Backend.theme.glassy
                     source: "image://gc/grain/" + Backend.theme.edition + Backend.theme.texQuery
                     fillMode: Image.Tile
                     opacity: 0.2

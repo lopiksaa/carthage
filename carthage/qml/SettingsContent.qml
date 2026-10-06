@@ -265,64 +265,16 @@ Column {
                 Choice { label: "Buttons"; key: "fontButtons"; choices: Ui.buttonFonts; current: Ui.fontButtons }
                 Choice { label: "Text"; key: "fontText"; choices: Ui.textFonts; current: Ui.fontText }
             }
-            Label_ { text: "Plastic" }
+            Label_ { text: "Look" }
             Column {
                 width: parent.width
                 property string openKey: ""
                 Choice {
-                    label: "Texture"
-                    key: "plasticTexture"
-                    choices: Backend.theme.textureOptions.map(o => o.value)
-                    names: Backend.theme.textureOptions.reduce((m, o) => { m[o.value] = o.text; return m }, {})
-                    current: Backend.settings.plasticTexture
-                }
-            }
-            // How deep the texture is: applied a moment after the knob stops (every cartridge
-            // and panel is redrawn), so dragging stays smooth.
-            Item {
-                width: parent.width
-                height: strengthSlider.height
-                Text {
-                    id: strengthLabel
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 110
-                    leftPadding: 12  // level with the Texture label above
-                    text: "Strength"
-                    color: Backend.theme.p.panelTextDim
-                    font.family: Ui.fontText
-                    font.weight: Font.Bold
-                    font.pixelSize: Ui.textCaption
-                }
-                CSlider {
-                    id: strengthSlider
-                    anchors.left: strengthLabel.right
-                    anchors.right: strengthValue.left
-                    anchors.rightMargin: Ui.gapS
-                    from: 0
-                    to: 1.2
-                    stepSize: 0.1
-                    snapMode: QQC2.Slider.SnapAlways
-                    value: Backend.settings.textureStrength
-                    Accessible.name: "Texture strength"
-                    onMoved: strengthApply.restart()
-                    Timer {
-                        id: strengthApply
-                        interval: 220
-                        onTriggered: Backend.settings.textureStrength = Math.round(strengthSlider.value * 10) / 10
-                    }
-                }
-                Text {
-                    id: strengthValue
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 64
-                    horizontalAlignment: Text.AlignRight
-                    readonly property real v: strengthSlider.value
-                    text: v < 0.05 ? "Smooth" : v < 0.45 ? "Subtle" : v < 0.85 ? "Medium" : "Deep"
-                    color: Backend.theme.p.panelText
-                    font.family: Ui.fontText
-                    font.weight: Font.Bold
-                    font.pixelSize: Ui.textCaption
+                    label: "Hardware"
+                    key: "look"
+                    choices: ["glass", "plastic"]
+                    names: ({ glass: "Glass", plastic: "Plastic" })
+                    current: Backend.theme.look
                 }
             }
             Label_ { text: "Card size" }
@@ -386,13 +338,6 @@ Column {
                     text: "Tilt cards on hover"
                     checked: Backend.settings.tiltEnabled
                     onToggled: Backend.settings.tiltEnabled = checked
-                }
-                CSwitch {
-                    width: parent.width
-                    text: "Textured plastic"
-                    hint: "The plastic texture on the hardware too"
-                    checked: Backend.settings.texturedPlastic
-                    onToggled: Backend.settings.texturedPlastic = checked
                 }
                 CSwitch {
                     width: parent.width

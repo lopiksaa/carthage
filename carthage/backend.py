@@ -8,7 +8,7 @@ from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 from .library import GameModel, TrayModel, real_games
 from .sessions import SessionModel
 from .settings import Settings
-from .theme import PLASTIC_TEXTURE, TEXTURES, Theme
+from .theme import PLASTIC_TEXTURE, Theme
 from .version import VERSION
 from .watchers import InstallWatch, LibraryWatcher
 
@@ -78,12 +78,13 @@ class Backend(QObject):
             self._tray.changed.connect(self._save_tray)
         self._tray.installedFirst = st.get("installedFirst")
         st.changed.connect(lambda: setattr(self._tray, "installedFirst", st.get("installedFirst")))
+        # One plastic, no variants: the default texture at its default depth (the texture
+        # choices and the strength slider are gone; old settings are ignored).
+        self._theme.set_card_texture(PLASTIC_TEXTURE)
+        self._theme.texture = PLASTIC_TEXTURE
+
         def apply_texture():
-            tex = st.get("plasticTexture")
-            tex = tex if tex in dict(TEXTURES) else PLASTIC_TEXTURE
-            self._theme.set_card_texture(tex)
-            self._theme.set_texture_strength(st.get("textureStrength"))
-            self._theme.texture = tex if st.get("texturedPlastic") else "none"
+            self._theme.look = st.get("look")
 
         apply_texture()
         st.changed.connect(apply_texture)

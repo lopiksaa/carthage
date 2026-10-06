@@ -298,6 +298,63 @@ def accent_for(edition):
     return {"accent": base, "accentHover": _shift(base, -0.06), "accentText": "#ffffff", "danger": "#d33a31"}
 
 
+# Glass (the default look): frosted panes over a backdrop of soft colour fields. Values from the
+# design handoff (design/carthage-handoff, HANDOFF.md "Glass tokens"); dark hardware takes the
+# graphite set, light hardware the off-white one.
+def _rgba(r, g, b, a):
+    return "#%02x%02x%02x%02x" % (round(a * 255), r, g, b)
+
+
+GLASS = {
+    "dark": {
+        "text": "#F4F5F7", "text2": "#C9CCD3", "title": "#E6E8EC",
+        "keyText": "#F4F5F7", "keyDim": "#C9CCD3", "keyOff": "#8E919A",
+        "tint": _rgba(26, 28, 36, .48), "sheen": _rgba(255, 255, 255, .08),
+        "edge": _rgba(255, 255, 255, .26), "ring": _rgba(255, 255, 255, .09), "shadow": _rgba(0, 0, 0, .50),
+        "field": _rgba(0, 0, 0, .24), "well": _rgba(255, 255, 255, .035),
+        "mouth": _rgba(0, 0, 0, .55), "readout": _rgba(0, 0, 0, .28),
+        "warn": "#F2B544", "accent": "#3F9BEA",
+        "bg": "#121318",
+        "fields": [_rgba(116, 198, 70, .34), _rgba(139, 79, 217, .40), _rgba(60, 140, 220, .36), _rgba(226, 120, 80, .22)],
+    },
+    "light": {
+        "text": "#15161A", "text2": "#45484F", "title": "#2B2D33",
+        "keyText": "#15161A", "keyDim": "#4A4D55", "keyOff": "#989BA3",
+        "tint": _rgba(255, 255, 255, .52), "sheen": _rgba(255, 255, 255, .40),
+        "edge": _rgba(255, 255, 255, .95), "ring": _rgba(255, 255, 255, .60), "shadow": _rgba(60, 64, 90, .24),
+        "field": _rgba(255, 255, 255, .45), "well": _rgba(255, 255, 255, .28),
+        "mouth": _rgba(0, 0, 0, .55), "readout": _rgba(0, 0, 0, .28),
+        "warn": "#7A4E00", "accent": "#1272C4",
+        "bg": "#ECEEF3",
+        "fields": [_rgba(160, 222, 110, .42), _rgba(184, 150, 240, .42), _rgba(120, 180, 240, .42), _rgba(250, 170, 140, .32)],
+    },
+}
+# Where the four fields sit: centre and radii as fractions of the window; each fades out at 70 %.
+GLASS_FIELDS = [(0.14, 0.34, 0.38, 0.46), (0.84, 0.22, 0.34, 0.44), (0.58, 0.96, 0.46, 0.50), (0.46, 0.52, 0.30, 0.36)]
+
+
+def glass_for(edition):
+    """The glass tokens for a hardware edition. A colourful hardware tints the backdrop's
+    fields toward its own colour, so the choice still shows through the glass."""
+    import colorsys
+
+    pal = EDITIONS[edition]
+    base = pal["shellTop"].lstrip("#")[-6:]
+    r, g, b = (int(base[i:i + 2], 16) for i in (0, 2, 4))
+    t = dict(GLASS["dark" if pal["isDark"] else "light"])
+    _h, light, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+    if sat > 0.18 and 0.08 < light < 0.95:
+        mixed = []
+        for f in t["fields"]:
+            a, fr, fg, fb = (int(f[i:i + 2], 16) for i in (1, 3, 5, 7))
+            k = 0.6  # how far each field moves toward the hardware colour
+            mixed.append("#%02x%02x%02x%02x" % (a, round(fr + (r - fr) * k), round(fg + (g - fg) * k), round(fb + (b - fb) * k)))
+        t["fields"] = mixed
+        t["accent"] = accent_for(edition)["accent"]
+    t["centres"] = [list(c) for c in GLASS_FIELDS]
+    return t
+
+
 # The plastic textures offered in Settings (textures.py): ambientCG normal maps, and a
 # generated grain. The first is the default.
 TEXTURES = [
@@ -440,6 +497,27 @@ class Theme(QObject):
     @Property("QVariantMap", constant=True)
     def geo(self):
         return GEOMETRY
+
+    _look = "glass"
+
+    def _get_look(self):
+        return self._look
+
+    def _set_look(self, value):
+        value = "plastic" if value == "plastic" else "glass"
+        if value != self._look:
+            self._look = value
+            self.changed.emit()
+
+    look = Property(str, _get_look, _set_look, notify=changed)
+
+    @Property(bool, notify=changed)
+    def glassy(self):
+        return self._look == "glass"
+
+    @Property("QVariantMap", notify=changed)
+    def glass(self):
+        return glass_for(self.edition)
 
     @Property("QVariantMap", notify=changed)
     def accent(self):
