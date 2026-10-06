@@ -441,6 +441,19 @@ QtObject {
             }
             else tray.contentY = cmd.y
             break
+        case "glassProbe": { // {"scale": 1}: a live glass pane where the new dock goes (performance check)
+            const body = harness.find("appBody")
+            const comp = Qt.createComponent("../../carthage/qml/GlassPane.qml")
+            if (comp.status !== Component.Ready) { console.warn("GLASS", comp.errorString()); break }
+            const host = dock.parent
+            const pane = comp.createObject(host, { behind: tray, z: 20, width: 768, height: 64, radius: 22,
+                                                   x: (host.width - 768) / 2, y: cmd.y !== undefined ? cmd.y : host.height - 18 - 64,
+                                                   captureScale: cmd.scale || 1, tint: Qt.rgba(26/255, 28/255, 36/255, 0.48) })
+            let inside = false
+            for (let q = pane ? pane.parent : null; q; q = q.parent) if (q === body) inside = true
+            console.warn("GLASS probe", !!pane, "behind", !!body, "pane inside body:", inside, "body", body.width, body.height)
+            break
+        }
         case "autoscroll": // performance check: scroll the whole tray over `ms`
             autoScroll.duration = cmd.ms
             autoScroll.to = Math.max(0, tray.contentHeight - tray.height)
