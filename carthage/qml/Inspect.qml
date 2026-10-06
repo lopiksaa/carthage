@@ -471,6 +471,9 @@ FocusScope {
         id: hero
         visible: false || inspect.warming
         opacity: inspect.warming && !inspect.open ? 0.004 : 1
+        // Warming up, it's an invisible card in the window's top-left corner: it mustn't take
+        // the clicks meant for what's under it (≡ didn't respond for half a second after launch).
+        enabled: !inspect.warming || inspect.open
         width: inspect.heroW
         height: inspect.heroW * inspect.ratio
         transformOrigin: Item.TopLeft

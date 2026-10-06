@@ -58,7 +58,9 @@ Item {
             NumberAnimation { target: top; property: "height"; to: 0; duration: 220 * Backend.motion; easing.type: Easing.OutCubic }
             NumberAnimation { target: bottom; property: "height"; to: 0; duration: 220 * Backend.motion; easing.type: Easing.OutCubic }
             NumberAnimation { target: beam; property: "height"; to: 18; duration: 220 * Backend.motion; easing.type: Easing.OutCubic }
-            NumberAnimation { target: beam; property: "opacity"; to: 0; duration: 220 * Backend.motion; easing.type: Easing.InQuad }
+            // The line becomes the picture: it goes as the picture opens (fading in-eased, it
+            // lingered across the cartridges after the picture was there).
+            NumberAnimation { target: beam; property: "opacity"; to: 0; duration: 120 * Backend.motion; easing.type: Easing.OutQuad }
             SequentialAnimation {
                 PropertyAction { target: glare; property: "opacity"; value: 0.14 }
                 NumberAnimation { target: glare; property: "opacity"; to: 0; duration: 320 * Backend.motion; easing.type: Easing.OutQuad }

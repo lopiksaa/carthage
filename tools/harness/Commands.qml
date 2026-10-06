@@ -234,7 +234,7 @@ QtObject {
         case "state2":  // one line: what's open
             console.warn("STATE", cmd.label || "", "inspect", app.parts.inspect.open, "modal", app.modalOpen,
                          "color", app.parts.colorPicker.opened, "inspectLevel", app.parts.inspect.level.toFixed(2), "inspectVisible", app.parts.inspect.visible, "page", app.page,
-                         "otherMenu", !!harness.find("inspectOtherMenu") && harness.find("inspectOtherMenu").opened)
+                         "otherMenu", !!harness.find("inspectOtherMenu") && harness.find("inspectOtherMenu").opened, "sidebarOpen", app.sidebarOpen)
             break
         case "where":  // {"name": objectName} prints that item's window position
         {
