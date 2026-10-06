@@ -327,6 +327,100 @@ def render_shadow(w, h, edition):
     return blur(img, cw * 0.06)
 
 
+# The glass well's image extends past the well by this fraction of the well's width on each
+# side, for its shadow (CSS 0 24px 40px -22px at 217 px wide).
+GLASS_WELL_MARGIN = 0.22
+
+
+def _gauss(a, sigma):
+    """Separable Gaussian blur of a 2-D float array (numpy, edges extended)."""
+    import numpy as np
+
+    if sigma < 0.5:
+        return a
+    r = int(sigma * 3)
+    k = np.exp(-(np.arange(-r, r + 1) ** 2) / (2 * sigma * sigma))
+    k /= k.sum()
+    pad = np.pad(a, r, mode="edge")
+    tmp = np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 1, pad)
+    return np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 0, tmp)
+
+
+def _qcolor(argb):
+    c = QColor(argb)
+    return c
+
+
+def render_glass_well(w, h, edition):
+    """A well in the glass look: a raised glass card (design handoff): fill, a sheen at 160°,
+    a lit top edge, a 1-px ring and a soft shadow below. w, h include GLASS_WELL_MARGIN."""
+    import numpy as np
+
+    from .theme import glass_for
+
+    g = glass_for(edition)
+    m = GLASS_WELL_MARGIN
+    ww = w / (1 + 2 * m)            # the well itself
+    hh = h - 2 * m * ww
+    ox, oy = m * ww, m * ww
+    u = ww / 217.0                  # design px → image px
+    r = 20 * u
+    img = _img(w, h)
+
+    # Shadow: the well shrunk by the spread (22), dropped 24, blurred (CSS blur 40 → sigma 20).
+    sh = QImage(int(w), int(h), QImage.Format_ARGB32_Premultiplied)
+    sh.fill(0)
+    sp = QPainter(sh)
+    sp.setRenderHint(QPainter.Antialiasing)
+    spread = 22 * u
+    sp.fillPath(_rounded(ox + spread, oy + 24 * u + spread, ww - 2 * spread, hh - 2 * spread, max(0, r - spread)), QColor(255, 255, 255))
+    sp.end()
+    ptr = sh.constBits()
+    a = np.frombuffer(ptr, np.uint8).reshape(sh.height(), sh.bytesPerLine() // 4, 4)[:, :int(w), 3].astype(np.float32) / 255
+    a = _gauss(a, 20 * u)
+    col = QColor(g["shadow"])
+    alpha = np.clip(a * col.alphaF() * 255, 0, 255).astype(np.uint8)
+    rgba = np.zeros((alpha.shape[0], alpha.shape[1], 4), np.uint8)
+    f = alpha.astype(np.float32) / 255
+    rgba[..., 0] = (col.red() * f).astype(np.uint8)
+    rgba[..., 1] = (col.green() * f).astype(np.uint8)
+    rgba[..., 2] = (col.blue() * f).astype(np.uint8)
+    rgba[..., 3] = alpha
+    shadow = QImage(rgba.tobytes(), rgba.shape[1], rgba.shape[0], 4 * rgba.shape[1], QImage.Format_RGBA8888_Premultiplied).copy()
+
+    p = QPainter(img)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.drawImage(0, 0, shadow)
+    card = _rounded(ox, oy, ww, hh, r)
+    p.fillPath(card, QColor(g["well"]))
+    # Sheen: linear at 160° (down, a little right), glass-2 fading out by 60 %.
+    import math
+
+    ang = math.radians(160)
+    dx, dy = math.sin(ang), -math.cos(ang)
+    half = abs(ww * dx) / 2 + abs(hh * dy) / 2
+    cx, cy = ox + ww / 2, oy + hh / 2
+    grad = QLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half)
+    sheen = QColor(g["sheen"])
+    grad.setColorAt(0.0, sheen)
+    clear = QColor(sheen)
+    clear.setAlpha(0)
+    grad.setColorAt(0.6, clear)
+    grad.setColorAt(1.0, clear)
+    p.fillPath(card, QBrush(grad))
+    # Ring (1 px inside) and the lit top edge (kept to the top part of the outline).
+    p.setBrush(Qt.NoBrush)
+    p.setPen(QPen(QColor(g["ring"]), 1))
+    p.drawPath(_rounded(ox + 0.5, oy + 0.5, ww - 1, hh - 1, max(0, r - 0.5)))
+    p.save()
+    p.setClipRect(QRectF(ox, oy, ww, max(3, r * 0.75)))
+    p.setPen(QPen(QColor(g["edge"]), 1))
+    p.drawPath(_rounded(ox + 0.5, oy + 0.5, ww - 1, hh - 1, max(0, r - 0.5)))
+    p.restore()
+    p.end()
+    return img
+
+
 def render_recess(w, h, edition):
     """The molded pocket in the tray. w, h include RECESS_PAD on each side."""
     pal = EDITIONS[edition]
@@ -695,6 +789,8 @@ class ImageProvider(QQuickImageProvider):
             return render_shadow(w, h, parts[1])
         if kind == "recess":
             return render_recess(w, h, parts[1])
+        if kind == "glasswell":  # glasswell/<edition>: includes GLASS_WELL_MARGIN on each side
+            return render_glass_well(w, h, parts[1])
         if kind == "header":  # header/<source>/<edition>  or  header/<mode>/<source>/<edition>/<gameId>
             if len(parts) >= 5:
                 mode, source, edition, gid = parts[1], parts[2], parts[3], "/".join(parts[4:])

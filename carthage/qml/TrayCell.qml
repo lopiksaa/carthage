@@ -102,8 +102,20 @@ Item {
         height: cell.cardH + 2 * cell.pad
 
         Image {
+            visible: !Backend.theme.glassy
             anchors.fill: parent
-            source: "image://gc/recess/" + cell.edition
+            source: visible ? "image://gc/recess/" + cell.edition : ""
+            sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
+            asynchronous: true
+        }
+        Image {  // glass: a raised glass card; the image reaches past the well for its shadow
+            readonly property real m: 0.22 * parent.width  // render.GLASS_WELL_MARGIN
+            visible: Backend.theme.glassy
+            x: -m
+            y: -m
+            width: parent.width + 2 * m
+            height: parent.height + 2 * m
+            source: visible ? "image://gc/glasswell/" + Backend.theme.edition : ""
             sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
             asynchronous: true
         }
@@ -130,6 +142,7 @@ Item {
                 maximumLineCount: 3
                 elide: Text.ElideRight
                 color: cell.pal.engraveHi
+                visible: !Backend.theme.glassy
             }
             Text {
                 id: engraved
@@ -146,7 +159,7 @@ Item {
                 wrapMode: Text.Wrap
                 maximumLineCount: 3
                 elide: Text.ElideRight
-                color: cell.pal.engrave
+                color: Backend.theme.glassy ? Backend.theme.glass.text2 : cell.pal.engrave
             }
         }
     }
