@@ -55,7 +55,7 @@ Item {
         icon.name: "application-menu"
         Accessible.name: (header.appRoot && header.appRoot.sidebarOpen ? "Close" : "Open") + " the sidebar"
                          + (updateDot.visible ? ", an update is available" : "")
-        QQC2.ToolTip.visible: hovered
+        QQC2.ToolTip.visible: tipWanted  // (not over the sidebar it just opened)
         QQC2.ToolTip.text: "Sidebar (Ctrl+B)"
         QQC2.ToolTip.delay: 500
         onClicked: header.appRoot.toggleSidebar()

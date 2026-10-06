@@ -211,7 +211,7 @@ Item {
             tint: bar.pal.dockText
             icon.name: "application-menu"
             Accessible.name: bar.collapsed ? "Show the sidebar" : "Fold the sidebar"
-            QQC2.ToolTip.visible: hovered
+            QQC2.ToolTip.visible: tipWanted
             QQC2.ToolTip.text: (bar.collapsed ? "Show the sidebar" : "Fold the sidebar") + " (Ctrl+B)"
             QQC2.ToolTip.delay: 500
             onClicked: bar.toggle()

@@ -613,7 +613,7 @@ FocusScope {
                 height: buyButton.height
                 icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
                 Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
-                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.visible: tipWanted
                 QQC2.ToolTip.text: Accessible.name
                 QQC2.ToolTip.delay: 300
                 // Remembers the store on show (Steam, Epic…) with its offer and price.

@@ -825,7 +825,7 @@ FocusScope {
                 height: playButton.height
                 icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
                 Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
-                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.visible: tipWanted
                 QQC2.ToolTip.text: Accessible.name
                 QQC2.ToolTip.delay: 300
                 onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
@@ -838,7 +838,7 @@ FocusScope {
                 height: playButton.height
                 icon.name: "overflow-menu-symbolic"
                 Accessible.name: "More for this game"
-                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.visible: tipWanted
                 QQC2.ToolTip.text: "More"
                 QQC2.ToolTip.delay: 300
                 onClicked: otherMenu.openFrom(otherButton)

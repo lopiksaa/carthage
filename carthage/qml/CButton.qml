@@ -17,6 +17,12 @@ QQC2.AbstractButton {
     property bool iconAfter: false // the icon after the text (a forward arrow: "All Categories →")
     property color tint: "transparent" // overrides the foreground, e.g. on a dark backdrop
     property string glyph: ""
+    // For tooltips: true from a press until the pointer leaves (a tip popping up over what the
+    // click just opened is noise). Use `ToolTip.visible: tipWanted`.
+    property bool usedSinceHover: false
+    onHoveredChanged: if (!hovered) usedSinceHover = false
+    onPressedChanged: if (pressed) usedSinceHover = true
+    readonly property bool tipWanted: hovered && !usedSinceHover
     // Even, so the face's centre (and everything on it) lands on whole pixels, up and down.
     readonly property int keyDepth: 4
 
