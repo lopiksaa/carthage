@@ -67,7 +67,7 @@ QQC2.AbstractButton {
         y: btn.faceShift
         radius: Ui.radiusMedium
         opacity: btn.looksDisabled ? 0.5 : 1
-        sheen: btn.hovered ? Qt.alpha(g.sheen, Math.min(1, g.sheen.a * 1.8 + 0.04)) : g.sheen
+        sheen: btn.hovered ? Qt.alpha(g.sheen, Math.min(1, Qt.color(g.sheen).a * 1.8 + 0.04)) : g.sheen
         shadowY: btn.down ? 3 : 8
         shadowBlur: btn.down ? 8 : 18
         shadowSpread: btn.down ? -4 : -8
