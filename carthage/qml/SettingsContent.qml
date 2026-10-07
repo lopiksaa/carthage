@@ -290,9 +290,9 @@ Column {
                     visible: Backend.theme.glassy
                     label: "Background"
                     key: "background"
-                    choices: ["drift", "aurora", "silk", "lava", "still"]
-                    names: ({ drift: "Drift", aurora: "Aurora", silk: "Silk", lava: "Lava", still: "Still" })
-                    current: Backend.settings.background || "drift"
+                    choices: ["studio", "rays", "mesh", "iris", "topo", "still"]
+                    names: ({ studio: "Studio", rays: "Light rays", mesh: "Mesh", iris: "Iridescent", topo: "Contours", still: "Still" })
+                    current: (["studio", "rays", "mesh", "iris", "topo", "still"].indexOf(Backend.settings.background) >= 0) ? Backend.settings.background : "studio"
                 }
             }
             Label_ { text: "Card size" }

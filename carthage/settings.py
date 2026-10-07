@@ -25,7 +25,7 @@ class Settings(QObject):
         # The plastic texture (theme.TEXTURES), on hardware and cartridges.
         "plasticTexture": "Plastic012A",
         "look": "glass",  # glass (default) or plastic
-        "background": "drift",
+        "background": "studio",  # the glass ground: studio, rays, mesh, iris, topo, still
         "themeMode": "",  # glass: "dark" / "light"; "" = follow the hardware colour  # the glass ground's motion: drift, aurora, silk, lava, still
         "textureStrength": 0.6,  # 0 (smooth) to 1.2 (deep)
         "sortMode": "recent", "filterMode": "all", "hidden": [], "noSlot": [],

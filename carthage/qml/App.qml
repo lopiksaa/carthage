@@ -1016,11 +1016,13 @@ Item {
                 Rectangle {
                     id: dockFade
                     // The cartridges fade into the tray before they pass behind the band.
-                    visible: dock.valley && dock.hideY < 1 && !Backend.theme.glassy
+                    // Plastic: the tray fades out at the window's bottom, under the floating dock (anchored
+                    // to the dock's top it cut a band across the cartridges).
+                    visible: dock.hideY < 1 && !Backend.theme.glassy
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.bottom: dock.top   // down to the valley floor: nothing sharp peeks into the valley
-                    height: 72 + dock.rise
+                    anchors.bottom: parent.bottom
+                    height: 18 + dock.height + 70
                     gradient: Gradient {
                         GradientStop { position: 0.0; color: Qt.alpha(app.pal.tray, 0) }
                         GradientStop { position: 0.62; color: Qt.alpha(app.pal.tray, 0.9) }

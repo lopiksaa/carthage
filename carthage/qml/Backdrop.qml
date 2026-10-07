@@ -1,5 +1,5 @@
 // The glass look's ground: four colour fields in the chosen motion (Settings → Appearance →
-// Background: Drift, Aurora, Silk, Lava or Still), drawn by one shader (shaders/backdrop.frag).
+// Background: Studio, Light rays, Mesh, Iridescent, Contours or Still), drawn by one shader.
 // It responds to what you do: a soft glow follows the pointer, the colours drift a little as the
 // library scrolls, and playing or opening a game sends a pulse of light from it (Ui.groundPulse).
 // Night (dark hardware): the colours glow; day (light): pastel washes.
@@ -12,9 +12,10 @@ Item {
     id: bd
 
     property bool interactive: true      // the Settings preview turns this off
-    property string variantName: Backend.settings.background || "drift"
+    property string variantName: Backend.settings.background || "studio"
     readonly property var g: Backend.theme.glass
-    readonly property int variant: ({ still: 0, drift: 1, aurora: 2, silk: 3, lava: 4 })[variantName] ?? 1
+    // (older names fall back to Studio)
+    readonly property int variant: ({ still: 0, studio: 1, rays: 2, mesh: 3, iris: 4, topo: 5 })[variantName] ?? 1
     readonly property bool moving: variant !== 0 && Backend.motion > 0
                                    && (Qt.application.state === Qt.ApplicationActive || Backend.testNoFocus)  // (test windows never take focus)
                                    && Backend.sessions.count === 0

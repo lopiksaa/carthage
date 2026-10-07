@@ -5,6 +5,7 @@
 //   GlassPane { behind: [backdrop, pages]; shape: shellMask; blurPx: 26 }
 import QtQuick
 import QtQuick.Effects
+import Carthage
 
 Item {
     id: pane
@@ -105,7 +106,7 @@ Item {
         // behind; ours still showed logos through it).
         blurMax: 64
         blur: Math.min(1, pane.blurPx / 26)
-        blurMultiplier: 1.0
+        blurMultiplier: Backend.theme.dark ? 2.2 : 1.0  // night needs more: bright art glows through dark glass
         saturation: pane.saturation
         maskEnabled: true
         maskSource: pane.shape ? shapeMask : roundMask
