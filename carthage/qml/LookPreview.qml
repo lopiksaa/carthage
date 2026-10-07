@@ -45,7 +45,12 @@ Item {
             transformOrigin: Item.TopLeft
 
             // The ground.
-            Backdrop { anchors.fill: parent; visible: preview.glassy; interactive: false }
+            ShaderEffectSource {  // the window's own ground, scaled down
+                anchors.fill: parent
+                visible: preview.glassy
+                sourceItem: Ui.glassLayers.length ? Ui.glassLayers[0] : null
+                live: true
+            }
             Rectangle { anchors.fill: parent; visible: !preview.glassy; color: preview.pal.tray }
             Image {
                 anchors.fill: parent

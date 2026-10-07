@@ -739,14 +739,8 @@ Item {
             anchors.fill: parent
 
             // The glass look's ground, behind the header and the pages (Plastic draws its own).
-            // What the glass ground responds to: the pointer, the library's scroll.
-            HoverHandler {
-                id: groundHover
-                onPointChanged: Ui.groundPointer = point.position
-                onHoveredChanged: Ui.groundPointerIn = hovered
-            }
             Binding { target: Ui; property: "groundScroll"; value: app.libraryGrid ? tray.contentY / Math.max(1, app.height) : 0 }
-            Backdrop {
+            WebGround {
                 id: ground
                 objectName: "ground"
                 Component.onCompleted: Ui.glassLayers = [ground, pages]

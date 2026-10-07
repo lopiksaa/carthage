@@ -14,8 +14,6 @@ QtObject {
     property var glassLayers: []
     // What the glass ground responds to (App feeds it): the pointer (window coordinates) and
     // whether it's over the window, the library's scroll, and pulses from what you do.
-    property point groundPointer: Qt.point(0, 0)
-    property bool groundPointerIn: false
     property real groundScroll: 0
     signal groundPulse(real x, real y)
 

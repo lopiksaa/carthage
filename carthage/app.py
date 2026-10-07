@@ -103,6 +103,11 @@ def start(argv=None, games=None):
         import ctypes
 
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("lopiksa.Carthage")
+    # The glass look's ground is a WebGL page (qml/WebGround.qml); the web engine has to be
+    # set up before the application object exists.
+    from PySide6.QtWebEngineQuick import QtWebEngineQuick
+
+    QtWebEngineQuick.initialize()
     fmt = QSurfaceFormat.defaultFormat()
     fmt.setSamples(4)
     QSurfaceFormat.setDefaultFormat(fmt)

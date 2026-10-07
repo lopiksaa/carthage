@@ -1,0 +1,206 @@
+<!doctype html>
+<!-- The glass look's ground, drawn with WebGL 2 in Carthage's web view (WebGround.qml).
+     Studio, Mesh, Iridescent and Contours are a lit surface (a heightfield shaded with the
+     top-left light); Light rays are volumetric light through haze. Done properly: real simplex noise, colours mixed in OKLab (so blends stay clean instead of
+     going grey), a palette built from the hardware colour's hue with controlled lightness and
+     chroma, motion at the screen's own refresh rate, and a triangular dither so the smooth
+     gradients never band. Carthage sets it with setGround({...}) (see WebGround.qml). -->
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#0d0e12}canvas{display:block;width:100%;height:100%}</style>
+</head><body><canvas id="c"></canvas>
+<script>
+"use strict";
+const S = { variant: 1, dark: 1, hue: 260, chroma: 0.12, speed: 1, moving: true };
+
+const VS = `#version 300 es
+in vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }`;
+
+const FS = `#version 300 es
+precision highp float;
+out vec4 outColor;
+uniform vec2 R; uniform float T; uniform int V; uniform float D;
+uniform vec3 B; uniform vec3 K0, K1, K2, K3;   // the palette, in OKLab
+
+// Simplex noise (Ashima Arts / Ian McEwan, MIT).
+vec3 permute(vec3 x){ return mod(((x * 34.0) + 1.0) * x, 289.0); }
+float snoise(vec2 v){
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+  vec2 i = floor(v + dot(v, C.yy)); vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1;
+  i = mod(i, 289.0);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+  m = m * m; m = m * m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5); vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+  vec3 g; g.x = a0.x * x0.x + h.x * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+// Broad folds: three octaves only, so the surface reads as a few big, slow shapes.
+float silk(vec2 p){ return 0.62 * snoise(p) + 0.28 * snoise(p * 1.9 + 3.1) + 0.10 * snoise(p * 3.7 - 1.7); }
+float fbm(vec2 p){ float s = 0.0, a = 0.5; mat2 r = mat2(0.8, -0.6, 0.6, 0.8);
+  for (int i = 0; i < 4; i++){ s += a * snoise(p); p = r * p * 2.02; a *= 0.5; } return s; }
+
+// OKLab → linear sRGB → sRGB.
+vec3 oklab2lin(vec3 c){
+  float l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
+  float m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
+  float s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
+  float l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+  return vec3( 4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+              -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+              -0.0041960863*l - 0.7034186147*m + 1.7076147010*s);
+}
+vec3 lin2srgb(vec3 c){ c = max(c, 0.0); return mix(12.92 * c, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
+
+float hash(vec2 p){ p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / R; uv.y = 1.0 - uv.y;
+  float as = R.x / R.y; vec2 q = vec2(uv.x * as, uv.y);
+  float t = T;
+  vec3 lab;
+  // Light from the top left, slightly toward the viewer (Carthage's one light).
+  vec3 L = normalize(vec3(-0.55, 0.65, 0.55));
+  vec3 Vv = vec3(0.0, 0.0, 1.0);
+
+  if (V == 0) {
+    lab = B;
+  } else if (V == 2) {
+    // Light rays: shafts from a light above the top-left corner, marched through haze
+    // (screen-space volumetric light: each pixel gathers the light that the haze lets through
+    // along the way to the source).
+    vec2 src = vec2(-0.05 * as, -0.18);
+    vec2 dir = (src - q) / 48.0;
+    vec2 p = q; float acc = 0.0, decay = 1.0;
+    float jitter = hash(gl_FragCoord.xy);
+    p += dir * jitter;
+    for (int i = 0; i < 48; i++) {
+      p += dir;
+      // the haze: soft bands across the light (they cut it into shafts)
+      vec2 rp = p - src; float ang = atan(rp.y, rp.x);
+      float haze = smoothstep(-0.1, 0.45, snoise(vec2(ang * 7.0 + t * 0.015, length(rp) * 0.8 - t * 0.01)) * 0.7 + 0.3 * snoise(p * 1.5 + t * 0.02));
+      acc += (1.0 - haze) * decay; decay *= 0.965;
+    }
+    acc /= 14.0;
+    float fall = exp(-length(q - src) * 0.8);
+    vec3 lc = mix(K0, K1, 0.5 + 0.5 * sin(t * 0.03));
+    float a = clamp(acc * fall, 0.0, 1.0);
+    lab = D > 0.5 ? mix(B, lc + vec3(0.12, 0.0, 0.0), a * 0.95) : mix(B, mix(lc, vec3(1.0, 0.0, 0.0), 0.4), a * 0.8);
+  } else {
+    // A lit surface: a slow, broad heightfield (satin / poured paint), shaded with the light.
+    // Studio: one or two huge folds; Mesh and Iridescent: a few broad ones; Contours: terrain.
+    float sc = V == 1 ? 0.32 : V == 5 ? 0.9 : 0.55;
+    vec2 sp = q * sc;
+    vec2 flow = vec2(t * 0.012, -t * 0.008);
+    vec2 wq = sp + 0.30 * vec2(snoise(sp * 0.7 + flow), snoise(sp * 0.7 - flow + 7.3));
+    float h = silk(wq + flow);
+    float e = 0.004;
+    float hx = silk(wq + vec2(e, 0.0) + flow) - h;
+    float hy = silk(wq + vec2(0.0, e) + flow) - h;
+    float relief = V == 1 ? 0.9 : V == 5 ? 0.5 : 0.7;   // how much the folds stand up
+    vec3 N = normalize(vec3(-hx / e * relief * sc, hy / e * relief * sc, 1.0));
+    float diff = clamp(dot(N, L), 0.0, 1.0);
+    vec3 H = normalize(L + Vv);
+    float spec = pow(clamp(dot(N, H), 0.0, 1.0), 40.0);
+    float fres = pow(1.0 - clamp(N.z, 0.0, 1.0), 3.0);
+
+    // Base colour across the surface: the four colours in OKLab, by position and height.
+    vec2 g = vec2(uv.x + 0.25 * h, uv.y - 0.2 * h);
+    vec3 base = mix(mix(K0, K1, smoothstep(0.0, 1.0, g.x)), mix(K3, K2, smoothstep(0.0, 1.0, g.x)), smoothstep(0.0, 1.0, g.y));
+
+    if (V == 4) {
+      // Iridescent: thin-film interference. A film 250–650 nm thick (varying across the
+      // surface) reflects red, green and blue in or out of phase depending on its thickness
+      // and the viewing angle.
+      float d = 250.0 + 400.0 * (0.5 + 0.5 * fbm(wq * 0.8 - flow));
+      float cosT = sqrt(1.0 - (1.0 - N.z * N.z) / (1.33 * 1.33));
+      vec3 lam = vec3(650.0, 532.0, 450.0);
+      vec3 film = 0.5 + 0.5 * cos(4.0 * 3.14159265 * 1.33 * d * cosT / lam);
+      vec3 filmLab = vec3(0.0);
+      { vec3 c = film; // to OKLab (approximate: linear → LMS → cube root)
+        vec3 lms = vec3(0.4122214708*c.r + 0.5363325363*c.g + 0.0514459929*c.b,
+                        0.2119034982*c.r + 0.6806995451*c.g + 0.1073969566*c.b,
+                        0.0883024619*c.r + 0.2817188376*c.g + 0.6299787005*c.b);
+        lms = pow(max(lms, 0.0), vec3(1.0/3.0));
+        filmLab = vec3(0.2104542553*lms.x + 0.7936177850*lms.y - 0.0040720468*lms.z,
+                       1.9779984951*lms.x - 2.4285922050*lms.y + 0.4505937099*lms.z,
+                       0.0259040371*lms.x + 0.7827717662*lms.y - 0.8086757660*lms.z); }
+      base = mix(base, vec3(base.x, filmLab.yz * 0.35), 0.6);  // a sheen on the colours, not a rainbow
+    }
+
+    if (V == 5) {
+      // Contours: anti-aliased iso-lines of the height (one pixel wide at any zoom).
+      float lv = h * 9.0;
+      float w = fwidth(lv);
+      float line = 1.0 - smoothstep(0.0, 1.2 * w, abs(fract(lv) - 0.5) * 2.0 * 0.5);
+      line = 1.0 - smoothstep(0.5 * w, 1.5 * w, abs(fract(lv + 0.5) - 0.5));
+      base.x += (D > 0.5 ? 0.10 : -0.10) * line;
+    }
+
+    // Shade: ambient + diffuse in lightness, a soft highlight and a rim.
+    float shade = D > 0.5 ? (0.55 + 0.75 * diff) : (0.86 + 0.20 * diff);
+    lab = vec3(base.x * shade, base.yz * (0.85 + 0.25 * diff));
+    lab.x += (D > 0.5 ? 0.10 : 0.05) * spec + (D > 0.5 ? 0.05 : 0.03) * fres;
+    if (V == 1) lab = mix(B, lab, D > 0.5 ? 0.85 : 0.75);  // Studio: the ground shows through
+  }
+
+  // A gentle vignette in lightness only (hue stays clean).
+  float v = smoothstep(0.35, 1.2, length((uv - 0.5) * vec2(1.15, 1.35)));
+  lab.x *= 1.0 - (D > 0.5 ? 0.30 : 0.06) * v;
+
+  vec3 rgb = lin2srgb(oklab2lin(lab));
+  // Triangular dither, ±1 step: no banding, no visible grain.
+  float n = hash(gl_FragCoord.xy) + hash(gl_FragCoord.xy + 17.3) - 1.0;
+  rgb += n / 255.0;
+  outColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
+}`;
+
+const canvas = document.getElementById("c");
+const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "low-power" });
+function sh(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+const aLoc = gl.getAttribLocation(prog, "a"); gl.enableVertexAttribArray(aLoc); gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+const U = {}; for (const n of ["R", "T", "V", "D", "B", "K0", "K1", "K2", "K3"]) U[n] = gl.getUniformLocation(prog, n);
+
+// The palette: four colours around the hardware colour's hue, in OKLCH, with lightness and
+// chroma chosen for night (deep, saturated) or day (light, soft) — never muddy.
+const lch = (L, C, h) => [L, C * Math.cos(h * Math.PI / 180), C * Math.sin(h * Math.PI / 180)];
+function baseColour(){ return S.dark ? lch(0.17, 0.025, S.hue) : lch(0.955, 0.012, S.hue); }
+function palette(){
+  const h = S.hue, c = S.chroma;
+  if (S.dark) return [lch(0.42, c * 1.05, h), lch(0.36, c, h + 38), lch(0.30, c * 0.9, h - 32), lch(0.26, c * 0.8, h + 75)];
+  return [lch(0.90, c * 0.55, h), lch(0.86, c * 0.6, h + 38), lch(0.92, c * 0.45, h - 32), lch(0.88, c * 0.5, h + 75)];
+}
+
+let t = 40, last = performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (!S.moving) return;
+  t += dt * S.speed;
+  draw();
+}
+function draw(){
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h){ canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h);
+  const P = palette();
+  gl.uniform2f(U.R, w, h); gl.uniform1f(U.T, t); gl.uniform1i(U.V, S.variant); gl.uniform1f(U.D, S.dark);
+  gl.uniform3fv(U.B, baseColour());
+  gl.uniform3fv(U.K0, P[0]); gl.uniform3fv(U.K1, P[1]); gl.uniform3fv(U.K2, P[2]); gl.uniform3fv(U.K3, P[3]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+// Called from Carthage.
+window.setGround = (o) => { Object.assign(S, o); draw(); };
+window.addEventListener("resize", draw);
+requestAnimationFrame(frame);
+</script></body></html>
