@@ -18,10 +18,11 @@ FocusScope {
     function pick(v) { if (v !== value) picked(v) }
     // Where the Library side is (cartridges fly into it from the store).
     function libraryPoint(item) {
-        return libraryLabel.mapToItem(item, libraryLabel.width / 2, libraryLabel.height / 2)
+        const l = Backend.theme.glassy ? segLibrary : libraryLabel
+        return l.mapToItem(item, l.width / 2, l.height / 2)
     }
 
-    implicitWidth: 176
+    implicitWidth: Backend.theme.glassy ? pill.width : 176
     implicitHeight: 38
     activeFocusOnTab: true
     Accessible.role: Accessible.PageTabList
@@ -59,8 +60,72 @@ FocusScope {
         border.color: Ui.focusColor
     }
 
+    // Glass: LIBRARY | STORE in one glass pill; a lit thumb slides under the one you're on
+    // (Sam's pick in the Glass Lab, replacing the glass knob).
+    Rectangle {
+        id: pill
+        visible: Backend.theme.glassy
+        readonly property var g: Backend.theme.glass
+        anchors.verticalCenter: parent.verticalCenter
+        width: segRow.width + 8
+        height: 36
+        radius: 18
+        color: g.field
+        border.width: 1
+        border.color: g.ring
+        GlassSurface {  // the thumb
+            x: 4 + sw.t * (segStore.x - segLibrary.x)
+            y: 4
+            width: segLibrary.width + sw.t * (segStore.width - segLibrary.width)
+            height: parent.height - 8
+            radius: height / 2
+            tint: Backend.theme.dark ? Qt.rgba(1, 1, 1, 0.14) : pill.g.tint  // lit, on dark glass too
+            sheen: Qt.alpha(pill.g.sheen, Math.min(1, pill.g.sheen.a * 2 + 0.06))
+            shadowY: 3
+            shadowBlur: 8
+            shadowSpread: -2
+        }
+        Row {
+            id: segRow
+            x: 4
+            anchors.verticalCenter: parent.verticalCenter
+            Repeater {
+                model: [["library", "LIBRARY"], ["store", "STORE"]]
+                Item {
+                    id: seg
+                    required property var modelData
+                    required property int index
+                    readonly property bool on: sw.value === modelData[0]
+                    width: segLabel.implicitWidth + 32
+                    height: 28
+                    Component.onCompleted: if (index === 0) sw.segLibraryRef = seg; else sw.segStoreRef = seg
+                    Text {
+                        id: segLabel
+                        anchors.centerIn: parent
+                        text: seg.modelData[1]
+                        color: seg.on ? pill.g.text : pill.g.text2
+                        font.family: Ui.fontLabels
+                        font.weight: Font.Black
+                        font.pixelSize: 11
+                        font.letterSpacing: 1.6
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: sw.pick(seg.modelData[0])
+                    }
+                }
+            }
+        }
+    }
+    property Item segLibraryRef: null
+    property Item segStoreRef: null
+    readonly property Item segLibrary: segLibraryRef || pill
+    readonly property Item segStore: segStoreRef || pill
+
     Engraved {
         id: libraryLabel
+        visible: !Backend.theme.glassy
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
         text: "LIBRARY"
@@ -68,6 +133,7 @@ FocusScope {
         on: !sw.store
     }
     Engraved {
+        visible: !Backend.theme.glassy
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         text: "STORE"
@@ -92,7 +158,7 @@ FocusScope {
     // Store) and two faint detents (design handoff).
     Item {
         id: glassKnob
-        visible: Backend.theme.glassy
+        visible: false  // (replaced by the pill; kept until the plastic dial lands)
         anchors.centerIn: parent
         width: 34
         height: 34
