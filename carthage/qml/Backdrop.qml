@@ -1,6 +1,6 @@
 // The glass look's ground: four colour fields in the chosen motion (Settings → Appearance →
 // Background: Studio, Light rays, Mesh, Iridescent, Contours or Still), drawn by one shader.
-// It responds to what you do: a soft glow follows the pointer, the colours drift a little as the
+// It responds to what you do: the pattern swirls around the pointer, flows faster as the
 // library scrolls, and playing or opening a game sends a pulse of light from it (Ui.groundPulse).
 // Night (dark hardware): the colours glow; day (light): pastel washes.
 // The motion pauses when Carthage isn't the active window, while a game runs (no GPU taken from
@@ -30,6 +30,16 @@ Item {
         running: bd.moving && bd.visible
         onTriggered: bd.time += 0.033 * Backend.motion
     }
+    // Scrolling makes the colours flow faster for a moment.
+    property real lastScroll: 0
+    Connections {
+        target: Ui
+        enabled: bd.interactive && Backend.motion > 0
+        function onGroundScrollChanged() {
+            bd.time += Math.min(0.6, Math.abs(Ui.groundScroll - bd.lastScroll) * 6)
+            bd.lastScroll = Ui.groundScroll
+        }
+    }
 
     function v4(c) { const q = Qt.color(c); return Qt.vector4d(q.r, q.g, q.b, q.a) }
 
@@ -37,8 +47,8 @@ Item {
     property real px: 0.5
     property real py: 0.5
     property real pIn: 0
-    Behavior on px { enabled: Backend.motion > 0; SmoothedAnimation { velocity: 0.6 } }
-    Behavior on py { enabled: Backend.motion > 0; SmoothedAnimation { velocity: 0.6 } }
+    Behavior on px { enabled: Backend.motion > 0; SmoothedAnimation { velocity: 0.35 } }
+    Behavior on py { enabled: Backend.motion > 0; SmoothedAnimation { velocity: 0.35 } }
     Behavior on pIn { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
     Binding on px { when: bd.interactive && bd.width > 0; value: Ui.groundPointer.x / bd.width }
     Binding on py { when: bd.interactive && bd.height > 0; value: Ui.groundPointer.y / bd.height }

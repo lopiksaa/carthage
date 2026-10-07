@@ -199,6 +199,34 @@ Column {
             readonly property int chipColumns: width >= 17 * (chipSize + Ui.gapS) ? 17 : 9
             // What the choices below look like, live.
             LookPreview { width: parent.width }
+            Label_ { text: "Look" }  // first: glass / plastic, then Dark / Light (Sam couldn't find it lower down)
+            Column {
+                width: parent.width
+                property string openKey: ""
+                Choice {
+                    label: "Hardware"
+                    key: "look"
+                    choices: ["glass", "plastic"]
+                    names: ({ glass: "Glass", plastic: "Plastic" })
+                    current: Backend.theme.look
+                }
+                Choice {
+                    visible: Backend.theme.glassy
+                    label: "Theme"
+                    key: "themeMode"
+                    choices: ["dark", "light"]
+                    names: ({ dark: "Dark", light: "Light" })
+                    current: Backend.theme.dark ? "dark" : "light"
+                }
+                Choice {
+                    visible: Backend.theme.glassy
+                    label: "Background"
+                    key: "background"
+                    choices: ["studio", "rays", "mesh", "iris", "topo", "still"]
+                    names: ({ studio: "Studio", rays: "Light rays", mesh: "Mesh", iris: "Iridescent", topo: "Contours", still: "Still" })
+                    current: (["studio", "rays", "mesh", "iris", "topo", "still"].indexOf(Backend.settings.background) >= 0) ? Backend.settings.background : "studio"
+                }
+            }
             Label_ { text: "Hardware  ·  " + ((look.options.find(o => o.value === Backend.settings.hardware) || {}).text || "Custom") }
             Grid {
                 columns: look.chipColumns
@@ -266,34 +294,6 @@ Column {
                 Choice { label: "Game titles"; key: "fontTitles"; choices: Ui.titleFonts; current: Ui.fontTitles }
                 Choice { label: "Buttons"; key: "fontButtons"; choices: Ui.buttonFonts; current: Ui.fontButtons }
                 Choice { label: "Text"; key: "fontText"; choices: Ui.textFonts; current: Ui.fontText }
-            }
-            Label_ { text: "Look" }
-            Column {
-                width: parent.width
-                property string openKey: ""
-                Choice {
-                    label: "Hardware"
-                    key: "look"
-                    choices: ["glass", "plastic"]
-                    names: ({ glass: "Glass", plastic: "Plastic" })
-                    current: Backend.theme.look
-                }
-                Choice {
-                    visible: Backend.theme.glassy
-                    label: "Theme"
-                    key: "themeMode"
-                    choices: ["dark", "light"]
-                    names: ({ dark: "Dark", light: "Light" })
-                    current: Backend.theme.dark ? "dark" : "light"
-                }
-                Choice {
-                    visible: Backend.theme.glassy
-                    label: "Background"
-                    key: "background"
-                    choices: ["studio", "rays", "mesh", "iris", "topo", "still"]
-                    names: ({ studio: "Studio", rays: "Light rays", mesh: "Mesh", iris: "Iridescent", topo: "Contours", still: "Still" })
-                    current: (["studio", "rays", "mesh", "iris", "topo", "still"].indexOf(Backend.settings.background) >= 0) ? Backend.settings.background : "studio"
-                }
             }
             Label_ { text: "Card size" }
             Row { // − ● ● ● ○ ○ ○ +  : card widths from Ui.cardMin to Ui.cardMax in steps of Ui.cardStep

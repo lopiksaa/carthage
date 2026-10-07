@@ -748,6 +748,7 @@ Item {
             Binding { target: Ui; property: "groundScroll"; value: app.libraryGrid ? tray.contentY / Math.max(1, app.height) : 0 }
             Backdrop {
                 id: ground
+                objectName: "ground"
                 Component.onCompleted: Ui.glassLayers = [ground, pages]
                 anchors.fill: parent
                 visible: Backend.theme.glassy

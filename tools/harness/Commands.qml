@@ -441,6 +441,9 @@ QtObject {
             }
             else tray.contentY = cmd.y
             break
+        case "groundState":  // what the glass ground knows about the pointer
+            { const g = harness.find("ground"); console.warn("STATE ground pIn=" + (g && g.pIn) + " px=" + (g && g.px) + " py=" + (g && g.py)) }
+            break
         case "glassProbe": { // {"scale": 1}: a live glass pane where the new dock goes (performance check)
             const body = harness.find("appBody")
             const comp = Qt.createComponent("../../carthage/qml/GlassPane.qml")

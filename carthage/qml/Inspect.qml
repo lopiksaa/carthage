@@ -57,7 +57,9 @@ FocusScope {
                                        : Math.round((width - heroW) / 2)
     // Near the top (Sam: "put the title up"): the source label starts 72 px down and the
     // title's capitals line up with the cartridge's top; never lower than centred.
-    readonly property real heroY: wide ? Math.round(Math.min((height - heroH) / 2, 72 + detailsPanel.titleLift)) : 28
+    // Wide: the cartridge is centred; the title keeps its own height near the top (Sam).
+    readonly property real heroY: wide ? Math.round((height - heroH) / 2) : 28
+    readonly property real titleY: wide ? Math.round(Math.min((height - heroH) / 2, 72 + detailsPanel.titleLift)) : 28
     // Once the cartridge has arrived, it follows its place when the place moves (the window is
     // resized, the details arrive and the group re-centers).
     readonly property bool settled: open && !openAnim.running && !closeAnim.running && !stepAnim.running
@@ -702,14 +704,14 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: inspect.wide ? inspect.height - inspect.heroY - Ui.gapXL
+        readonly property real avail: inspect.wide ? inspect.height - inspect.titleY - Ui.gapXL
                                                    : inspect.height - (inspect.heroY + inspect.heroH + 28) - 20
         x: inspect.panelBaseX - inspect.galleryLevel * 40
         // Level with the cartridge's top, and it stays there: the details arrive in stages, and
         // a panel that re-centered would move Play out from under the pointer.
         // The title's capitals line up with the cartridge's top edge; the source label hangs above.
         readonly property real titleLift: Math.round(sourceRow.height + Ui.gapS + titleText.y0)
-        y: inspect.wide ? inspect.heroY - titleLift : inspect.heroY + inspect.heroH + 28
+        y: inspect.wide ? inspect.titleY - titleLift : inspect.heroY + inspect.heroH + 28
         Behavior on y {
             enabled: inspect.settled
             NumberAnimation { duration: 200 * inspect.motion; easing.type: Easing.OutCubic }

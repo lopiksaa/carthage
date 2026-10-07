@@ -1,7 +1,7 @@
 // The glass look's ground (Backdrop.qml), in the hardware's colours (c0..c3) over bg.
 // variant: 0 Still · 1 Studio · 2 Light rays · 3 Mesh · 4 Iridescent · 5 Contours
-// (Sam's picks from the Glass Lab). Every variant gets light from the top left, a vignette,
-// the pointer's glow, the pulse ring and fine grain. dark: 1 night (light adds), 0 day (washes).
+// (Sam's picks from the Glass Lab). Every variant gets light from the top left and a vignette,
+// and bends around the pointer; playing sends a ripple. dark: 1 night (light adds), 0 day (washes).
 // Compile: /usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o backdrop.frag.qsb backdrop.frag
 #version 440
 layout(location = 0) in vec2 qt_TexCoord0;
@@ -38,8 +38,21 @@ float field(vec2 uv, vec4 p) { return clamp(1.0 - length((uv - p.xy) / max(p.zw,
 
 void main() {
     vec2 px = qt_TexCoord0;                       // screen position
-    vec2 uv = px + vec2(0.0, scroll * 0.12);      // the ground sits deeper: it scrolls slower
     float as = aspect;
+    vec2 sp = vec2(as, 1.0);
+    // It reacts (Sam: "not just a light behind the cursor"): the pattern swirls and swells
+    // around the pointer, which follows lazily so it stirs the colours as it moves; starting a
+    // game sends a ripple through it. The pattern is moved, never lit.
+    vec2 dp = (px - pointer.xy) * sp;
+    float k = pointer.z * exp(-dot(dp, dp) / 0.16);  // wide: it shows between the cartridges
+    float ang = 1.6 * k;
+    vec2 rot = vec2(cos(ang) * dp.x - sin(ang) * dp.y, sin(ang) * dp.x + cos(ang) * dp.y);
+    vec2 wp = pointer.xy + (rot * (1.0 - 0.35 * k)) / sp;
+    vec2 dq = (wp - pulse.xy) * sp;
+    float dpx = length(dq);
+    float ring = pulse.w * (1.0 - pulse.z) * exp(-pow((dpx - pulse.z * 0.9) / 0.07, 2.0));
+    wp -= ring * 0.05 * dq / max(dpx, 1e-3) / sp;
+    vec2 uv = wp + vec2(0.0, scroll * 0.12);      // the ground sits deeper: it scrolls slower
     vec2 q = uv * vec2(as, 1.0);
     float t = time;
     bool night = dark > 0.5;
@@ -91,15 +104,10 @@ void main() {
         else for (int i = 0; i < 4; i++) col = mix(col, C[i].rgb, clamp(C[i].a * field(uv, P[i]) * 2.0, 0.0, 0.9));
     }
 
-    // Light from the top left, a vignette, the pointer's glow, the pulse, grain.
+    // Light from the top left, a vignette; a fixed dither below one step (no visible grain:
+    // it only keeps the gradients from banding).
     col += (night ? 0.025 : 0.03) * (1.0 - smoothstep(0.0, 1.2, length(px - vec2(0.05, 0.0))));
     col *= 1.0 - (night ? 0.28 : 0.10) * smoothstep(0.45, 1.15, length((px - 0.5) * vec2(1.1, 1.3)));
-    vec2 sp = vec2(as, 1.0);
-    float glow = pointer.z * exp(-dot((px - pointer.xy) * sp, (px - pointer.xy) * sp) / 0.03);
-    float dpx = length((px - pulse.xy) * sp);
-    float ring = pulse.w * (1.0 - pulse.z) * exp(-pow((dpx - pulse.z * 0.9) / 0.06, 2.0));
-    if (night) col += mix(c0.rgb, c1.rgb, 0.5) * 0.10 * glow + accent.rgb * 0.28 * ring;
-    else col = mix(col, mix(vec3(1.0), accent.rgb, 0.35), clamp(0.25 * glow + 0.22 * ring, 0.0, 1.0));
-    col += (h1(gl_FragCoord.xy + fract(time) * 61.0) - 0.5) * (night ? 0.035 : 0.025);
+    col += (h1(gl_FragCoord.xy) - 0.5) / 255.0;
     fragColor = vec4(clamp(col, 0.0, 1.0), 1.0) * qt_Opacity;
 }
