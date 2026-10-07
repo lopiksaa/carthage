@@ -80,7 +80,7 @@ FocusScope {
             height: parent.height - 8
             radius: height / 2
             tint: Backend.theme.dark ? Qt.rgba(1, 1, 1, 0.14) : pill.g.tint  // lit, on dark glass too
-            sheen: Qt.alpha(pill.g.sheen, Math.min(1, pill.g.sheen.a * 2 + 0.06))
+            sheen: Qt.alpha(pill.g.sheen, Math.min(1, Qt.color(pill.g.sheen).a * 2 + 0.06))
             shadowY: 3
             shadowBlur: 8
             shadowSpread: -2
