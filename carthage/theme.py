@@ -340,7 +340,7 @@ GLASS = {
 GLASS_FIELDS = [(0.14, 0.34, 0.38, 0.46), (0.84, 0.22, 0.34, 0.44), (0.58, 0.96, 0.46, 0.50), (0.46, 0.52, 0.30, 0.36)]
 
 
-def glass_for(edition):
+def glass_for(edition, dark=None):
     """The glass tokens for a hardware edition. A colourful hardware tints the backdrop's
     fields toward its own colour, so the choice still shows through the glass."""
     import colorsys
@@ -348,13 +348,14 @@ def glass_for(edition):
     pal = EDITIONS[edition]
     base = pal["shellTop"].lstrip("#")[-6:]
     r, g, b = (int(base[i:i + 2], 16) for i in (0, 2, 4))
-    t = dict(GLASS["dark" if pal["isDark"] else "light"])
+    is_dark = pal["isDark"] if dark is None else dark
+    t = dict(GLASS["dark" if is_dark else "light"])
     _h, light, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
     if sat > 0.18 and 0.08 < light < 0.95:
         # A colourful hardware colours the whole look (neutrals keep the handoff's values): the
         # ground takes a third of it (darkened or lightened to stay a ground), the fields move
         # most of the way to it and glow a little more, and the glass takes a faint tint.
-        dark = pal["isDark"]
+        dark = is_dark
 
         def mix(c1, c2, k):
             return tuple(round(a + (b - a) * k) for a, b in zip(c1, c2))
@@ -446,8 +447,23 @@ class Theme(QObject):
 
     @Property(bool, notify=changed)
     def dark(self):
-        """Dark chrome (panels, menus) for this edition."""
+        """Dark chrome (panels, menus): the Dark / Light switch in glass, else the edition's."""
+        if self._look == "glass" and self._mode in ("dark", "light"):
+            return self._mode == "dark"
         return EDITIONS[self.edition]["isDark"]
+
+    _mode = ""  # "dark" / "light" (Settings → Appearance → Theme), "" = the hardware colour's
+
+    def _get_mode(self):
+        return self._mode
+
+    def _set_mode(self, value):
+        value = value if value in ("dark", "light") else ""
+        if value != self._mode:
+            self._mode = value
+            self.changed.emit()
+
+    mode = Property(str, _get_mode, _set_mode, notify=changed)
 
     @Slot(str, result=str)
     def customValue(self, color):
@@ -515,7 +531,7 @@ class Theme(QObject):
         if self._look != "glass":
             return pal
         # Glass: text over the panes and the backdrop comes from the glass tokens.
-        g = glass_for(self.edition)
+        g = glass_for(self.edition, self.dark)
         return {**pal, "trayText": g["text"], "trayTextDim": g["text2"],
                 "dockText": g["keyText"], "dockTextDim": g["keyDim"],
                 "panel": g["panelTint"], "panelText": g["text"], "panelTextDim": g["text2"],
@@ -548,7 +564,7 @@ class Theme(QObject):
 
     @Property("QVariantMap", notify=changed)
     def glass(self):
-        return glass_for(self.edition)
+        return glass_for(self.edition, self.dark)
 
     @Property("QVariantMap", notify=changed)
     def accent(self):

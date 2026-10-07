@@ -351,14 +351,14 @@ def _qcolor(argb):
     return c
 
 
-def render_glass_well(w, h, edition):
+def render_glass_well(w, h, edition, dark=None):
     """A well in the glass look: a raised glass card (design handoff): fill, a sheen at 160°,
     a lit top edge, a 1-px ring and a soft shadow below. w, h include GLASS_WELL_MARGIN."""
     import numpy as np
 
     from .theme import glass_for
 
-    g = glass_for(edition)
+    g = glass_for(edition, dark)
     m = GLASS_WELL_MARGIN
     ww = w / (1 + 2 * m)            # the well itself
     hh = h - 2 * m * ww
@@ -789,8 +789,9 @@ class ImageProvider(QQuickImageProvider):
             return render_shadow(w, h, parts[1])
         if kind == "recess":
             return render_recess(w, h, parts[1])
-        if kind == "glasswell":  # glasswell/<edition>: includes GLASS_WELL_MARGIN on each side
-            return render_glass_well(w, h, parts[1])
+        if kind == "glasswell":  # glasswell/<edition>[/dark|light]: includes GLASS_WELL_MARGIN on each side
+            mode = parts[2] if len(parts) > 2 else ""
+            return render_glass_well(w, h, parts[1], None if mode not in ("dark", "light") else mode == "dark")
         if kind == "header":  # header/<source>/<edition>  or  header/<mode>/<source>/<edition>/<gameId>
             if len(parts) >= 5:
                 mode, source, edition, gid = parts[1], parts[2], parts[3], "/".join(parts[4:])

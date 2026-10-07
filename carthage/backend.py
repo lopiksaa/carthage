@@ -85,6 +85,7 @@ class Backend(QObject):
 
         def apply_texture():
             self._theme.look = st.get("look")
+            self._theme.mode = st.get("themeMode")
 
         apply_texture()
         st.changed.connect(apply_texture)

@@ -115,7 +115,7 @@ Item {
             y: -m
             width: parent.width + 2 * m
             height: parent.height + 2 * m
-            source: visible ? "image://gc/glasswell/" + Backend.theme.edition : ""
+            source: visible ? "image://gc/glasswell/" + Backend.theme.edition + "/" + (Backend.theme.dark ? "dark" : "light") : ""
             sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
             asynchronous: true
         }

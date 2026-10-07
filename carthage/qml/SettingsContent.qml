@@ -280,6 +280,14 @@ Column {
                 }
                 Choice {
                     visible: Backend.theme.glassy
+                    label: "Theme"
+                    key: "themeMode"
+                    choices: ["dark", "light"]
+                    names: ({ dark: "Dark", light: "Light" })
+                    current: Backend.theme.dark ? "dark" : "light"
+                }
+                Choice {
+                    visible: Backend.theme.glassy
                     label: "Background"
                     key: "background"
                     choices: ["drift", "aurora", "silk", "lava", "still"]
