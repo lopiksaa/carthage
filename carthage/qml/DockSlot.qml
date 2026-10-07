@@ -68,11 +68,12 @@ Item {
     function seatIn() {
         if (motion <= 0) {
             seated = true
-            dockItem.clicked()
+            appRoot.sound("insert")
             return
         }
         seatAnim.target_ = visibleTarget
         seated = true
+        appRoot.sound("insert")  // (Sam: the eject sound, a little quicker, fits going in)
         seatAnim.restart()
     }
     SequentialAnimation {
@@ -88,7 +89,7 @@ Item {
             }
         }
         NumberAnimation { target: slot; property: "shown"; to: seatAnim.target_ - 2; duration: 50 * slot.motion; easing.type: Easing.InQuad }
-        ScriptAction { script: { slot.dockItem.clicked(); slot.dockItem.nudgeShell() } }
+        ScriptAction { script: slot.dockItem.nudgeShell() }  // (the insert sound already played)
         NumberAnimation { target: slot; property: "shown"; to: seatAnim.target_; duration: 140 * slot.motion; easing.type: Easing.OutBack }
     }
     function seatInstant() {

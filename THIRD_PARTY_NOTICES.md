@@ -45,8 +45,8 @@ The normal maps are from Plastic004, Plastic012A, Plastic014A and Plastic017A by
 ## Sounds (`carthage/assets/sounds`)
 
 The recording `release.wav` is trimmed from "51 UI sound effects" by
-[Kenney](https://www.kenney.nl), under CC0 1.0. `tools/make_sounds.py` generates all the other
-sounds.
+[Kenney](https://www.kenney.nl), under CC0 1.0; `insert.wav` is the same recording sped up
+(`tools/make_insert_sound.py`). `tools/make_sounds.py` generates all the other sounds.
 
 ## Launcher and store logos (`carthage/assets/logos`)
 
