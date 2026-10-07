@@ -54,10 +54,13 @@ Item {
     // When the card is tilted, rotated or scaled, draw it flat into a texture first and
     // transform that: edges stay smooth instead of stair-stepping (no MSAA needed).
     property bool smoothTransform: false
+    // At exactly the card's own pixel size: drawn untransformed, the texture is pixel for pixel
+    // what the card looks like without it, so switching it on or off at the start and end of a
+    // hover doesn't make the printed label jump (at 1.5× with mipmaps it did, and the letters
+    // shimmered while tilting).
     layer.enabled: smoothTransform
     layer.smooth: true
-    layer.mipmap: true
-    layer.textureSize: Qt.size(Math.ceil(width * dpr * 1.5), Math.ceil(height * dpr * 1.5))
+    layer.textureSize: Qt.size(Math.round(width * dpr), Math.round(height * dpr))
 
     function rect(a) {
         return Qt.rect(a[0] * u, a[1] * u, a[2] * u, a[3] * u)

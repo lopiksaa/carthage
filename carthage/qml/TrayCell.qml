@@ -210,7 +210,9 @@ Item {
         gameId: cell.gameId
         title: cell.title
         source: cell.source
-        smoothTransform: cell.lift > 0.001 || cell.pressScale !== 1
+        // (until the tilt has settled too: it springs back after the lift is gone, and text
+        // drawn directly under a slight tilt slants letter by letter)
+        smoothTransform: cell.lift > 0.001 || cell.pressScale !== 1 || Math.abs(cell.tiltX) > 0.02 || Math.abs(cell.tiltY) > 0.02
         sourceName: cell.sourceName
         sourceIcon: cell.sourceIcon
         code: cell.code
