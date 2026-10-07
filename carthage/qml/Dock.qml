@@ -42,6 +42,9 @@ Item {
     readonly property int filled: Backend.sessions.count
     readonly property int bays: Math.max(1, filled)
     height: shellH
+    // The whole dock takes the pointer: hovering its middle mustn't hover (and click) the
+    // cartridges behind it.
+    HoverHandler { blocking: true }
 
     // The selected cartridge: the keys and the status follow it.
     property string selectedId: ""
@@ -280,7 +283,8 @@ Item {
         visible: dock.glassy
         x: statusWing.x - 10
         y: Math.round((dock.shellH - 46) / 2)
-        width: Math.min(dock.leftW, 28 + Math.max(line1.implicitWidth, line2.visible ? line2.implicitWidth : 0)) + 56
+        // It ends before the slot (running under it, it was cut off in a hard edge there).
+        width: Math.min(dock.leftW + 10, 28 + Math.max(line1.implicitWidth, line2.visible ? line2.implicitWidth : 0) + 56)
         height: 46
         // Full strength under the words, fading out to the right; blurred so it has no edge —
         // a shadow under the words, not a box.
@@ -293,7 +297,7 @@ Item {
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: plateShape.c }
-                GradientStop { position: 0.72; color: plateShape.c }
+                GradientStop { position: Math.max(0.5, 1 - 44 / Math.max(1, textPlate.width)); color: plateShape.c }
                 GradientStop { position: 1.0; color: Qt.alpha(plateShape.c, 0) }
             }
         }
