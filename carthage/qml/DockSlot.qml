@@ -37,8 +37,7 @@ Item {
     // How much of the cartridge shows above the slot line (Spec §5 "Visible above slot").
     property bool seated: false
     property real lift: 0                 // extra rise while ejecting
-    readonly property real visibleTarget: state_ === "starting" ? 62
-                                        : state_ === "closing" ? 52
+    readonly property real visibleTarget: state_ === "closing" ? 52
                                         : several ? (selected ? 46 : 34) : 40
     // A flight lands with the whole cartridge above the slot line; seating slides it in.
     property real shown: cartH

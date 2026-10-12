@@ -1,13 +1,10 @@
-"""The Steam store, read-only, through the public endpoints the Steam website itself uses:
+"""Steam store data and Epic search/free games, read-only, through public storefront endpoints:
 
-  featuredcategories   specials / top sellers / new releases / coming soon
-  featured             the banner: Steam's spotlight and popular new releases
-  storesearch          search by name
-  appdetails           one game's page (description, price, screenshots…)
+    Steam: featuredcategories, featured shelves, storesearch, appdetails
+    Epic:  catalog search, free games, product details
 
-No account, no key, no purchases: buying and wishlisting happen in the Steam client
-(steam://store/<id>). Region and currency come from Steam's own detection (no cc= sent).
-Requests are cached (memory + ~/.cache/carthage/store) and run in worker threads.
+No store account or purchase is required in Carthage; checkout opens in each storefront. Region
+and currency are determined by the storefront APIs. Requests are cached and run in worker threads.
 """
 
 import json
@@ -18,6 +15,10 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+# At import time, on the main thread: importing it from several worker threads at once
+# returned a half-made placeholder on Python 3.15 ("'lazy_import' object is not callable").
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
@@ -113,6 +114,46 @@ def _money(cents, currency):
     return f"{value}{sym}" if currency == "EUR" else f"{sym}{value}"
 
 
+def _filter_epic_search(items, max_price="", sale=False):
+    """Apply the search filters Epic's name-search endpoint doesn't accept."""
+    filtered = []
+    for item in items:
+        if sale and not item.get("discount"):
+            continue
+        filtered.append(item)
+    return _filter_store_price(filtered, max_price)
+
+
+def _filter_store_price(items, max_price=""):
+    if not max_price:
+        return items
+    def cents(item):
+        offers = item.get("offers") or [{}]
+        return item.get("cents", offers[0].get("cents", 1 << 30))
+    if max_price == "free":
+        return [item for item in items if cents(item) == 0]
+    limit = int(max_price) * 100
+    return [item for item in items if cents(item) < limit]
+
+
+def _epic_search(fetch_json, term, cc, money):
+    """Return Epic search results and whether the request failed."""
+    try:
+        return shops.epic_search(fetch_json, term, cc, money), False
+    except FETCH_ERRORS:
+        return [], True
+
+
+def _store_search_status(steam_failed, epic_failed):
+    if steam_failed and epic_failed:
+        return True, ""
+    if steam_failed:
+        return False, "Steam search is unavailable; showing Epic results only."
+    if epic_failed:
+        return False, "Epic search is unavailable; showing Steam results only."
+    return False, ""
+
+
 def _art_urls(appid, sample_url=""):
     """Tall capsule + header URLs. Newer games keep assets under a hashed folder, so derive
     both from any asset URL the API gave us (same folder), else use the plain pattern."""
@@ -121,6 +162,21 @@ def _art_urls(appid, sample_url=""):
         base = m.group(1)
         return base + "library_600x900_2x.jpg", base + "header.jpg"
     return CDN.format(id=appid, name="library_600x900_2x.jpg"), CDN.format(id=appid, name="header.jpg")
+
+
+def _steam_price(option, is_free, release):
+    coming_soon = bool(release.get("is_coming_soon"))
+    if coming_soon:
+        cents = option.get("final_price_in_cents") if option else (0 if is_free else None)
+        return {"price": _release_text(release),
+                "cents": int(cents) if cents is not None else 1 << 30, "comingSoon": True}
+    if is_free:
+        return {"price": "Free", "cents": 0, "comingSoon": False}
+    if option:
+        cents = option.get("final_price_in_cents")
+        return {"price": option.get("formatted_final_price") or "",
+                "cents": int(cents) if cents is not None else 1 << 30, "comingSoon": False}
+    return {"price": "", "cents": 1 << 30, "comingSoon": False}
 
 
 def _item(appid, name, final=None, original=None, discount=0, currency="EUR", free=False, sample=""):
@@ -169,20 +225,20 @@ def _batch(appids):
             assets = it.get("assets") or {}
             rel = it.get("release") or {}
             b = it.get("best_purchase_option") or {}
-            price = b.get("formatted_final_price") or ("Free" if it.get("is_free") or not b else "")
+            price = _steam_price(b, bool(it.get("is_free")), rel)
             tags = {t.get("tagid") for t in it.get("tags") or []}
             out[it["appid"]] = {
                 "appid": it["appid"],
                 "name": it["name"],
-                "price": price,
+                "price": price["price"],
                 "original": b.get("formatted_original_price") or "" if b.get("discount_pct") else "",
                 "discount": int(b.get("discount_pct") or 0),
-                "cents": int(b.get("final_price_in_cents") or 0) if b else 0,
+                "cents": price["cents"],
                 "capsule": _asset_url(assets, "library_capsule", "library_capsule_2x"),
                 "capsuleLarge": _asset_url(assets, "library_capsule_2x", "library_capsule"),
                 "header": _asset_url(assets, "header_2x", "header"),
                 "hero": _asset_url(assets, "library_hero_2x", "library_hero", "hero_capsule_2x", "hero_capsule"),
-                "comingSoon": bool(rel.get("is_coming_soon")),
+                "comingSoon": price["comingSoon"],
                 "releaseText": _release_text(rel),
                 "adult": bool(ADULT_DESCRIPTORS & set(it.get("content_descriptorids") or []))
                          or len(ADULT_TAGS & tags) >= 2,
@@ -263,8 +319,6 @@ def _strip_html(html):
 def _in_parallel(fn, items, workers=6):
     """fn over items on a few threads. [] when Carthage is quitting meanwhile (no new threads
     can start then; that's not an error worth a traceback)."""
-    from concurrent.futures import ThreadPoolExecutor
-
     try:
         with ThreadPoolExecutor(workers) as pool:
             return list(pool.map(fn, items))
@@ -297,9 +351,11 @@ def _about_without(about, short):
 class Store(QObject):
     featuredReady = Signal("QVariantList")  # [{key, title, items: [...]}]
     searchReady = Signal(str, "QVariantList")
+    searchWarning = Signal(str, str)  # term, partial-result warning
     # A search or category that couldn't load: shown in its own grid, not as the store-wide
     # error.
     searchFailed = Signal(str)
+    browseWarning = Signal(str, str)  # request key, partial-result warning
     categoryFailed = Signal(int)
     detailsReady = Signal(int, "QVariantMap")
     failed = Signal(str)
@@ -315,6 +371,10 @@ class Store(QObject):
         self._fetching = {}
         CACHE.mkdir(parents=True, exist_ok=True)
         self._cat_art = self._load_category_art()
+        # Category art found by a worker is remembered on the UI thread (categoryArt reads the
+        # same dict there).
+        self._categoryArtFound.connect(self._remember_category_art)
+        self._categoryArtDone.connect(self._category_art_done)
         from .itad import Itad
 
         self._itad = Itad(CACHE, _money)  # used while "Other stores" is on (and there's a key)
@@ -550,6 +610,8 @@ class Store(QObject):
 
     categoryReady = Signal(int, "QVariantList")  # tag, items
     categoryArtChanged = Signal()
+    _categoryArtFound = Signal(int, "QVariantList")  # worker → UI thread: tag, items
+    _categoryArtDone = Signal(bool)  # worker → UI thread: every category was looked at
 
     def _load_category_art(self):
         try:
@@ -592,21 +654,28 @@ class Store(QObject):
         self._art_job = True
 
         def work():
+            complete = False
             try:
                 for tag in todo:
                     items = self._category_items(tag, count=12)
                     if items:
-                        self._remember_category_art(tag, items)
+                        self._categoryArtFound.emit(tag, items)
                     time.sleep(0.3)  # be gentle with Steam
-                self._cat_art["_t"] = time.time()
-                try:
-                    (CACHE / "category_art.json").write_text(json.dumps(self._cat_art), encoding="utf-8")
-                except OSError:
-                    pass
-            finally:
-                self._art_job = False
+                complete = True
+            except RuntimeError:  # Carthage closed while this ran: nothing left to tell
+                return
+            self._categoryArtDone.emit(complete)
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _category_art_done(self, complete):
+        self._art_job = False
+        if complete:
+            self._cat_art["_t"] = time.time()
+            try:
+                (CACHE / "category_art.json").write_text(json.dumps(self._cat_art), encoding="utf-8")
+            except OSError:
+                pass
 
     def _category_items(self, tag, count=CATEGORY_SIZE):
         try:
@@ -675,28 +744,41 @@ class Store(QObject):
 
         def work():
             items = []
+            steam_failed = False
             if only in ("all", "steam"):
                 got = self._steam_query(term, tags, bool(req.get("sale")), req.get("maxPrice") or "", req.get("sort") or "top",
                                         untags=untags, page=page)
                 if got is None:
+                    steam_failed = True
+                    if only == "steam":
+                        self.browseFailed.emit(key)
+                        return
+                else:
+                    items = _filter_store_price(got, req.get("maxPrice") or "")
+            if term and only in ("all", "epic") and not tags and not untags and page == 1:
+                epic, epic_failed = _epic_search(_fetch_json, term, country(), _money)
+                if epic_failed and only == "epic":
                     self.browseFailed.emit(key)
                     return
-                items = got
-            if term and only in ("all", "epic") and not tags and not untags and page == 1:
-                try:
-                    epic = shops.epic_search(_fetch_json, term, country(), _money)
-                except FETCH_ERRORS:
-                    epic = []
+                both_failed, warning = _store_search_status(steam_failed, epic_failed)
+                if both_failed:
+                    self.browseFailed.emit(key)
+                    return
                 seen = {shops.norm_title(i["name"]) for i in items}
+                epic_items = []
                 for el in epic:
                     it = shops.epic_item(el, _money)
                     if shops.norm_title(it["name"]) in seen:
                         continue
-                    if req.get("sale") and not it["discount"]:
-                        continue
-                    if req.get("maxPrice") == "free" and it["price"] != "Free":
-                        continue
-                    items.append(it)
+                    epic_items.append(it)
+                items.extend(_filter_epic_search(epic_items, req.get("maxPrice") or "", bool(req.get("sale"))))
+                if warning:
+                    self.browseWarning.emit(key, warning)
+                if req.get("sort") == "price":
+                    items.sort(key=lambda it: it.get("cents", (it.get("offers") or [{}])[0].get("cents", 1 << 30)))
+            elif steam_failed:
+                self.browseFailed.emit(key)
+                return
             self.browseReady.emit(key, self._shown(items))
 
         threading.Thread(target=work, daemon=True).start()
@@ -786,7 +868,7 @@ class Store(QObject):
                 self.categoryFailed.emit(tag)
                 return
             self.categoryReady.emit(tag, self._shown(items))
-            self._remember_category_art(tag, items)
+            self._categoryArtFound.emit(tag, items)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -798,11 +880,12 @@ class Store(QObject):
             if len(term) < 2:
                 self.searchReady.emit(term, [])
                 return
+            steam_failed = False
             try:
                 d = _get("storesearch/", {"term": term})
             except FETCH_ERRORS:
-                self.searchFailed.emit(term)
-                return
+                d = {}
+                steam_failed = True
             items = []
             for it in d.get("items", []):
                 if it.get("type") != "app" or HARDWARE.match(it.get("name", "")) or NOT_A_GAME.search(it.get("name", "")):
@@ -812,10 +895,13 @@ class Store(QObject):
                                    round(100 - 100 * p["final"] / p["initial"]) if p.get("initial") else 0,
                                    p.get("currency", "EUR"), free=not p, sample=it.get("tiny_image", "")))
             items = _with_art(items)
-            try:
-                epic = shops.epic_search(_fetch_json, term, country(), _money)
-            except FETCH_ERRORS:
-                epic = []
+            epic, epic_failed = _epic_search(_fetch_json, term, country(), _money)
+            both_failed, warning = _store_search_status(steam_failed, epic_failed)
+            if both_failed:
+                self.searchFailed.emit(term)
+                return
+            if warning:
+                self.searchWarning.emit(term, warning)
             on_steam = {shops.norm_title(i["name"]) for i in items}
             for el in epic:
                 t = shops.norm_title(el.get("title"))

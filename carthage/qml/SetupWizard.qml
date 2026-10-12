@@ -115,7 +115,7 @@ CDialog {
             }
             Body_ {
                 visible: wiz.steamStep
-                text: "A free Steam key shows every Steam game you own. It's optional — skip it and add it later in Settings → Accounts & Keys."
+                text: "A Steam key is optional. Add it here or later in Settings → Accounts & Keys."
             }
         }
 
@@ -124,7 +124,7 @@ CDialog {
             width: parent.width
             spacing: Ui.gapM
             Title_ { text: "Steam library access" }
-            Body_ { text: "Carthage will show you all the games already installed on your PC. To access your full library and your play time, Carthage needs your Steam API key. If you want, you can set it up later from Settings → Accounts & Keys." }
+            Body_ { text: "Installed and previously played games are read from Steam on this PC. A key adds Steam-owned games not found in those local files." }
             KeyRow {
                 width: parent.width
                 service: "steam"
@@ -136,8 +136,8 @@ CDialog {
         Body_ {
             visible: wiz.stepKey !== ""
             font.pixelSize: Ui.textCaption
-            text: "The key stays in " + (Qt.platform.os === "windows" ? "Windows Credential Manager" : "your system keyring")
-                  + " and is only sent to Steam (api.steampowered.com)."
+            text: "Saved in " + (Qt.platform.os === "windows" ? "Windows Credential Manager" : "your system keyring")
+                + "; used with Steam to fetch your library."
         }
 
         Column {

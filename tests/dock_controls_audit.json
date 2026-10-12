@@ -1,0 +1,6 @@
+[
+  {"at": 800, "do": "launchId", "id": "fake0"},
+  {"at": 3500, "do": "clickText", "text": "Quit"},
+  {"at": 4200, "do": "state2", "label": "dock-quit-control"},
+  {"at": 4700, "do": "exit"}
+]

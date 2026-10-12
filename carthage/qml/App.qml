@@ -770,17 +770,20 @@ Item {
             Sidebar {
                 id: sidebar
                 drawer: true
+                onRight: true
                 enabled: !app.modalOpen && app.sidebarOpen
                 anchors.top: header.bottom
                 anchors.bottom: parent.bottom
-                x: app.sidebarOpen ? 0 : -width - 16
-                visible: x > -width - 16
+                // From the right edge.
+                readonly property real hiddenX: parent.width + 16
+                x: app.sidebarOpen ? parent.width - width : hiddenX
+                visible: x < hiddenX
                 // In with ease-out; out a little faster with ease-in. (From where it's heading:
                 // the open flag isn't settled yet when the move starts.)
                 Behavior on x {
                     id: sidebarSlide
                     NumberAnimation {
-                        readonly property bool leaving: sidebarSlide.targetValue < 0
+                        readonly property bool leaving: sidebarSlide.targetValue >= sidebar.hiddenX
                         duration: (leaving ? Ui.motionMedium : Ui.motionSlow - 60) * app.motion
                         easing.type: leaving ? Easing.InCubic : Easing.OutCubic
                     }
@@ -1064,6 +1067,39 @@ Item {
                     }
                 }
 
+                // Back to top: over the library, top middle, once it's scrolled a screen down; frosted
+                // like the dock on glass.
+                Item {
+                    id: topButton
+                    readonly property bool shown: app.libraryGrid && tray.scrolledAway
+                    readonly property point at: tray.width + tray.height + app.width >= 0
+                        ? tray.mapToItem(parent, (tray.width - width) / 2, 12) : Qt.point(0, 0)
+                    x: at.x
+                    y: at.y + (shown ? 0 : -12)
+                    z: 5
+                    width: topBtn.width
+                    height: topBtn.height
+                    opacity: shown ? 1 : 0
+                    visible: opacity > 0.01
+                    Behavior on opacity { NumberAnimation { duration: 160 * app.motion } }
+                    Behavior on y { NumberAnimation { duration: 160 * app.motion; easing.type: Easing.OutCubic } }
+                    GlassPane {
+                        visible: Backend.theme.glassy
+                        width: parent.width
+                        height: parent.height
+                        behind: Backend.theme.glassy && topButton.visible ? Ui.glassLayers : []
+                        radius: Ui.radiusMedium
+                        blurPx: 22
+                        track: Qt.point(topButton.x, topButton.y)
+                    }
+                    CButton {
+                        id: topBtn
+                        text: "Back to top"
+                        icon.name: "go-up-symbolic"
+                        onClicked: { tray.backToTop(); app.sound("key") }
+                    }
+                }
+
                 Dock {
                     id: dock
                     appRoot: app
@@ -1312,7 +1348,7 @@ Item {
     Sounds { id: sounds }
 
     // Feedback: after 40 minutes of use (counted while the window is active, across runs),
-    // a toast asks once. Menu → System → Send Feedback is always there.
+    // a toast asks once. Settings → System → Send Feedback is always there.
     FeedbackPrompt {
         id: feedbackPrompt
         appRoot: app
@@ -1374,6 +1410,43 @@ Item {
         sequence: "F6"
         enabled: !inspect.open
         onActivated: tray.activeFocus ? dock.focusFirst() : tray.forceActiveFocus()
+    }
+
+    // Settings → Appearance → Adjust Card Size: the library, with − and + in a bar at the bottom;
+    // Done goes back to Settings. Leaving the library some other way puts the bar away.
+    property bool sizingCards: false
+    function adjustCardSize() {
+        navigate("library:all")
+        sizingCards = true
+    }
+    onPageChanged: if (page !== "library:all") sizingCards = false
+    Item {
+        id: sizeBar
+        z: 950
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: parent.height - 130 - height + (app.sizingCards ? 0 : 24)
+        width: sizeRow.implicitWidth + 2 * Ui.gapL
+        height: 64
+        opacity: app.sizingCards ? 1 : 0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 180 * app.motion; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 220 * app.motion; easing.type: Easing.OutCubic } }
+        Accessible.role: Accessible.Dialog
+        Accessible.name: "Card size"
+        PanelBackground { anchors.fill: parent; radius: Ui.radiusMedium; shadowOffset: 6; shadowBlur: 20 }
+        MouseArea { anchors.fill: parent }  // (clicks on the bar stay on it)
+        Row {
+            id: sizeRow
+            anchors.centerIn: parent
+            spacing: Ui.gapL
+            CardSizer { anchors.verticalCenter: parent.verticalCenter; onStepped: app.sound("key") }
+            CButton {
+                anchors.verticalCenter: parent.verticalCenter
+                kind: "primary"
+                text: "Done"
+                onClicked: { app.sizingCards = false; app.navigate("settings") }
+            }
+        }
     }
 
     readonly property bool powered: powerOn.powered

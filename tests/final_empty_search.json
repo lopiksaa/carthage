@@ -1,0 +1,6 @@
+[
+  {"at": 900, "do": "navigate", "page": "search"},
+  {"at": 1200, "do": "searchPage", "text": "zzzz-no-match-2026", "store": "steam"},
+  {"at": 6500, "shot": "/tmp/carthage-audit-final-empty-search.png"},
+  {"at": 6900, "do": "exit"}
+]

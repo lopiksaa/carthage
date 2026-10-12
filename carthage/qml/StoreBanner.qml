@@ -28,7 +28,14 @@ Item {
     }
     NumberAnimation { id: fade; target: shot; property: "opacity"; from: 0.25; to: 1; duration: 420 * Backend.motion; easing.type: Easing.OutCubic }
 
+    // The frame: a glass pane on glass (like the header and keys), plastic on plastic.
+    GlassSurface {
+        visible: Backend.theme.glassy
+        anchors.fill: parent
+        radius: Ui.radiusLarge
+    }
     Rectangle {
+        visible: !Backend.theme.glassy
         anchors.fill: parent
         radius: Ui.radiusLarge
         gradient: Gradient {

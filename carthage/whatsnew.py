@@ -24,7 +24,7 @@ NOTES = {
         {"kind": "new", "icon": "view-grid", "title": "Store layout",
          "text": "Store shelves can show games in one row that scrolls sideways or everything vertically (Settings → Store). Pushed On Sale on top; categories are at the bottom."},
         {"kind": "new", "icon": "dialog-messages", "title": "Send Feedback",
-         "text": "Menu → System → Send Feedback opens a short feedback form."},
+         "text": "Settings → System → Send Feedback opens a short feedback form."},
     ],
     "0.3.6": [
         {"kind": "fixed", "text": "Hardware colors show in Settings → Look & Feel again, if you had tried the Hi-Fi look."},

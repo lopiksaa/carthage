@@ -45,6 +45,11 @@ Item {
     // The whole dock takes the pointer: hovering its middle mustn't hover (and click) the
     // cartridges behind it.
     HoverHandler { blocking: true }
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        onWheel: (wheel) => wheel.accepted = false
+    }
 
     // The selected cartridge: the keys and the status follow it.
     property string selectedId: ""

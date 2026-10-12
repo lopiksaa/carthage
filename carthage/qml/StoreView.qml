@@ -18,8 +18,10 @@ Item {
     readonly property bool searching: query.trim().length >= 2
     readonly property bool gridMode: searching || category !== null
     property string gridState: "ready"
+    property string gridWarning: ""
     function search() {
         gridState = "loading"
+        gridWarning = ""
         Backend.store.search(view.query)
     }
     function reloadCategory() {
@@ -72,7 +74,10 @@ Item {
             && (filterGenre === 0 || (it.tags || []).indexOf(filterGenre) >= 0)
     }
     function filtered(list) { return filtering ? (list || []).filter(passes) : (list || []) }
-    onFilterStoreChanged: rebuildShelves()
+    onFilterStoreChanged: {
+        if (filterStore === "epic") filterGenre = 0
+        rebuildShelves()
+    }
     onFilterGenreChanged: rebuildShelves()
     function rebuildShelves() {
         shelfModel = sections.slice(0, 1)
@@ -112,6 +117,7 @@ Item {
         if (searching) search()
     }
     onQueryChanged: {
+        gridWarning = ""
         searchDelay.restart()
         // From query itself: the searching binding may not have updated yet.
         if (query.trim().length >= 2) gridState = "loading"
@@ -146,6 +152,9 @@ Item {
         }
         function onSearchFailed(term) {
             if (term === view.query.trim()) view.gridState = "error"
+        }
+        function onSearchWarning(term, message) {
+            if (term === view.query.trim()) view.gridWarning = message
         }
         function onBrowseReady(key, list) {
             if (!key.startsWith("because:")) return
@@ -200,9 +209,10 @@ Item {
             CDropdown {
                 anchors.verticalCenter: parent.verticalCenter
                 kind: "key"
-                label: "Genre"
+                label: "Steam genre"
                 chipColumns: 3
                 value: view.filterGenre
+                enabled: view.filterStore !== "epic"
                 options: [{ value: 0, text: "All" }].concat(Backend.store.categories.map(c => ({ value: c.tag, text: c.name })))
                 onPicked: (v) => view.filterGenre = v
             }
@@ -293,6 +303,7 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         QQC2.ScrollBar.vertical: CScrollBar {}
         WheelAccel { flickable: shelves; step: 110 }
+        AutoScroll { flickable: shelves }
 
         delegate: Column {
             id: shelf
@@ -389,6 +400,7 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         QQC2.ScrollBar.vertical: CScrollBar {}
         WheelAccel { flickable: browseGrid; step: 110 }
+        AutoScroll { flickable: browseGrid }
         header: Row {
             visible: view.showBar  // the sidebar concept has its own title and no "back"
             height: visible ? 60 : 0
@@ -431,11 +443,22 @@ Item {
         clip: true
         model: view.filtered(view.query.trim().length >= 2 ? view.results : view.categoryItems)
         header: Column {
-            visible: view.category !== null && view.query.trim().length < 2
+            visible: view.gridWarning !== "" || (view.category !== null && view.query.trim().length < 2)
             width: resultsGrid.width - 48
             height: visible ? implicitHeight + 10 : 0
             spacing: Ui.gapM
+            Text {
+                id: warningText
+                visible: view.gridWarning !== ""
+                width: parent.width
+                text: view.gridWarning
+                color: view.pal.trayTextDim
+                font.family: Ui.fontText
+                font.pixelSize: Ui.textCaption
+                wrapMode: Text.Wrap
+            }
             Row {
+                visible: view.category !== null && view.query.trim().length < 2
                 spacing: Ui.gapL
                 CButton {
                     anchors.verticalCenter: parent.verticalCenter
@@ -462,6 +485,7 @@ Item {
         cellHeight: view.cardW * Backend.theme.ratio + 90
         QQC2.ScrollBar.vertical: CScrollBar {}
         WheelAccel { flickable: resultsGrid; step: resultsGrid.cellHeight * 0.34 }
+        AutoScroll { flickable: resultsGrid }
         delegate: Item {
             required property var modelData
             width: resultsGrid.cellWidth
@@ -483,7 +507,9 @@ Item {
             iconName: view.gridState === "error" ? "network-disconnect"
                     : view.gridState === "loading" ? "view-refresh" : "search"
             readonly property string categoryName: view.category ? view.category.name : ""
-            text: view.gridState === "error" ? "Couldn't reach the Steam store. Check your connection."
+            text: view.gridState === "error"
+                ? (view.searching ? "Couldn't reach Steam or Epic Games Store. Check your connection."
+                                   : "Couldn't reach Steam. Check your connection.")
                 : view.gridState === "loading" ? (view.searching ? "Searching the store…" : "Loading " + categoryName + "…")
                 : view.searching ? "Nothing in the store matches “" + view.query.trim() + "”"
                 : "Nothing in " + categoryName + " right now"
@@ -507,7 +533,7 @@ Item {
         width: parent.width - 80
         visible: !view.gridMode && !view.browsing && view.state_ !== "ready"
         iconName: view.state_ === "error" ? "network-disconnect" : "view-refresh"
-        text: view.state_ === "error" ? view.error : "Opening the Steam store…"
+        text: view.state_ === "error" ? view.error : "Loading store…"
         actionText: view.state_ === "error" ? "Try Again" : ""
         onAction: view.load()
     }

@@ -23,8 +23,10 @@ Flickable {
     property string sort: "top"   // top | new | rated | price
     property var results: []
     property string state_: "ready" // loading | ready | error
+    property string warning: ""
     property int requestId: 0
     readonly property string term: text.trim()
+    readonly property bool epicNeedsTerm: store === "epic" && term.length < 2
     readonly property bool hasFilters: genres.length > 0 || exGenres.length > 0 || price !== "" || sale || sort !== "top"
     readonly property bool libraryShown: (term.length >= 2 || genres.length > 0) && store === "all"
 
@@ -42,13 +44,34 @@ Flickable {
         }
     }
     function clear() {
-        text = ""; genres = []; exGenres = []; price = ""; sale = false; store = "all"; sort = "top"
+        text = ""
+        clearFilters()
+    }
+    function clearFilters() {
+        genres = []; exGenres = []; price = ""; sale = false; store = "all"; sort = "top"
+    }
+    function scheduleRefresh() {
+        started = true
+        state_ = "loading"
+        results = []
+        lastBatch = 0
+        appending = false
+        warning = ""
+        delay.restart()
+    }
+    onStoreChanged: {
+        if (store === "epic") {
+            genres = []
+            exGenres = []
+            if (sort === "new" || sort === "rated") sort = "top"
+        }
+        scheduleRefresh()
     }
     // Load more: the next page of the same search, added below.
     property int pageNo: 1
     property int lastBatch: 0
     property bool appending: false
-    readonly property bool canLoadMore: state_ === "ready" && lastBatch >= 10 && !(store === "epic" && term.length < 2)
+    readonly property bool canLoadMore: state_ === "ready" && lastBatch >= 10 && store !== "epic"
     function loadMore() {
         pageNo++
         requestId++
@@ -76,22 +99,24 @@ Flickable {
         pageNo = 1
         appending = false
         state_ = "loading"
-        if (store === "epic" && term.length < 2) {
+        warning = ""
+        results = []
+        lastBatch = 0
+        if (epicNeedsTerm) {
             results = []
             state_ = "ready"
             return
         }
-        if (term.length >= 2 && !hasFilters) Backend.store.search(term)  // the best title matches
+        if (term.length >= 2 && !hasFilters && store === "all") Backend.store.search(term)
         else Backend.store.browse("search" + requestId, {
             term: term, tags: genres, untags: exGenres, sale: sale, maxPrice: price, sort: sort, store: store })
     }
-    onTermChanged: { started = true; delay.restart() }
-    onGenresChanged: delay.restart()
-    onExGenresChanged: delay.restart()
-    onPriceChanged: delay.restart()
-    onSaleChanged: delay.restart()
-    onStoreChanged: delay.restart()
-    onSortChanged: delay.restart()
+    onTermChanged: scheduleRefresh()
+    onGenresChanged: scheduleRefresh()
+    onExGenresChanged: scheduleRefresh()
+    onPriceChanged: scheduleRefresh()
+    onSaleChanged: scheduleRefresh()
+    onSortChanged: scheduleRefresh()
     Timer { id: delay; interval: 380; onTriggered: page.refresh() }
     // The first results load when the page is first shown, not at startup.
     property bool started: false
@@ -105,11 +130,17 @@ Flickable {
         function onBrowseFailed(key) {
             if (key === "search" + page.requestId) page.state_ = "error"
         }
+        function onBrowseWarning(key, message) {
+            if (key === "search" + page.requestId) page.warning = message
+        }
         function onSearchReady(t, list) {
-            if (t === page.term && !page.hasFilters && !page.appending) page.take(list)
+            if (t === page.term && page.store === "all" && !page.hasFilters && !page.appending) page.take(list)
+        }
+        function onSearchWarning(t, message) {
+            if (t === page.term && page.store === "all" && !page.hasFilters) page.warning = message
         }
         function onSearchFailed(t) {
-            if (t === page.term) page.state_ = "error"
+            if (t === page.term && page.store !== "epic") page.state_ = "error"
         }
     }
     // The store filter for a text search (Steam's search doesn't take it), and owned games left
@@ -123,6 +154,7 @@ Flickable {
     boundsBehavior: Flickable.StopAtBounds
     QQC2.ScrollBar.vertical: CScrollBar {}
     WheelAccel { flickable: page; step: 110 }
+    AutoScroll { flickable: page }
     Keys.onEscapePressed: page.appRoot.navigateBack()
 
     // A filter chip: on (accent) or off.
@@ -313,6 +345,7 @@ Flickable {
 
         // The chips.
         Row {
+            visible: page.store !== "epic"
             objectName: "search_chips"  // (profiling)
             width: parent.width
             spacing: Ui.gapS
@@ -370,9 +403,12 @@ Flickable {
                 spacing: Ui.gapS
                 RowLabel { text: "Order" }
                 Segments {
-                    options: [{ v: "top", t: "Top Sellers" }, { v: "rated", t: "Best Rated" }, { v: "new", t: "Newest" }, { v: "price", t: "Cheapest" }]
+                    options: page.store === "epic"
+                             ? [{ v: "top", t: "Relevance" }, { v: "price", t: "Cheapest" }]
+                             : [{ v: "top", t: page.term.length >= 2 ? "Relevance" : "Top Sellers" }, { v: "rated", t: "Best Rated" }, { v: "new", t: "Newest" }, { v: "price", t: "Cheapest" }]
                     value: page.sort
                     onPicked: (v) => page.sort = v
+                    onOptionsChanged: if (page.store === "epic" && ["rated", "new"].includes(page.sort)) page.sort = "top"
                 }
             }
         }
@@ -426,10 +462,14 @@ Flickable {
             Row {
                 id: storesTitle
                 spacing: Ui.gapM
-                EngravedLabel { text: page.term.length >= 2 || page.hasFilters ? "In the Stores" : "Popular Right Now" }
+                EngravedLabel { text: page.term.length >= 2 || page.hasFilters || page.store === "epic" ? "In the Stores" : "Popular Right Now" }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: page.state_ === "loading" ? "Searching…" : page.results.length + " games"
+                                        text: page.state_ === "loading" ? "Searching…"
+                                                : page.state_ === "error" ? "Unavailable"
+                                                : page.epicNeedsTerm ? "Search by name"
+                                                : page.results.length === 0 && (page.term.length >= 2 || page.hasFilters)
+                                                    ? "No results" : page.results.length + " games"
                     color: page.pal.trayTextDim
                     font.family: Ui.fontText
                     font.weight: Font.Bold
@@ -437,30 +477,43 @@ Flickable {
                 }
             }
             CButton {
-                visible: page.term !== "" || page.hasFilters || page.store !== "all"
+                visible: page.hasFilters || page.store !== "all"
                 anchors.right: parent.right
                 anchors.verticalCenter: storesTitle.verticalCenter
                 kind: "ghost"
                 text: "Clear Filters"
                 icon.name: "edit-clear"
-                onClicked: page.clear()
+                onClicked: page.clearFilters()
             }
         }
         Text {
-            visible: page.store === "epic" && page.term.length < 2
+            // Only what applies to the filters in use (it used to mention genre filters with
+            // none chosen).
+            readonly property bool genreFilter: page.genres.length > 0 || page.exGenres.length > 0
+            readonly property string note: page.store === "steam" || (page.store === "epic" && page.term.length < 2) ? ""
+                : page.term.length < 2 ? "Epic needs a name search; browsing without one shows Steam results only."
+                : page.store === "epic" ? (genreFilter ? "Epic supports name, price and sale filters. Genre filters show Steam results only." : "")
+                : [genreFilter ? "Genre filters show Steam results only." : "",
+                   page.sort === "rated" || page.sort === "new" ? "Rating and release rankings apply to Steam; Epic matches follow." : ""]
+                  .filter(s => s).join(" ")
+            visible: note !== ""
             width: parent.width
             wrapMode: Text.Wrap
-            text: "Epic's store can only be searched by name: type one above."
+            text: note
             color: page.pal.trayTextDim
             font.family: Ui.fontText
-            font.pixelSize: Ui.textBody
+            font.pixelSize: Ui.textCaption
         }
         Text {
-            visible: page.state_ === "error"
-            text: "The stores didn't answer. Check the connection and try again."
+            visible: page.warning !== "" || page.state_ === "error"
+            width: parent.width
+            text: page.warning || (page.store === "epic" ? "Couldn't reach Epic Games Store. Check your connection and try again."
+                  : page.store === "all" ? "Couldn't reach Steam or Epic Games Store. Check your connection and try again."
+                  : "Couldn't reach Steam. Check your connection and try again.")
             color: page.pal.trayTextDim
             font.family: Ui.fontText
             font.pixelSize: Ui.textBody
+            wrapMode: Text.Wrap
         }
         Grid {  // in the tray's columns, like the library results above
             id: resultsGrid  // (not `results`: that's the page's list)

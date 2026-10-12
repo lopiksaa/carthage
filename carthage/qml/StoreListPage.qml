@@ -42,6 +42,7 @@ GridView {
     boundsBehavior: Flickable.StopAtBounds
     QQC2.ScrollBar.vertical: CScrollBar {}
     WheelAccel { flickable: grid; step: grid.cellHeight * 0.34 }
+    AutoScroll { flickable: grid }
 
     header: Text {
         visible: grid.note !== ""

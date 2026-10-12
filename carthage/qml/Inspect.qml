@@ -28,15 +28,54 @@ FocusScope {
     function loadFacts() {
         info = {}
         extras = {}
+        factsLate = false
+        factsTimer.restart()
         if (Backend.fake || !game.gameId || game.source === "carthage") return
         const appid = game.source === "steam" ? parseInt(game.extId) || 0 : 0
         if (appid) Backend.store.loadDetailsQuiet(appid)
         Backend.store.loadExtras(game.gameId, appid, game.title || "")
+        preloadNeighbours()
+    }
+    // The games ← and → go to (running games are skipped).
+    function neighbourId(dir) {
+        for (let r = Backend.games.rowOf(game.gameId) + dir; r >= 0 && r < Backend.games.count; r += dir) {
+            const id = Backend.games.idAt(r)
+            if (Backend.sessions.indexOf(id) < 0) return id
+        }
+        return ""
+    }
+    // The previous and next games' backdrops load ahead: their details, then their pictures
+    // (into the image cache, at the size the backdrop asks for).
+    property var neighbourAppids: []
+    property var preloadUrls: []
+    function preloadNeighbours() {
+        const ids = []
+        for (const d of [-1, 1]) {
+            const gid = neighbourId(d)
+            const g = gid ? Backend.gameInfo(gid) : {}
+            const a = g.source === "steam" ? parseInt(g.extId) || 0 : 0
+            if (a) ids.push(a)
+        }
+        neighbourAppids = ids
+        for (const a of ids) Backend.store.loadDetailsQuiet(a)
+    }
+    Repeater {
+        model: Backend.settings.gameBackground === "blur" ? [] : inspect.preloadUrls
+        Image {
+            required property string modelData
+            visible: false
+            source: modelData
+            asynchronous: true
+            cache: true
+            sourceSize.width: 1600  // (GameBackdrop's)
+        }
     }
     Connections {
         target: Backend.store
         function onDetailsReady(appid, data) {
             if (inspect.game.source === "steam" && appid === (parseInt(inspect.game.extId) || -1)) inspect.info = data
+            else if (inspect.neighbourAppids.indexOf(appid) >= 0 && data.background)
+                inspect.preloadUrls = inspect.preloadUrls.filter(u => u !== data.background).concat([data.background]).slice(-4)
         }
         function onExtrasReady(key, data) {
             if (key === inspect.game.gameId) inspect.extras = data
@@ -144,6 +183,7 @@ FocusScope {
         g.released = cell.released
         g.family = Backend.gameInfo(g.gameId).family === true
         game = g
+        backdrop.clear()  // (not the last game's art fading out as this one opens)
         loadFacts()
 
         const s0 = 1 + 0.05 * cell.lift
@@ -171,12 +211,7 @@ FocusScope {
     // The tray scrolls along, so closing still flies the card back into the right pocket.
     function step(dir) {
         if (!open || openAnim.running || closeAnim.running || stepAnim.running || rolling) return
-        let row = Backend.games.rowOf(game.gameId)
-        let gid = ""
-        for (let r = row + dir; r >= 0 && r < Backend.games.count; r += dir) {
-            const id = Backend.games.idAt(r)
-            if (Backend.sessions.indexOf(id) < 0) { gid = id; break }
-        }
+        const gid = neighbourId(dir)
         if (!gid) {
             if (motion > 0) edgeNudge.restart()
             return
@@ -440,21 +475,39 @@ FocusScope {
         live: inspect.visible && (!inspect.open || openAnim.running || closeAnim.running)
         visible: false
     }
+    // Settings → Appearance → Game View: the library blurred behind, or the game's art (on a
+    // plain dark ground, never mixed with the blur); a game without art gets the blur.
+    readonly property bool artBehind: Backend.settings.gameBackground === "backdrop" && (inspect.info.background || "") !== ""
+    // A Steam game's art is on its way (its details, then the picture): a plain dark ground
+    // meanwhile, never the blur first. The blur only for a game with no art (its details came
+    // without any, or nothing came within a few seconds).
+    property bool factsLate: false
+    Timer { id: factsTimer; interval: 2500; onTriggered: inspect.factsLate = true }
+    readonly property bool artExpected: Backend.settings.gameBackground === "backdrop" && !Backend.fake
+        && (inspect.artBehind || (inspect.game.source === "steam" && (parseInt(inspect.game.extId) || 0) > 0
+                                  && Object.keys(inspect.info).length === 0 && !inspect.factsLate))
     MultiEffect {
         anchors.fill: parent
         source: stageSource
-        visible: inspect.level > 0.001
+        visible: inspect.level > 0.001 && !inspect.artExpected
         opacity: inspect.level
         blurEnabled: true
         blur: 1.0
         blurMax: 48
         autoPaddingEnabled: false
     }
+    Rectangle {
+        anchors.fill: parent
+        visible: inspect.artExpected
+        color: "#0b0b0e"
+        opacity: inspect.level
+    }
     // The game's art under the scrim (at most 55%: white text stays ≥4.5:1 over any art).
     GameBackdrop {
+        id: backdrop
         anchors.fill: parent
         level: inspect.level * 0.55 * (1 - inspect.galleryLevel)  // (the backdrop cross-fades its own art)
-        source: inspect.info.background || ""
+        source: inspect.artBehind ? inspect.info.background : ""
     }
     // Dark enough for the white text in both editions (≥4.5:1).
     Rectangle {
@@ -869,6 +922,7 @@ FocusScope {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             WheelAccel { id: detailsWheel; flickable: detailsFlick; step: 90 }
+            AutoScroll { flickable: detailsFlick }
             onVisibleChanged: if (visible) contentY = 0
             QQC2.ScrollBar.vertical: CScrollBar { onDark: true }
 

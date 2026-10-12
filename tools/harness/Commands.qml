@@ -172,6 +172,7 @@ QtObject {
         case "storeFilter":  // {"store": "steam"|"epic"|"all", "genre": tag}
             if (cmd.store !== undefined) storeView.filterStore = cmd.store
             if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
+            console.warn("STOREFILTER", storeView.filterStore, storeView.filterGenre)
             break
         case "geometry": { // {"tag": "library"}: one GEO line per visible item (for layout audits)
             const W = app.width, H = app.height
@@ -219,7 +220,10 @@ QtObject {
             app.parts.searchPage.loadMore()
             break
         case "searchCount":
-            console.warn("RESULTS now", app.parts.searchPage.results.length)
+            console.warn("RESULTS now", app.parts.searchPage.results.length, "store", app.parts.searchPage.store,
+                         "loadMore", app.parts.searchPage.canLoadMore, "state", app.parts.searchPage.state_,
+                         "term", app.parts.searchPage.term, "price", app.parts.searchPage.price,
+                         "names", app.parts.searchPage.results.slice(0, 6).map(it => it.name).join(" | "))
             break
         case "makeList":  // {"name": "Couch", "ids": ["fake1", …]} makes a list with these games
         {
@@ -290,9 +294,14 @@ QtObject {
             app.navigate(cmd.page)
             break
         case "searchPage":  // {"text": "…", "genres": [tag], "sale": bool}
-            if (cmd.text !== undefined) app.parts.searchPage.text = cmd.text
+            if (cmd.text !== undefined) {
+                if (app.parts.searchPage.showField) app.parts.searchPage.text = cmd.text
+                else header.searchField.text = cmd.text
+            }
             if (cmd.genres !== undefined) app.parts.searchPage.setGenres(cmd.genres)
             if (cmd.sale !== undefined) app.parts.searchPage.sale = cmd.sale
+            if (cmd.store !== undefined) app.parts.searchPage.store = cmd.store
+            if (cmd.price !== undefined) app.parts.searchPage.price = cmd.price
             break
         case "storeBrowse":
             storeView.showCategories()

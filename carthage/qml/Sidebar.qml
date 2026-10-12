@@ -15,6 +15,8 @@ Item {
     // A drawer that slides out over the content (the top bar has the ≡, the name and search):
     // always open full width, no top row, no search key.
     property bool drawer: false
+    // Docked to the window's right edge: the seam and the shadow go on its left side.
+    property bool onRight: false
     readonly property bool collapsed: !drawer && Backend.settings.sidebarCollapsed
     function toggle() { Backend.settings.sidebarCollapsed = !collapsed }
     signal navigate(string page)
@@ -48,20 +50,21 @@ Item {
     }
     Plastic { anchors.fill: parent; visible: !Backend.theme.glassy }
     Rectangle { // the seam against the tray (glass: the faint ring line)
-        anchors.right: parent.right
+        x: bar.onRight ? 0 : parent.width - width
         width: 1
         height: parent.height
         color: Backend.theme.glassy ? Backend.theme.glass.ring : bar.pal.dockSeam
     }
-    // The panel's shadow on the tray (light from the top left).
+    // The panel's shadow on the tray, on the side facing it.
     Rectangle {
-        x: parent.width
+        readonly property real strength: Backend.theme.dark ? 0.32 : 0.16
+        x: bar.onRight ? -width : parent.width
         width: 12
         height: parent.height
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.32 : 0.16) }
-            GradientStop { position: 1.0; color: "transparent" }
+            GradientStop { position: 0.0; color: bar.onRight ? "transparent" : Qt.rgba(0, 0, 0, parent.strength) }
+            GradientStop { position: 1.0; color: bar.onRight ? Qt.rgba(0, 0, 0, parent.strength) : "transparent" }
         }
     }
 

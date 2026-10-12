@@ -23,6 +23,7 @@ Flickable {
     boundsBehavior: Flickable.StopAtBounds
     QQC2.ScrollBar.vertical: CScrollBar {}
     WheelAccel { flickable: page; step: 110 }
+    AutoScroll { flickable: page }
 
     PlayNextShelf {
         id: shelf

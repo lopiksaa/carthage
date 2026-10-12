@@ -14,7 +14,7 @@ FocusScope {
     readonly property var pal: Backend.theme.p
     readonly property var sections: [
         { id: "library", title: "Library", icon: "view-grid-symbolic", blurb: "The tray and your games" },
-        { id: "look", title: "Appearance", icon: "color-picker-symbolic", blurb: "Colors, fonts, card size" },
+        { id: "look", title: "Appearance", icon: "brush-symbolic", blurb: "Colors, fonts, card size" },
         { id: "sound", title: "Sound", icon: "audio-volume-high-symbolic", blurb: "Clicks and clunks" },
         { id: "store", title: "Store", icon: "internet-services-symbolic", blurb: "Steam and Epic, other stores" },
         { id: "keys", title: "Accounts & Keys", icon: "lock-symbolic", blurb: "Keys for art, Steam and prices" },
@@ -138,6 +138,7 @@ FocusScope {
         boundsBehavior: Flickable.StopAtBounds
         QQC2.ScrollBar.vertical: CScrollBar { ink: page.pal.panelText }
         WheelAccel { flickable: flick; step: 90 }
+        AutoScroll { flickable: flick }
         Column {
             id: body
             x: Ui.gapXL

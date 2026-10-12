@@ -86,6 +86,70 @@ QQC2.ApplicationWindow {
         focus: true
     }
 
+    // While the window is being resized: a cover with the logo, in the background's own colours.
+    // Behind it everything is laid out again, and the web-drawn ground hides and pauses (read
+    // by the window while the web engine resized it, it could break and stay white). The cover
+    // comes at once; once the size holds still the ground comes back, then the cover fades.
+    Item {
+        id: resizeCover
+        property bool armed: false  // (not for the window's own first sizing)
+        readonly property var colours: Backend.theme.glassy ? Backend.theme.groundNow : []
+        function sized() {
+            if (!armed || root.visibility === Window.Minimized || root.visibility === Window.Hidden) return
+            fadeOut.stop()
+            reveal.stop()
+            opacity = 1
+            Ui.resizing = true
+            settle.restart()
+        }
+        z: 900
+        anchors.fill: parent
+        opacity: 0
+        visible: opacity > 0.01
+        Timer { id: settle; interval: 250; onTriggered: { Ui.resizing = false; reveal.restart() } }
+        Timer { id: reveal; interval: 150; onTriggered: fadeOut.start() }  // (the ground draws first)
+        NumberAnimation { id: fadeOut; target: resizeCover; property: "opacity"; to: 0; duration: 260 * Backend.motion; easing.type: Easing.OutCubic }
+        Timer { interval: 1500; running: true; onTriggered: resizeCover.armed = true }
+        Connections {
+            target: root
+            function onWidthChanged() { resizeCover.sized() }
+            function onHeightChanged() { resizeCover.sized() }
+        }
+        Rectangle {
+            anchors.fill: parent
+            color: Backend.theme.glassy ? Backend.theme.glass.bg : Backend.theme.p.tray
+            gradient: resizeCover.colours.length === 4 ? coverGradient : null
+            Gradient {
+                id: coverGradient
+                GradientStop { position: 0; color: Qt.tint(resizeCover.colours[0], Qt.alpha(resizeCover.colours[1], 0.5)) }
+                GradientStop { position: 1; color: Qt.tint(resizeCover.colours[3], Qt.alpha(resizeCover.colours[2], 0.5)) }
+            }
+        }
+        Row {
+            anchors.centerIn: parent
+            spacing: Ui.gapL
+            CIcon {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 26
+                height: 36
+                source: "carthage"
+                isMask: true
+                color: Backend.theme.p.trayText
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "CARTHAGE"
+                color: Backend.theme.p.trayText
+                font.family: Ui.fontLabels
+                font.weight: Font.Black
+                font.pixelSize: Ui.textTitle
+                font.letterSpacing: 6
+            }
+        }
+        // (nothing behind it takes the pointer while it shows)
+        MouseArea { anchors.fill: parent; enabled: resizeCover.visible; hoverEnabled: true }
+    }
+
     // App.qml calls Window.window.showPassiveNotification(text, "short" | "long", action, fn).
     function showPassiveNotification(message, timeout, actionText, callback) {
         toast.message = message

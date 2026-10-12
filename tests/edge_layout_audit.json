@@ -1,0 +1,9 @@
+[
+  {"at": 700, "do": "cardWidth", "value": 240},
+  {"at": 900, "do": "size", "w": 760, "h": 560},
+  {"at": 1800, "shot": "/tmp/carthage-audit-long-small.png"},
+  {"at": 2300, "do": "navigate", "page": "search"},
+  {"at": 2500, "do": "searchPage", "text": "zzzz-not-a-game", "store": "steam"},
+  {"at": 6500, "shot": "/tmp/carthage-audit-empty-search.png"},
+  {"at": 7000, "do": "exit"}
+]

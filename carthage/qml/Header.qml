@@ -73,12 +73,13 @@ Item {
         }
     }
 
-    // ≡ slides the sidebar out over the content (lists, sources, store pages, Settings). A dot
-    // on it says an update is waiting (Settings has the same dot).
+    // ≡ slides the sidebar out over the content (lists, sources, store pages, Settings), at the
+    // right edge, the side the sidebar comes from. A dot on it says an update is waiting
+    // (Settings has the same dot).
     CButton {
         id: burger
-        anchors.left: parent.left
-        anchors.leftMargin: 10
+        anchors.right: parent.right
+        anchors.rightMargin: 10
         anchors.verticalCenter: parent.verticalCenter
         width: 40
         height: 36
@@ -101,8 +102,8 @@ Item {
 
     Row {
         id: brand
-        anchors.left: burger.right
-        anchors.leftMargin: 6
+        anchors.left: parent.left
+        anchors.leftMargin: 20
         anchors.verticalCenter: parent.verticalCenter
         spacing: Ui.gapM
         Accessible.ignored: true
@@ -117,6 +118,7 @@ Item {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
+            visible: header.width >= 680
             text: "CARTHAGE"
             color: header.pal.dockText
             font.family: Ui.fontLabels
@@ -128,8 +130,11 @@ Item {
 
     QQC2.TextField {
         id: search
-        anchors.centerIn: parent
-        width: Math.min(360, header.width - 2 * Math.max(brand.width, modeSwitch.width) - 80)
+        readonly property bool compact: header.width < 680
+        anchors.verticalCenter: parent.verticalCenter
+        x: compact ? brand.x + brand.width + 12 : (header.width - width) / 2
+        width: compact ? Math.max(48, modeSwitch.x - brand.x - brand.width - 24)
+                       : Math.min(360, header.width - 2 * Math.max(brand.x + brand.width, header.width - modeSwitch.x) - 40)
         height: Ui.controlHeight
         leftPadding: 38
         rightPadding: clear.visible ? 34 : 14
@@ -147,6 +152,7 @@ Item {
         onTextChanged: header.appRoot.search(text)
         Keys.onEscapePressed: {
             if (text) text = ""
+            else if (header.appRoot.page === "search") header.appRoot.navigateBack()
             else header.appRoot.focusTray()
         }
         Keys.onDownPressed: header.appRoot.focusTray()
@@ -154,17 +160,19 @@ Item {
 
         background: Rectangle {
             radius: height / 2
+            // (By the plastic's own lightness, not the mode: white plastic in dark mode too.)
+            readonly property bool palePlastic: Qt.color(header.pal.dockTop).hslLightness > 0.6
             color: header.glassy ? header.g.field
-                 : Backend.theme.dark ? Qt.darker(header.pal.dockBottom, 1.35) : Qt.darker(header.pal.dockTop, 1.06)
+                 : palePlastic ? Qt.darker(header.pal.dockTop, 1.06) : Qt.darker(header.pal.dockBottom, 1.35)
             border.width: search.activeFocus ? 2 : 1
             border.color: search.activeFocus ? Ui.focusColor
-                        : header.glassy ? header.g.ring : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.5 : 0.14)
+                        : header.glassy ? header.g.ring : Qt.rgba(0, 0, 0, palePlastic ? 0.14 : 0.5)
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: 1
                 radius: parent.radius
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: header.glassy ? Qt.rgba(0, 0, 0, 0.2) : Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.25 : 0.06) }
+                    GradientStop { position: 0.0; color: header.glassy ? Qt.rgba(0, 0, 0, 0.2) : Qt.rgba(0, 0, 0, parent.parent.palePlastic ? 0.06 : 0.25) }
                     GradientStop { position: header.glassy ? 0.12 : 0.35; color: "transparent" }
                 }
             }
@@ -202,8 +210,8 @@ Item {
 
     ModeSwitch {
         id: modeSwitch
-        anchors.right: parent.right
-        anchors.rightMargin: 20  // the same as the wordmark's on the left
+        anchors.right: burger.left
+        anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter
         width: implicitWidth
         height: implicitHeight

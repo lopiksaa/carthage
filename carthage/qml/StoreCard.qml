@@ -24,10 +24,24 @@ Item {
     width: cardW + 2 * pad
     height: cardH + 2 * pad + (item.players !== undefined ? 76 : 58)
 
+    // The same pocket as the library's (TrayCell.qml): a recess on plastic, a raised glass card
+    // on glass.
     Image {
+        visible: !Backend.theme.glassy
         width: card.cardW + 2 * card.pad
         height: card.cardH + 2 * card.pad
-        source: "image://gc/recess/" + Backend.theme.edition
+        source: visible ? "image://gc/recess/" + Backend.theme.edition : ""
+        sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
+        asynchronous: true
+    }
+    Image {  // (the image reaches past the well for its shadow)
+        readonly property real m: 0.22 * (card.cardW + 2 * card.pad)  // render.GLASS_WELL_MARGIN
+        visible: Backend.theme.glassy
+        x: -m
+        y: -m
+        width: card.cardW + 2 * card.pad + 2 * m
+        height: card.cardH + 2 * card.pad + 2 * m
+        source: visible ? "image://gc/glasswell/" + Backend.theme.edition + "/" + (Backend.theme.dark ? "dark" : "light") : ""
         sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
         asynchronous: true
     }

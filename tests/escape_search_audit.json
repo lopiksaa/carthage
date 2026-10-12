@@ -1,0 +1,11 @@
+[
+  {"at": 800, "do": "navigate", "page": "library:all"},
+  {"at": 1200, "do": "navigate", "page": "search"},
+  {"at": 1500, "do": "search", "value": "Hades"},
+  {"at": 2400, "do": "whoFocus"},
+  {"at": 2800, "do": "key", "key": "Escape"},
+  {"at": 3200, "do": "state2", "label": "after-first-escape"},
+  {"at": 3600, "do": "key", "key": "Escape"},
+  {"at": 4000, "do": "state2", "label": "after-second-escape"},
+  {"at": 4400, "do": "exit"}
+]

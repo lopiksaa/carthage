@@ -1,0 +1,8 @@
+[
+  {"at": 800, "do": "navigate", "page": "search"},
+  {"at": 1100, "do": "searchPage", "text": "the", "store": "all"},
+  {"at": 5200, "do": "searchCount"},
+  {"at": 5600, "do": "searchPage", "text": "the", "store": "steam"},
+  {"at": 10500, "do": "searchCount"},
+  {"at": 11200, "do": "exit"}
+]

@@ -55,7 +55,9 @@ GridView {
     flickableDirection: Flickable.VerticalFlick
     cellWidth: shelf ? mainTray.cellWidth : Math.floor((width - leftMargin - rightMargin) / columns)
     cellHeight: cardW * Backend.theme.ratio + 2 * pad + Ui.spacingLarge * 3 + titleHeight
-    cacheBuffer: shelf ? 0 : cellHeight * 2  // (a shelf shows all it builds)
+    cacheBuffer: shelf ? 0 : big ? cellHeight * 0.5 : cellHeight * 2  // (a shelf shows all it builds)
+    // A big view (over 300 games) keeps fewer cells ready off screen.
+    readonly property bool big: !shelf && count > 300
     clip: true
     focus: true
     keyNavigationEnabled: true
@@ -68,6 +70,27 @@ GridView {
 
     QQC2.ScrollBar.vertical: CScrollBar { visible: !grid.shelf }
 
+    AutoScroll { flickable: grid.shelf ? null : grid }
+
+    // Back to top: once the library is scrolled more than a screen down.
+    // (A long way up jumps to two screens from the top and glides the rest: in a big grid the
+    // top moves while rows are built, so it ends exactly at the start.)
+    NumberAnimation {
+        id: toTop
+        target: grid
+        property: "contentY"
+        duration: 380 * Backend.motion
+        easing.type: Easing.OutCubic
+        onFinished: grid.positionViewAtBeginning()
+    }
+    function backToTop() {
+        const top = originY - topMargin
+        if (contentY - top > height * 2) contentY = top + height * 2
+        toTop.to = top
+        toTop.restart()
+    }
+    // (the Back to top button is App.qml's: outside the grid, so the glass can frost it)
+    readonly property bool scrolledAway: !shelf && contentY - (originY - topMargin) > height
     WheelAccel {
         enabled: !grid.shelf  // the shelf leaves the wheel to the tray around it
         flickable: grid

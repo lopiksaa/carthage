@@ -648,6 +648,7 @@ FocusScope {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             WheelAccel { id: detailsWheel; flickable: details; step: 90 }
+            AutoScroll { flickable: details }
             QQC2.ScrollBar.vertical: CScrollBar { onDark: true }
 
             Column {

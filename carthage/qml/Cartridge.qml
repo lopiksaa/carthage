@@ -85,7 +85,10 @@ Item {
         Image {
             anchors.fill: parent
             readonly property string mode: Backend.headerTick >= 0 && cart.gameId ? Backend.headerOf(cart.gameId) : "launcher"
-            source: "image://gc/header/" + mode + "/" + (cart.source || "other") + "/" + cart.edition + "/"
+            // The launcher header (the default) is the same for every game of a launcher: one
+            // shared, cached image instead of one drawn per game (that made big scrolls stutter).
+            source: mode === "launcher" ? "image://gc/header/" + (cart.source || "other") + "/" + cart.edition
+                  : "image://gc/header/" + mode + "/" + (cart.source || "other") + "/" + cart.edition + "/"
                     + cart.gameId + "?h=" + Backend.headerTick + "&t=" + encodeURIComponent(cart.title)
             sourceSize: Qt.size(Math.ceil(width * cart.dpr), Math.ceil(height * cart.dpr))
             asynchronous: !cart.flat
@@ -267,14 +270,27 @@ Item {
     }
 
     Text {
+        id: label
         readonly property rect r: cart.rect(cart.geo.label)
+        // Long codes shrink to fit, like a printed label, but never below 70 %: past that the
+        // store id is left out ("STEAM - IRON:SOV"), which keeps the label readable.
+        readonly property real minSize: Math.max(1, cart.labelSize * cart.u * 0.7)
+        readonly property string full: (cart.sourceName + " - " + cart.extId + " - " + cart.code).toUpperCase()
+        TextMetrics {
+            id: fullFit
+            font.family: label.font.family
+            font.weight: label.font.weight
+            font.letterSpacing: label.font.letterSpacing
+            font.pixelSize: label.minSize
+            text: label.full
+        }
         x: r.x + 24 * cart.u
         y: r.y
         width: r.width - 48 * cart.u
         height: r.height
         text: cart.labelOverride ? cart.labelOverride
               : cart.installed
-              ? (cart.sourceName + " - " + cart.extId + " - " + cart.code).toUpperCase()
+              ? (fullFit.advanceWidth <= width ? full : (cart.sourceName + " - " + cart.code).toUpperCase())
               : cart.installing >= 0 ? "INSTALLING " + Math.round(cart.installing * 100) + "%"
               : "NOT INSTALLED"
         color: cart.pal.labelText
@@ -282,8 +298,8 @@ Item {
         font.pixelSize: Math.max(1, cart.labelSize * cart.u)
         font.weight: cart.labelSize > 40 ? Font.Bold : Font.Normal
         font.letterSpacing: 2 * cart.u
-        fontSizeMode: Text.HorizontalFit // long codes shrink to fit, like a printed label
-        minimumPixelSize: 1
+        fontSizeMode: Text.HorizontalFit
+        minimumPixelSize: minSize
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         renderType: Text.QtRendering

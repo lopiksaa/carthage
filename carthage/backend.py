@@ -84,8 +84,11 @@ class Backend(QObject):
         self._theme.texture = PLASTIC_TEXTURE
 
         def apply_texture():
+            self._settle_mode()
             self._theme.look = st.get("look")
             self._theme.mode = st.get("themeMode")
+            self._theme.groundColors = st.get("groundColors")
+            self._theme.set_ground_tuning(st.get("groundTuning"))
 
         apply_texture()
         st.changed.connect(apply_texture)
@@ -139,6 +142,17 @@ class Backend(QObject):
             self._test_on = self._settings.get("testCartridge")
             self._settings.changed.connect(self._test_toggled)
             self._watch.failed.connect(self.libraryError)
+
+    def _settle_mode(self):
+        """The mode is always chosen, dark or light: picking a colour must never change it.
+        Settings from before the Mode switch (or after Reset) start in the mode their colour
+        had, so nothing changes on the first start; from then on only the switch changes it."""
+        st = self._settings
+        if st.get("themeMode") not in ("dark", "light"):
+            from .theme import EDITIONS, edition_of
+
+            e = edition_of(st.get("hardware")) or "dark"
+            st.set("themeMode", "dark" if EDITIONS[e]["isDark"] else "light")
 
     def _load_real(self):
         try:

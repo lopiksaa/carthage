@@ -123,6 +123,106 @@ Column {
             }
         }
     }
+    // A row that unfolds more settings below it, naming what they're set to while folded.
+    component FoldHead: QQC2.AbstractButton {
+        id: fh
+        property string title
+        property string summary
+        property bool open
+        property string arrow: open ? "go-up-symbolic" : "go-down-symbolic"
+        width: parent.width
+        height: Ui.controlHeight
+        hoverEnabled: true
+        focusPolicy: Qt.StrongFocus
+        Accessible.role: Accessible.Button
+        Accessible.name: title + ": " + summary + (open ? ", open" : ", choose to customize")
+        background: Rectangle {
+            radius: Ui.radiusSmall
+            color: fh.hovered ? sc.pal.panelHover : Qt.alpha(sc.pal.panelHover, 0.5)
+            border.width: fh.visualFocus ? 2 : 0
+            border.color: Ui.focusColor
+        }
+        contentItem: Item {
+            Text {
+                id: fhTitle
+                anchors.left: parent.left
+                anchors.leftMargin: Ui.gapM
+                anchors.verticalCenter: parent.verticalCenter
+                text: fh.title
+                color: sc.pal.panelText
+                font.family: Ui.fontText
+                font.weight: Font.Bold
+                font.pixelSize: Ui.textBody
+            }
+            Text {
+                anchors.left: fhTitle.right
+                anchors.leftMargin: Ui.gapL
+                anchors.right: fhArrow.left
+                anchors.rightMargin: Ui.gapS
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignRight
+                elide: Text.ElideRight
+                text: fh.open ? "" : fh.summary
+                color: sc.pal.panelTextDim
+                font.family: Ui.fontText
+                font.weight: Font.Bold
+                font.pixelSize: Ui.textCaption
+            }
+            CIcon {
+                id: fhArrow
+                anchors.right: parent.right
+                anchors.rightMargin: Ui.gapM
+                anchors.verticalCenter: parent.verticalCenter
+                width: 12
+                height: 12
+                source: fh.arrow
+                color: sc.pal.panelTextDim
+            }
+        }
+    }
+    // A slider with its name and value:  SliderRow { label: "Speed"; value: "1.0×"; CSlider { anchors.fill: parent } }
+    component SliderRow: Item {
+        id: sr
+        property string label
+        property string value
+        default property alias content: holder.data
+        width: parent.width
+        height: 30
+        Text {
+            id: srLabel
+            anchors.left: parent.left
+            anchors.leftMargin: Ui.gapM
+            anchors.verticalCenter: parent.verticalCenter
+            width: 128
+            elide: Text.ElideRight
+            text: sr.label
+            color: sc.pal.panelTextDim
+            font.family: Ui.fontText
+            font.weight: Font.Bold
+            font.pixelSize: Ui.textCaption
+        }
+        Item {
+            id: holder
+            anchors.left: srLabel.right
+            anchors.right: srValue.left
+            anchors.rightMargin: Ui.gapS
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+        }
+        Text {
+            id: srValue
+            anchors.right: parent.right
+            anchors.rightMargin: Ui.gapS
+            anchors.verticalCenter: parent.verticalCenter
+            width: 46
+            horizontalAlignment: Text.AlignRight
+            text: sr.value
+            color: sc.pal.panelText
+            font.family: Ui.fontText
+            font.weight: Font.Bold
+            font.pixelSize: Ui.textCaption
+        }
+    }
     component Note: Text {
         width: parent.width
         color: sc.pal.panelTextDim
@@ -192,160 +292,331 @@ Column {
         sourceComponent: Column {
             id: look
             spacing: Ui.gapM
-            // One chip size for both color grids, so their colors line up in columns.
+            // One chip size for both color rows, so their colors line up in columns.
             readonly property var options: Backend.theme.hardwareOptions
+            readonly property var suggested: options.filter(o => o.suggested)
             readonly property real chipSize: 30
-            // All on one line when there's room, else rows of 9 (both grids line up).
-            readonly property int chipColumns: width >= 17 * (chipSize + Ui.gapS) ? 17 : 9
+            function isSuggested(value) { return suggested.some(o => o.value === value) }
+            function nameOf(value) { return (options.find(o => o.value === value) || {}).text || "Custom" }
+            // Glass: the ground. Advanced holds its colours one by one and every other variable.
+            readonly property var tuningSpec: Backend.theme.groundTuningSpec
+            readonly property string style: ["mesh", "rays", "iris", "topo", "still"].indexOf(Backend.settings.background) >= 0
+                                            ? Backend.settings.background : "mesh"
+            function groundName(value) { return (Backend.theme.groundOptions.find(o => o.value === value) || {}).text || "" }
+            function tuned(s) {
+                const saved = Backend.settings.groundTuning || {}, v = Number(saved[s.key])
+                return saved[s.key] !== undefined && isFinite(v) ? Math.max(s.from, Math.min(s.to, v)) : s.default
+            }
+            function setTuning(key, value) {
+                const t = Object.assign({}, Backend.settings.groundTuning)
+                t[key] = value
+                Backend.settings.groundTuning = t
+            }
+            function pickGround(value) {  // a preset: its own colours again
+                Backend.settings.groundColors = value
+                const t = Object.assign({}, Backend.settings.groundTuning)
+                for (const k of ["hue1", "hue2", "hue3", "hue4"]) delete t[k]
+                Backend.settings.groundTuning = t
+                sc.appRoot.sound("key")
+            }
+            function fmt(s, v) {
+                if (s.unit === "°") return Math.round(v) + "°"
+                if (s.unit === "%") return (s.from < 0 && v > 0 ? "+" : "") + Math.round(v * 100) + "%"
+                return v.toFixed(2).replace(/0$/, "") + "×"
+            }
+            // In Glass the cartridges' "same as the theme color" has no theme colour to show:
+            // its colour stands for it.
+            readonly property string card: Backend.theme.glassy && Backend.settings.cardColor === "same"
+                                           ? Backend.theme.cardValue : Backend.settings.cardColor
             // What the choices below look like, live.
             LookPreview { width: parent.width }
-            Label_ { text: "Look" }  // first: glass / plastic, then Dark / Light (Sam couldn't find it lower down)
+            Label_ { text: "Look" }
             Column {
                 width: parent.width
+                spacing: Ui.gapXS  // the same gap as the font rows
                 property string openKey: ""
                 Choice {
-                    label: "Hardware"
+                    label: "Theme"
                     key: "look"
                     choices: ["glass", "plastic"]
                     names: ({ glass: "Glass", plastic: "Plastic" })
                     current: Backend.theme.look
                 }
-                Choice {
-                    visible: Backend.theme.glassy
-                    label: "Theme"
-                    key: "themeMode"
-                    choices: ["dark", "light"]
-                    names: ({ dark: "Dark", light: "Light" })
-                    current: Backend.theme.dark ? "dark" : "light"
+                // Dark or light, whatever the colour (styled like the rows around it).
+                Rectangle {
+                    width: parent.width
+                    height: Ui.controlHeight
+                    radius: Ui.radiusSmall
+                    color: Qt.alpha(sc.pal.panelHover, 0.5)
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: Ui.gapM
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Mode"
+                        color: sc.pal.panelTextDim
+                        font.family: Ui.fontText
+                        font.weight: Font.Bold
+                        font.pixelSize: Ui.textCaption
+                    }
+                    CSegmented {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 3
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 170
+                        height: parent.height - 6
+                        Accessible.name: "Mode"
+                        value: Backend.theme.dark ? "dark" : "light"
+                        options: [{ value: "dark", text: "Dark" }, { value: "light", text: "Light" }]
+                        onPicked: (v) => { Backend.settings.themeMode = v; sc.appRoot.sound("key") }
+                    }
                 }
                 Choice {
                     visible: Backend.theme.glassy
                     label: "Background"
                     key: "background"
-                    choices: ["studio", "rays", "mesh", "iris", "topo", "still"]
-                    names: ({ studio: "Studio", rays: "Light rays", mesh: "Mesh", iris: "Iridescent", topo: "Contours", still: "Still" })
-                    current: (["studio", "rays", "mesh", "iris", "topo", "still"].indexOf(Backend.settings.background) >= 0) ? Backend.settings.background : "studio"
+                    choices: ["mesh", "rays", "iris", "topo", "still"]
+                    names: ({ mesh: "Mesh", rays: "Underwater", iris: "Holographic", topo: "Contours", still: "Still" })
+                    current: look.style
                 }
             }
-            Label_ { text: "Hardware  ·  " + ((look.options.find(o => o.value === Backend.settings.hardware) || {}).text || "Custom") }
-            Grid {
-                columns: look.chipColumns
+            // Glass: the ground's colours (presets), and Advanced.
+            Column {
+                visible: Backend.theme.glassy
+                width: parent.width
+                spacing: Ui.gapM
+                Label_ { text: "Background Colors  ·  " + (Backend.theme.groundCustom ? "Custom" : look.groundName(Backend.theme.groundColors)) }
+                Row {
+                    spacing: Ui.gapS
+                    Repeater {
+                        model: Backend.theme.groundOptions
+                        delegate: ColorChip {
+                            required property var modelData
+                            size: look.chipSize
+                            label: "Background colors: " + modelData.text
+                            colors: modelData.colors
+                            selected: !Backend.theme.groundCustom && Backend.theme.groundColors === modelData.value
+                            onPicked: look.pickGround(modelData.value)
+                        }
+                    }
+                    ColorChip {  // the colours Advanced made
+                        visible: Backend.theme.groundCustom
+                        size: look.chipSize
+                        label: "Background colors: custom"
+                        colors: Backend.theme.groundNow
+                        selected: true
+                    }
+                }
+                // Blur, for every style (not part of Advanced or its Reset).
+                SliderRow {
+                    label: "Blur"
+                    value: Math.round(Backend.settings.groundBlur * 100) + "%"
+                    CSlider {
+                        anchors.fill: parent
+                        from: 0
+                        to: 1
+                        stepSize: 0.01
+                        snapMode: QQC2.Slider.SnapAlways
+                        value: Backend.settings.groundBlur
+                        Accessible.name: "Background blur"
+                        onMoved: Backend.settings.groundBlur = Math.round(value * 100) / 100
+                    }
+                }
+                // Advanced: each colour of the background (as many as the style uses), then every
+                // other variable of its drawing. All of them show live.
+                Column {
+                    id: adv
+                    width: parent.width
+                    spacing: Ui.gapXS
+                    property bool open: false
+                    readonly property bool customized: Object.keys(Backend.settings.groundTuning || {}).length > 0
+                    FoldHead {
+                        title: "Advanced"
+                        summary: adv.customized ? "Customized" : "Default"
+                        open: adv.open
+                        onClicked: adv.open = !adv.open
+                    }
+                    Column {
+                        visible: adv.open
+                        width: parent.width
+                        spacing: 2
+                        topPadding: Ui.gapXS
+                        Repeater {
+                            model: look.style === "still" ? 1 : 4
+                            delegate: SliderRow {
+                                id: hueRow
+                                required property int index
+                                readonly property real hue: ((Backend.theme.ground.hues[index] || 0) % 360 + 360) % 360
+                                label: look.style === "still" ? "Color" : "Color " + (index + 1)
+                                value: Math.round(hue) + "°"
+                                HueSlider {
+                                    anchors.fill: parent
+                                    track: Backend.theme.groundHueTracks[hueRow.index] || []
+                                    swatch: Backend.theme.groundNow[hueRow.index] || "transparent"
+                                    value: hueRow.hue
+                                    Accessible.name: hueRow.label + " hue"
+                                    onMoved: look.setTuning("hue" + (hueRow.index + 1), Math.round(value))
+                                }
+                            }
+                        }
+                        Repeater {
+                            model: look.tuningSpec.filter(s => !s.styles.length || s.styles.indexOf(look.style) >= 0)
+                            delegate: SliderRow {
+                                id: tuneRow
+                                required property var modelData
+                                label: modelData.text
+                                value: look.fmt(modelData, look.tuned(modelData))
+                                CSlider {
+                                    anchors.fill: parent
+                                    from: tuneRow.modelData.from
+                                    to: tuneRow.modelData.to
+                                    stepSize: tuneRow.modelData.unit === "°" ? 5 : tuneRow.modelData.unit === "%" ? 0.01 : 0.05
+                                    snapMode: QQC2.Slider.SnapAlways
+                                    value: look.tuned(tuneRow.modelData)
+                                    Accessible.name: tuneRow.modelData.text
+                                    onMoved: look.setTuning(tuneRow.modelData.key, Math.round(value * 100) / 100)
+                                }
+                            }
+                        }
+                        Item {
+                            width: parent.width
+                            height: resetButton.height + Ui.gapXS
+                            CButton {
+                                id: resetButton
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                enabled: adv.customized
+                                text: "Reset"
+                                icon.name: "view-refresh-symbolic"
+                                Accessible.name: "Reset the background's advanced settings"
+                                onClicked: { Backend.settings.groundTuning = {}; sc.appRoot.sound("key") }
+                            }
+                        }
+                    }
+                }
+            }
+            // Plastic: the theme colour tints the look, in either mode.
+            // Eight suggested colours and the colour picker. The colour never changes the mode.
+            // (A colour that isn't one of the eight — picked, or saved before — shows in the
+            // picker's chip.)
+            Label_ { visible: !Backend.theme.glassy; text: "Theme Color  ·  " + look.nameOf(Backend.settings.hardware) }
+            Row {
+                visible: !Backend.theme.glassy
                 spacing: Ui.gapS
                 Repeater {
-                    model: look.options
+                    model: look.suggested
                     delegate: ColorChip {
                         required property var modelData
                         size: look.chipSize
-                        label: modelData.text
+                        label: "Theme color: " + modelData.text
                         plastic: modelData.color
                         selected: Backend.settings.hardware === modelData.value
                         onPicked: Backend.settings.hardware = modelData.value
                     }
                 }
                 ColorChip {
+                    readonly property bool other: !look.isSuggested(Backend.settings.hardware)
                     size: look.chipSize
-                    label: "Hardware: custom color"
-                    rainbow: !Backend.settings.hardware.startsWith("c_")
-                    plastic: Backend.settings.hardware.startsWith("c_") ? Backend.theme.plasticOf(Backend.settings.hardware) : "transparent"
-                    selected: Backend.settings.hardware.startsWith("c_")
+                    label: "Theme color: pick any color"
+                    rainbow: !other
+                    plastic: other ? Backend.theme.plasticOf(Backend.settings.hardware) : "transparent"
+                    selected: other
                     onPicked: sc.appRoot.pickColor("hardware")
                 }
             }
-            Label_ { text: "Cartridges  ·  " + (Backend.settings.cardColor === "same" ? "Same as hardware"
-                        : ((look.options.find(o => o.value === Backend.settings.cardColor) || {}).text || "Custom")) }
-            Grid {
-                columns: look.chipColumns
+            // The cartridges, in either look.
+            Label_ { text: "Cartridge Color  ·  " + (look.card === "same" ? "Same as the theme color"
+                                                      : look.card === "auto" ? look.nameOf(Backend.theme.cardValue) + ", picked for you"
+                                                      : look.nameOf(look.card)) }
+            Row {
                 spacing: Ui.gapS
                 Repeater {
-                    model: look.options
+                    model: look.suggested
                     delegate: ColorChip {
                         required property var modelData
                         size: look.chipSize
-                        label: "Cartridges: " + modelData.text
+                        label: "Cartridge color: " + modelData.text
                         plastic: modelData.color
-                        selected: Backend.settings.cardColor === modelData.value
+                        selected: look.card === modelData.value
                         onPicked: Backend.settings.cardColor = modelData.value
                     }
                 }
                 ColorChip {
+                    readonly property bool other: ["same", "auto"].indexOf(look.card) < 0 && !look.isSuggested(look.card)
                     size: look.chipSize
-                    label: "Cartridges: custom color"
-                    rainbow: !Backend.settings.cardColor.startsWith("c_")
-                    plastic: Backend.settings.cardColor.startsWith("c_") ? Backend.theme.plasticOf(Backend.settings.cardColor) : "transparent"
-                    selected: Backend.settings.cardColor.startsWith("c_")
+                    label: "Cartridge color: pick any color"
+                    rainbow: !other
+                    plastic: other ? Backend.theme.plasticOf(look.card) : "transparent"
+                    selected: other
                     onPicked: sc.appRoot.pickColor("card")
                 }
-                ColorChip {
-                    size: look.chipSize
-                    label: "Cartridges: same as hardware"
-                    linked: true
-                    plastic: (look.options.find(o => o.value === Backend.settings.hardware) || {}).color
-                             || Backend.theme.plasticOf(Backend.settings.hardware)
-                    selected: Backend.settings.cardColor === "same"
-                    onPicked: Backend.settings.cardColor = "same"
+                // On, it stays on: the cartridges follow the suggested partner of the theme colour
+                // (in Glass, of the background). Choosing a colour above turns it off; so does
+                // choosing it again (the colour it picked stays).
+                CButton {
+                    readonly property bool on: Backend.settings.cardColor === "auto"
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: look.chipSize + 2
+                    kind: on ? "primary" : "plain"
+                    text: "Pick for me"
+                    icon.name: "sparkles"
+                    Accessible.role: Accessible.CheckBox
+                    Accessible.checked: on
+                    Accessible.name: "Pick the cartridge color for me, to go with the " + (Backend.theme.glassy ? "background" : "theme color")
+                    onClicked: {
+                        Backend.settings.cardColor = on ? Backend.theme.cardValue : "auto"
+                        sc.appRoot.sound("key")
+                    }
                 }
             }
-            Label_ { text: "Fonts" }
+            // Fonts: one row naming the fonts in use; choosing it unfolds the four kinds of text.
+            Column {
+                id: fonts
+                width: parent.width
+                spacing: Ui.gapXS
+                property bool open: false
+                readonly property var inUse: [Ui.fontLabels, Ui.fontTitles, Ui.fontButtons, Ui.fontText]
+                                             .filter((f, i, all) => all.indexOf(f) === i)
+                FoldHead {
+                    title: "Fonts"
+                    summary: fonts.inUse.join("  ·  ")
+                    open: fonts.open
+                    onClicked: fonts.open = !fonts.open
+                }
+                Column {
+                    visible: fonts.open
+                    width: parent.width
+                    spacing: Ui.gapXS
+                    property string openKey: "" // the kind of text whose choices are showing
+                    Choice { label: "Labels"; key: "fontLabels"; choices: Ui.labelFonts; current: Ui.fontLabels }
+                    Choice { label: "Game titles"; key: "fontTitles"; choices: Ui.titleFonts; current: Ui.fontTitles }
+                    Choice { label: "Buttons"; key: "fontButtons"; choices: Ui.buttonFonts; current: Ui.fontButtons }
+                    Choice { label: "Text"; key: "fontText"; choices: Ui.textFonts; current: Ui.fontText }
+                }
+            }
+            // Card size is set on the library itself (App.qml: a bar with − and + over the games).
+            FoldHead {
+                title: "Adjust Card Size"
+                arrow: "go-next-symbolic"
+                Accessible.name: "Adjust card size, on the library"
+                onClicked: sc.appRoot.adjustCardSize()
+            }
+            // Game View: what's behind a game's closer look.
+            Label_ { text: "Game View" }
             Column {
                 width: parent.width
                 spacing: Ui.gapXS
-                property string openKey: "" // the kind of text whose choices are showing
-                Choice { label: "Labels"; key: "fontLabels"; choices: Ui.labelFonts; current: Ui.fontLabels }
-                Choice { label: "Game titles"; key: "fontTitles"; choices: Ui.titleFonts; current: Ui.fontTitles }
-                Choice { label: "Buttons"; key: "fontButtons"; choices: Ui.buttonFonts; current: Ui.fontButtons }
-                Choice { label: "Text"; key: "fontText"; choices: Ui.textFonts; current: Ui.fontText }
-            }
-            Label_ { text: "Card size" }
-            Row { // − ● ● ● ○ ○ ○ +  : card widths from Ui.cardMin to Ui.cardMax in steps of Ui.cardStep
-                id: sizer
-                readonly property var steps: {
-                    const out = []
-                    for (let w = Ui.cardMin; w <= Ui.cardMax; w += Ui.cardStep) out.push(w)
-                    return out
+                property string openKey: ""
+                Choice {
+                    label: "Background"
+                    key: "gameBackground"
+                    choices: ["blur", "backdrop"]
+                    names: ({ blur: "Blur", backdrop: "Game Backdrop" })
+                    current: Backend.settings.gameBackground === "blur" ? "blur" : "backdrop"
                 }
-                // The step nearest the saved width (an older saved size may fall between steps).
-                readonly property int index: {
-                    let best = 0
-                    for (let i = 1; i < steps.length; i++)
-                        if (Math.abs(steps[i] - Backend.settings.cardWidth) < Math.abs(steps[best] - Backend.settings.cardWidth)) best = i
-                    return best
-                }
-                function go(d) {
-                    const i = Math.max(0, Math.min(steps.length - 1, index + d))
-                    if (i === index) return
-                    Backend.settings.cardWidth = steps[i]
-                    sc.appRoot.sound("key")
-                }
-                spacing: Ui.gapM
-                Accessible.role: Accessible.Grouping
-                Accessible.name: "Card size, step " + (index + 1) + " of " + steps.length
-                CButton {
-                    icon.name: "list-remove-symbolic"
-                    enabled: sizer.index > 0
-                    Accessible.name: "Smaller cards"
-                    onClicked: sizer.go(-1)
-                }
-                Row {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: Ui.gapS
-                    Repeater {
-                        model: sizer.steps.length
-                        Rectangle {
-                            required property int index
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 8
-                            height: 8
-                            radius: 4
-                            color: index <= sizer.index ? Backend.theme.accent.accent : Qt.alpha(sc.pal.panelText, 0.18)
-                            Behavior on color { ColorAnimation { duration: 100 * Backend.motion } }
-                        }
-                    }
-                }
-                CButton {
-                    icon.name: "list-add-symbolic"
-                    enabled: sizer.index < sizer.steps.length - 1
-                    Accessible.name: "Bigger cards"
-                    onClicked: sizer.go(1)
+                Note {
+                    visible: Backend.settings.gameBackground !== "blur"
+                    leftPadding: Ui.gapM
+                    text: "If none is found, defaults to Blur for that game"
                 }
             }
             Column {
@@ -455,18 +726,18 @@ Column {
                 width: parent.width
                 service: "steam"
                 title: "Steam Web API"
-                purpose: "Shows every Steam game you own, not only the ones installed or played on this PC. Any domain name works on Steam's form, e.g. localhost."
+                purpose: "Shows Steam-owned games not found in local files. Your Steam game details must be public. Any domain name works on Steam's form, e.g. localhost."
                 getUrl: "https://steamcommunity.com/dev/apikey"
             }
             KeyRow {
                 width: parent.width
                 service: "itad"
                 title: "IsThereAnyDeal"
-                purpose: "For the store's other stores: what GOG, Microsoft Store, EA and Battle.net ask for a game. Register an app on IsThereAnyDeal to get its key."
+                purpose: "Adds prices from GOG, Microsoft Store, EA and Battle.net. Register an app on IsThereAnyDeal to get a key."
                 getUrl: "https://isthereanydeal.com/apps/my/"
             }
             Note {
-                text: "Keys are kept in " + (Qt.platform.os === "windows" ? "Windows Credential Manager" : "your system keyring") + " and only sent to their own service. Never paste your Steam key into a website — you can <a href=\"https://steamcommunity.com/dev/apikey\">revoke it</a> any time."
+                text: "Keys are saved in " + (Qt.platform.os === "windows" ? "Windows Credential Manager" : "your system keyring") + " and sent to the service named above. <a href=\"https://steamcommunity.com/dev/apikey\">Revoke your Steam key</a>."
             }
             CButton {
                 width: parent.width
@@ -523,7 +794,7 @@ Column {
             CSwitch {
                 width: parent.width
                 text: "Discord Rich Presence"
-                hint: "Discord shows Choosing a Game or Browsing Store. Nothing about your games is shared"
+                hint: "Shows library or store activity on Discord while Carthage is active"
                 checked: Backend.settings.discordPresence
                 onToggled: Backend.settings.discordPresence = checked
             }

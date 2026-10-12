@@ -706,20 +706,33 @@ def render_generated_art(w, h, title):
     from PySide6.QtGui import QFontMetricsF
 
     text = title.upper()
-    size = max(6, int(w * 0.12))
-    while size > 6:
+    size = int(w * 0.12)
+    minimum = max(12, int(w * 0.045))
+    wrap = int(Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap)
+    fits = False
+    while size >= minimum:
         font.setPixelSize(size)
         fm = QFontMetricsF(font)
         longest = max((fm.horizontalAdvance(word) for word in text.split()), default=0)
-        box = fm.boundingRect(rect, int(Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap), text)
+        box = fm.boundingRect(rect, wrap, text)
         if longest <= rect.width() and box.height() <= rect.height():
+            fits = True
             break
         size -= 1
+    if not fits:
+        wrap |= int(Qt.TextWrapAnywhere)
+        size = int(w * 0.12)
+        while size > minimum:
+            font.setPixelSize(size)
+            if QFontMetricsF(font).boundingRect(rect, wrap, text).height() <= rect.height():
+                break
+            size -= 1
+    font.setPixelSize(max(size, minimum))
     p.setFont(font)
     p.setPen(QColor(0, 0, 0, 110))
-    p.drawText(rect.translated(w * 0.012, w * 0.016), Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap, title.upper())
+    p.drawText(rect.translated(w * 0.012, w * 0.016), wrap, title.upper())
     p.setPen(QColor(255, 255, 255))
-    p.drawText(rect, Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap, title.upper())
+    p.drawText(rect, wrap, title.upper())
     p.end()
     return img
 

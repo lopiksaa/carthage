@@ -7,6 +7,8 @@ import Carthage
 QtObject {
     // Open menus (CMenu counts them); input behind is blocked while any is open.
     property int openMenus: 0
+    // The window is being resized (Main.qml covers it meanwhile; the web-drawn ground hides).
+    property bool resizing: false
     // The page is blocked under an overlay (App.qml's body): its buttons don't look disabled
     // for that (CButton), the overlay already says the page is out of reach.
     property bool bodyBlocked: false
