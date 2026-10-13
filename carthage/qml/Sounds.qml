@@ -15,6 +15,7 @@ Item {
     Fx { id: clickIn; name: "click_in" }
     Fx { id: halfClick; name: "half_click" }
     Fx { id: release; name: "release" }
+    Fx { id: insertFx; name: "insert" }  // the eject recording, quicker (tools/make_insert_sound.py)
     Fx { id: hover; name: "hover"; level: 0.8 }
     Fx { id: pick; name: "pick" }
     Fx { id: place; name: "place" }
@@ -26,7 +27,7 @@ Item {
     readonly property int hoverGap: 90
 
     function play(name) {
-        if (!Backend.settings.soundsEnabled) return
+        if (!Backend.settings.soundsEnabled || Backend.testSilent) return
         const w = Window.window
         if (!w || w.visibility === Window.Minimized || w.visibility === Window.Hidden) return
         if (name === "hover") {
@@ -34,7 +35,7 @@ Item {
             if (now - lastHover < hoverGap) return
             lastHover = now
         }
-        const fx = { "click_in": clickIn, "half_click": halfClick, "release": release, "hover": hover,
+        const fx = { "click_in": clickIn, "half_click": halfClick, "release": release, "insert": insertFx, "hover": hover,
                      "pick": pick, "place": place, "key": key, "roll": roll }[name]
         if (fx) fx.play()
     }

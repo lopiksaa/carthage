@@ -28,28 +28,90 @@ FocusScope {
     function loadFacts() {
         info = {}
         extras = {}
+        factsLate = false
+        factsTimer.restart()
         if (Backend.fake || !game.gameId || game.source === "carthage") return
         const appid = game.source === "steam" ? parseInt(game.extId) || 0 : 0
         if (appid) Backend.store.loadDetailsQuiet(appid)
         Backend.store.loadExtras(game.gameId, appid, game.title || "")
+        preloadNeighbours()
+    }
+    // The games ← and → go to (running games are skipped).
+    function neighbourId(dir) {
+        for (let r = Backend.games.rowOf(game.gameId) + dir; r >= 0 && r < Backend.games.count; r += dir) {
+            const id = Backend.games.idAt(r)
+            if (Backend.sessions.indexOf(id) < 0) return id
+        }
+        return ""
+    }
+    // The previous and next games' backdrops load ahead: their details, then their pictures
+    // (into the image cache, at the size the backdrop asks for).
+    property var neighbourAppids: []
+    property var preloadUrls: []
+    function preloadNeighbours() {
+        const ids = []
+        for (const d of [-1, 1]) {
+            const gid = neighbourId(d)
+            const g = gid ? Backend.gameInfo(gid) : {}
+            const a = g.source === "steam" ? parseInt(g.extId) || 0 : 0
+            if (a) ids.push(a)
+        }
+        neighbourAppids = ids
+        for (const a of ids) Backend.store.loadDetailsQuiet(a)
+    }
+    Repeater {
+        model: Backend.settings.gameBackground === "blur" ? [] : inspect.preloadUrls
+        Image {
+            required property string modelData
+            visible: false
+            source: modelData
+            asynchronous: true
+            cache: true
+            sourceSize.width: 1600  // (GameBackdrop's)
+        }
     }
     Connections {
         target: Backend.store
         function onDetailsReady(appid, data) {
             if (inspect.game.source === "steam" && appid === (parseInt(inspect.game.extId) || -1)) inspect.info = data
+            else if (inspect.neighbourAppids.indexOf(appid) >= 0 && data.background)
+                inspect.preloadUrls = inspect.preloadUrls.filter(u => u !== data.background).concat([data.background]).slice(-4)
         }
         function onExtrasReady(key, data) {
             if (key === inspect.game.gameId) inspect.extras = data
         }
     }
 
-    readonly property real panelW: Math.min(Ui.detailsWidth, width - 64)
+    // Wide: the cartridge at the top left, the details using the rest of the width (up to a
+    // readable 860), both from the top. Narrow: the cartridge above the details.
     readonly property real gap: 56
-    readonly property bool wide: width >= 300 + gap + panelW + 96
-    readonly property real heroH: wide ? Math.min(height * 0.72, 560) : Math.min(height * 0.42, 360)
+    readonly property real sideM: 76  // room for the ← → keys
+    readonly property bool wide: width >= 300 + gap + Ui.detailsWidth + 96
+    // Wide, the cartridge gives way first: the details always get their full width.
+    readonly property real heroH: wide ? Math.min(height * 0.56, 470, (width - 2 * sideM - gap - Ui.detailsWidth) * ratio)
+                                       : Math.min(height * 0.42, 360)
     readonly property real heroW: Math.round(heroH / ratio)
-    readonly property real heroX: wide ? Math.round((width - (heroW + gap + panelW)) / 2) : Math.round((width - heroW) / 2)
+    // The cartridge and the details as one group, centered on a wide screen.
+    readonly property real heroX: wide ? Math.max(sideM, Math.round((width - (heroW + gap + panelW)) / 2))
+                                       : Math.round((width - heroW) / 2)
+    // Near the top (Sam: "put the title up"): the source label starts 72 px down and the
+    // title's capitals line up with the cartridge's top; never lower than centred.
+    // Wide: the cartridge is centred; the title keeps its own height near the top (Sam).
     readonly property real heroY: wide ? Math.round((height - heroH) / 2) : 28
+    readonly property real titleY: wide ? Math.round(Math.min((height - heroH) / 2, 72 + detailsPanel.titleLift)) : 28
+    // Once the cartridge has arrived, it follows its place when the place moves (the window is
+    // resized, the details arrive and the group re-centers).
+    readonly property bool settled: open && !openAnim.running && !closeAnim.running && !stepAnim.running
+                                    && !settleAnim.running && !flipAnim.running
+    onHeroXChanged: if (settled) follow.restart()
+    onHeroYChanged: if (settled) follow.restart()
+    ParallelAnimation {
+        id: follow
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
+        NumberAnimation { target: hero; property: "y"; to: inspect.heroY; duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
+    }
+    readonly property real panelW: wide ? Math.min(720, width - 2 * sideM - heroW - gap)
+                                        : Math.min(Ui.detailsWidth, width - 64)
 
     visible: level > 0.001 || open || closeAnim.running || warming
 
@@ -103,17 +165,25 @@ FocusScope {
         function onDataChanged() { inspect.refreshInstalled() }
     }
 
+    // The second click of a double-click lands on the backdrop of the view the first one just
+    // opened: it mustn't close it again.
+    property double openedAt: 0
     function openFor(cell) {
         if (open) return
+        openedAt = Date.now()
         // Build the whole object before assigning it: bindings only see a new `game`, not
         // later changes to its fields.
         const g = appRoot.cardData(cell)
+        const pc = cell.mapToItem(null, cell.cardX + cell.cardW / 2, cell.cardY + cell.cardH / 2)
+        Ui.groundPulse(pc.x, pc.y)  // the ground answers the opening
         g.lastPlayed = cell.lastPlayed
         g.playtime = cell.playtime
         g.developer = cell.developer
         g.publisher = cell.publisher
         g.released = cell.released
+        g.family = Backend.gameInfo(g.gameId).family === true
         game = g
+        backdrop.clear()  // (not the last game's art fading out as this one opens)
         loadFacts()
 
         const s0 = 1 + 0.05 * cell.lift
@@ -141,12 +211,7 @@ FocusScope {
     // The tray scrolls along, so closing still flies the card back into the right pocket.
     function step(dir) {
         if (!open || openAnim.running || closeAnim.running || stepAnim.running || rolling) return
-        let row = Backend.games.rowOf(game.gameId)
-        let gid = ""
-        for (let r = row + dir; r >= 0 && r < Backend.games.count; r += dir) {
-            const id = Backend.games.idAt(r)
-            if (Backend.sessions.indexOf(id) < 0) { gid = id; break }
-        }
+        const gid = neighbourId(dir)
         if (!gid) {
             if (motion > 0) edgeNudge.restart()
             return
@@ -197,8 +262,23 @@ FocusScope {
     }
     property bool rolling: false
     property var rollFaces: []
+    // Rolling while scrolled down (looking at screenshots): back to the top first, then roll.
+    Timer {
+        id: rollAfterReset
+        property string gid
+        property var pool
+        interval: 240 * Math.max(inspect.motion, 0.01)
+        onTriggered: inspect.rollTo(gid, pool)
+    }
     function rollTo(gid, pool) {
         if (!open || openAnim.running || closeAnim.running || stepAnim.running || rolling) return
+        if (detailsFlick.contentY > 1 && motion > 0) {
+            detailsWheel.glideTo(0, 220 * motion)
+            rollAfterReset.gid = gid
+            rollAfterReset.pool = pool
+            rollAfterReset.restart()
+            return
+        }
         otherMenu.close()
         settleAnim.stop()
         flipAnim.stop()
@@ -272,9 +352,9 @@ FocusScope {
 
     SequentialAnimation {
         id: edgeNudge
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX - 6; duration: 50 }
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX + 6; duration: 70 }
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 50 }
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX - 6; duration: 50 * inspect.motion; easing.type: Easing.OutQuad }
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX + 6; duration: 70 * inspect.motion; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 50 * inspect.motion; easing.type: Easing.InQuad }
     }
 
     function resetGallery() { morph.reset() }  // no animation: closing or showing another game
@@ -304,11 +384,16 @@ FocusScope {
             closeAnim.toOpacity = 1
             closeAnim.toSpin = Math.round(hero.spin / 360) * 360
         } else {
+            // Its slot isn't on screen: the card slides away toward it (up if the slot is above
+            // the visible tray, otherwise down).
+            const row = Backend.games.rowOf(game.gameId)
+            const top = appRoot.firstVisibleRow()
+            const up = row >= 0 && top >= 0 && row < top
             closeAnim.toSpin = Math.round(hero.spin / 360) * 360
             closeAnim.toX = hero.x
-            closeAnim.toY = hero.y + 40
-            closeAnim.toScale = hero.scale * 0.9
-            closeAnim.toOpacity = 0
+            closeAnim.toY = up ? -heroH * 1.4 : inspect.height + 40
+            closeAnim.toScale = hero.scale
+            closeAnim.toOpacity = 1
         }
         if (motion <= 0) {
             finishClose()
@@ -384,18 +469,45 @@ FocusScope {
     ShaderEffectSource {
         id: stageSource
         sourceItem: inspect.stage
-        live: inspect.visible
+        sourceRect: Qt.rect(inspect.x, inspect.y, inspect.width, inspect.height)  // the part behind
+        // Frozen while the view is open (cartridges going in and out of the tray while rolling
+        // would show through); live while it opens and closes.
+        live: inspect.visible && (!inspect.open || openAnim.running || closeAnim.running)
         visible: false
     }
+    // Settings → Appearance → Game View: the library blurred behind, or the game's art (on a
+    // plain dark ground, never mixed with the blur); a game without art gets the blur.
+    readonly property bool artBehind: Backend.settings.gameBackground === "backdrop" && (inspect.info.background || "") !== ""
+    // A Steam game's art is on its way (its details, then the picture): a plain dark ground
+    // meanwhile, never the blur first. The blur only for a game with no art (its details came
+    // without any, or nothing came within a few seconds).
+    property bool factsLate: false
+    Timer { id: factsTimer; interval: 2500; onTriggered: inspect.factsLate = true }
+    readonly property bool artExpected: Backend.settings.gameBackground === "backdrop" && !Backend.fake
+        && (inspect.artBehind || (inspect.game.source === "steam" && (parseInt(inspect.game.extId) || 0) > 0
+                                  && Object.keys(inspect.info).length === 0 && !inspect.factsLate))
     MultiEffect {
         anchors.fill: parent
         source: stageSource
-        visible: inspect.level > 0.001
+        visible: inspect.level > 0.001 && !inspect.artExpected
         opacity: inspect.level
         blurEnabled: true
         blur: 1.0
         blurMax: 48
         autoPaddingEnabled: false
+    }
+    Rectangle {
+        anchors.fill: parent
+        visible: inspect.artExpected
+        color: "#0b0b0e"
+        opacity: inspect.level
+    }
+    // The game's art under the scrim (at most 55%: white text stays ≥4.5:1 over any art).
+    GameBackdrop {
+        id: backdrop
+        anchors.fill: parent
+        level: inspect.level * 0.55 * (1 - inspect.galleryLevel)  // (the backdrop cross-fades its own art)
+        source: inspect.artBehind ? inspect.info.background : ""
     }
     // Dark enough for the white text in both editions (≥4.5:1).
     Rectangle {
@@ -408,102 +520,29 @@ FocusScope {
         enabled: inspect.open
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons
-        onClicked: inspect.close()
+        onClicked: if (Date.now() - inspect.openedAt > 450) inspect.close()
         onWheel: (wheel) => wheel.accepted = true
     }
 
-    Item {
+    HeroCard {
         id: hero
         visible: false || inspect.warming
         opacity: inspect.warming && !inspect.open ? 0.004 : 1
+        // Warming up, it's an invisible card in the window's top-left corner: it mustn't take
+        // the clicks meant for what's under it (≡ didn't respond for half a second after launch).
+        enabled: !inspect.warming || inspect.open
         width: inspect.heroW
         height: inspect.heroW * inspect.ratio
         transformOrigin: Item.TopLeft
         transform: Translate { x: -inspect.galleryLevel * (inspect.heroX + inspect.heroW - inspect.peekW) }
-
-        readonly property bool tilting: heroHover.hovered && !spinDrag.active && inspect.open
-                                        && Backend.settings.tiltEnabled && inspect.motion > 0
-        property real dragTilt: 0 // forward/back tip while being dragged
-
-        readonly property bool idle: inspect.open && !openAnim.running && !flipAnim.running
-                                     && !settleAnim.running && !spinDrag.active && !heroHover.hovered
-        IdleDrift {
-            id: drift
-            active: hero.idle
-            motion: inspect.motion
-        }
-        property real tiltX: tilting ? -(heroHover.point.position.y / height - 0.5) * 2 * 7 : 0
-        property real tiltY: tilting ? (heroHover.point.position.x / width - 0.5) * 2 * 7 : 0
-        Behavior on tiltX { SpringAnimation { spring: 4; damping: 0.55; epsilon: 0.05 } }
-        Behavior on tiltY { SpringAnimation { spring: 4; damping: 0.55; epsilon: 0.05 } }
-        property real press: 1
-        property real spin: 0 // degrees around the vertical axis; 180 shows the back
-        readonly property bool showingBack: Math.cos(spin * Math.PI / 180) < 0
-
-        Image {
-            readonly property real sp: hero.width * 0.16
-            x: -sp + hero.width * 0.05
-            y: -sp + hero.width * 0.09
-            width: hero.width + 2 * sp
-            height: hero.height + 2 * sp
-            readonly property real face: Math.abs(Math.cos(hero.spin * Math.PI / 180))
-                                       * Math.abs(Math.cos((hero.tiltX + hero.dragTilt) * Math.PI / 180))
-            opacity: inspect.pal.shadowStrength * 0.8 * Math.pow(face, 1.5)
-            visible: opacity > 0.01
-            transform: Scale {
-                origin.x: hero.width / 2 + hero.width * 0.16
-                origin.y: hero.height / 2 + hero.width * 0.16
-                xScale: Math.max(0.05, Math.abs(Math.cos(hero.spin * Math.PI / 180)))
-                yScale: Math.max(0.3, Math.abs(Math.cos((hero.tiltX + hero.dragTilt) * Math.PI / 180)))
-            }
-            source: "image://gc/shadow/" + Backend.theme.edition
-            sourceSize: Qt.size(Math.ceil(width / 2), Math.ceil(height / 2))
-        }
-
-        // Larger than the card, so the corners have room while it turns.
-        Card3D {
-            id: card3d
-            anchors.centerIn: parent
-            width: hero.width * 2.1
-            height: hero.height * 1.35
-            cardHeight: hero.height
-            game: inspect.game
-            anchors.verticalCenterOffset: drift.float
-            spin: hero.spin + drift.turn
-            tiltX: hero.tiltX + hero.dragTilt + drift.tip
-            tiltY: hero.tiltY
-            scale: hero.press
-        }
-
-        HoverHandler {
-            id: heroHover
-            cursorShape: spinDrag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-        }
-        DragHandler {
-            id: spinDrag
-            target: null
-            enabled: inspect.open
-            property real startSpin: 0
-            onActiveChanged: {
-                if (active) {
-                    flipAnim.stop()
-                    settleAnim.stop()
-                    startSpin = hero.spin
-                } else {
-                    inspect.settle(centroid.velocity.x)
-                }
-            }
-            onTranslationChanged: {
-                if (!active) return
-                hero.spin = startSpin + translation.x * 0.55
-                hero.dragTilt = Math.max(-30, Math.min(30, -translation.y * 0.25))
-            }
-        }
-        TapHandler {
-            gesturePolicy: TapHandler.ReleaseWithinBounds
-            onTapped: inspect.galleryMode ? inspect.exitGallery() : inspect.flip()
-        }
-
+        game: inspect.game
+        motion: inspect.motion
+        holding: inspect.open
+        busy: openAnim.running || flipAnim.running || settleAnim.running
+        selfSettling: false
+        onReleased: (vx) => inspect.settle(vx)
+        onTapped: inspect.galleryMode ? inspect.exitGallery() : inspect.flip()
+        onDraggingChanged: if (dragging) { flipAnim.stop(); settleAnim.stop() }
     }
 
     ParallelAnimation {
@@ -549,8 +588,8 @@ FocusScope {
 
     SequentialAnimation {
         id: heroPress
-        NumberAnimation { target: hero; property: "press"; to: 0.97; duration: 80; easing.type: Easing.OutQuad }
-        NumberAnimation { target: hero; property: "press"; to: 1; duration: 140; easing.type: Easing.OutBack }
+        NumberAnimation { target: hero; property: "press"; to: 0.97; duration: 80 * inspect.motion; easing.type: Easing.OutQuad }
+        NumberAnimation { target: hero; property: "press"; to: 1; duration: 140 * inspect.motion; easing.type: Easing.OutBack }
     }
 
     ParallelAnimation {
@@ -566,7 +605,9 @@ FocusScope {
         }
         NumberAnimation { target: inspect; property: "level"; to: 1; duration: 220 * inspect.motion; easing.type: Easing.OutQuad }
         SequentialAnimation {
-            PauseAnimation { duration: 90 * inspect.motion }
+            // The details wait until the flying card has crossed their side (at 40 % of its
+            // flight, eased, it's ~80 % of the way): earlier, its back passed over the title.
+            PauseAnimation { duration: inspect.openDuration * 0.4 }
             NumberAnimation { target: inspect; property: "panelLevel"; to: 1; duration: 240 * inspect.motion; easing.type: Easing.OutCubic }
         }
     }
@@ -640,12 +681,18 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: inspect.wide ? inspect.height - 2 * Ui.gapXL
+        readonly property real avail: inspect.wide ? inspect.height - inspect.titleY - Ui.gapXL
                                                    : inspect.height - (inspect.heroY + inspect.heroH + 28) - 20
         x: inspect.panelBaseX - inspect.galleryLevel * 40
-        y: inspect.wide ? Math.max(Ui.gapXL, Math.min(Math.round(inspect.heroY + (inspect.heroH - height) / 2),
-                                                      inspect.height - height - Ui.gapXL))
-                        : inspect.heroY + inspect.heroH + 28
+        // Level with the cartridge's top, and it stays there: the details arrive in stages, and
+        // a panel that re-centered would move Play out from under the pointer.
+        // The title's capitals line up with the cartridge's top edge; the source label hangs above.
+        readonly property real titleLift: Math.round(sourceRow.height + Ui.gapS + titleText.y0)
+        y: inspect.wide ? inspect.titleY - titleLift : inspect.heroY + inspect.heroH + 28
+        Behavior on y {
+            enabled: inspect.settled
+            NumberAnimation { duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
+        }
         width: detailsFlick.width
         height: pinned.height + Ui.gapXL + detailsFlick.height
         opacity: inspect.panelLevel * morph.detailsOpacity
@@ -662,15 +709,47 @@ FocusScope {
             Column {
                 width: parent.width
                 spacing: Ui.gapS
-                Text {
-                    text: (inspect.game.sourceName || "").toUpperCase()
-                    color: Ui.onScrimDim
-                    font.family: Ui.fontLabels
-                    font.weight: Font.Black
-                    font.pixelSize: Ui.textBody
-                    font.letterSpacing: 2.5
+                Row {  // where it's from; a game lent by the Steam Family says so
+                    id: sourceRow
+                    spacing: Ui.gapM
+                    Text {
+                        id: sourceEyebrow
+                        text: (inspect.game.sourceName || "").toUpperCase()
+                        color: Ui.onScrimDim
+                        font.family: Ui.fontLabels
+                        font.weight: Font.Black
+                        font.pixelSize: Ui.textBody
+                        font.letterSpacing: 2.5
+                    }
+                    Row {
+                        visible: inspect.game.family === true
+                        spacing: 6
+                        anchors.verticalCenter: sourceEyebrow.verticalCenter
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: "Shared by your Steam Family"
+                        CIcon {
+                            width: 16
+                            height: 16
+                            anchors.verticalCenter: parent.verticalCenter
+                            source: "group-symbolic"
+                            color: Ui.onScrimDim
+                        }
+                        Text {
+                            text: "FAMILY"
+                            color: Ui.onScrimDim
+                            font.family: Ui.fontLabels
+                            font.weight: Font.Black
+                            font.pixelSize: Ui.textBody
+                            font.letterSpacing: 2.5
+                        }
+                    }
                 }
                 Text {
+                    id: titleText
+                    // From the top of the text box to the top of the capitals (an H's real outline:
+                    // the font's declared cap height was 3 px off).
+                    readonly property real y0: Math.max(0, titleText.baselineOffset + titleFm.tightBoundingRect("H").y)
+                    FontMetrics { id: titleFm; font: titleText.font }
                     width: parent.width
                     text: inspect.game.title || ""
                     color: Ui.onScrim
@@ -705,9 +784,13 @@ FocusScope {
                 }
             }
 
+            // One row of actions: Play, then Play Next and More as small keys beside it.
+            Row {
+              width: parent.width
+              spacing: Ui.gapM
             CButton {
                 id: playButton
-                width: parent.width
+                width: parent.width - 2 * (height + Ui.gapM)
                 big: true
                 kind: "primary"
                 opacity: morph.morphing ? 0 : 1
@@ -723,42 +806,33 @@ FocusScope {
                 Keys.onEnterPressed: inspect.play()
             }
 
-            Flow {
-                width: parent.width
-                spacing: Ui.gapM
-                readonly property bool steamGame: inspect.game.source === "steam"
-                CButton {
-                    // Mentioning playNextStore re-checks it whenever Play Next changes.
-                    readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
-                    visible: !!inspect.game.gameId
-                    kind: "scrim"
-                    text: next ? "In Play Next" : "Play Next"
-                    icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
-                    Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
-                    onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
-                }
-                CButton {
-                    visible: parent.steamGame
-                    kind: "scrim"
-                    text: "Open Store Page"
-                    icon.name: "internet-services-symbolic"
-                    onClicked: Backend.openUrl("steam://store/" + inspect.game.extId)
-                }
-                CButton {
-                    visible: parent.steamGame
-                    kind: "scrim"
-                    text: "Show in Library"
-                    icon.name: "view-list-icons-symbolic"
-                    onClicked: Backend.openUrl("steam://nav/games/details/" + inspect.game.extId)
-                }
-                CButton {
-                    id: otherButton
-                    objectName: "inspectOtherButton"  // for the test harness
-                    kind: "scrim"
-                    text: "Other"
-                    icon.name: "overflow-menu-symbolic"
-                    onClicked: otherMenu.popup(otherButton, 0, otherButton.height + 6)
-                }
+            CButton {
+                // Mentioning playNextStore re-checks it whenever Play Next changes.
+                readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
+                objectName: "tourBookmark"  // (the first-run tour points at it)
+                kind: "scrim"
+                width: playButton.height
+                height: playButton.height
+                icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+                Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
+                QQC2.ToolTip.visible: tipWanted
+                QQC2.ToolTip.text: Accessible.name
+                QQC2.ToolTip.delay: 300
+                onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
+            }
+            CButton {
+                id: otherButton
+                objectName: "inspectOtherButton"  // for the test harness
+                kind: "scrim"
+                width: playButton.height
+                height: playButton.height
+                icon.name: "overflow-menu-symbolic"
+                Accessible.name: "More for this game"
+                QQC2.ToolTip.visible: tipWanted
+                QQC2.ToolTip.text: "More"
+                QQC2.ToolTip.delay: 300
+                onClicked: otherMenu.openFrom(otherButton)
+            }
             }
 
         }
@@ -773,6 +847,7 @@ FocusScope {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             WheelAccel { id: detailsWheel; flickable: detailsFlick; step: 90 }
+            AutoScroll { flickable: detailsFlick }
             onVisibleChanged: if (visible) contentY = 0
             QQC2.ScrollBar.vertical: CScrollBar { onDark: true }
 
@@ -780,8 +855,9 @@ FocusScope {
                 id: details
                 width: inspect.panelW
                 spacing: Ui.gapXL
-                Column {
-                    spacing: Ui.gapS
+                Flow {  // the facts, side by side
+                    width: parent.width
+                    spacing: Ui.gapXL
                     Repeater {
                         model: [
                             { icon: "view-calendar-symbolic", text: inspect.lastPlayedText(inspect.game.lastPlayed) },
@@ -820,6 +896,7 @@ FocusScope {
                     extraChips: inspect.extras.players ? [{ text: inspect.extras.players + " playing now", live: true }] : []
                 }
                 AchievementsSection {
+                    objectName: "achievements"  // for the test harness
                     width: parent.width
                     appid: inspect.game.source === "steam" ? (parseInt(inspect.game.extId) || 0) : 0
                 }
@@ -854,12 +931,13 @@ FocusScope {
         gallery: mediaGallery
         view: galleryView
         button: playButton
-        active: inspect.open && inspect.wide
+        active: false  // full view only when a screenshot is clicked (scrolling just scrolls)
         motion: inspect.motion
         onEntered: galleryView.forceActiveFocus()
     }
 
     PageControls {
+        arrowY: inspect.wide ? hero.y + hero.height * hero.scale / 2 : -1
         anchors.fill: parent
         z: 1
         shown: inspect.open
@@ -875,6 +953,31 @@ FocusScope {
         id: otherMenu
         objectName: "inspectOtherMenu"  // for the test harness
         readonly property bool custom: (inspect.game.gameId || "").startsWith("manual_")
+        readonly property bool steamGame: inspect.game.source === "steam"
+        QQC2.Action {
+            objectName: "optional"
+            text: "Open Store Page"
+            icon.name: "internet-services-symbolic"
+            enabled: otherMenu.steamGame
+            onTriggered: Backend.openUrl("steam://store/" + inspect.game.extId)
+        }
+        QQC2.Action {
+            objectName: "optional"
+            text: "Show in Steam Library"
+            icon.name: "document-open-symbolic"
+            enabled: otherMenu.steamGame
+            onTriggered: Backend.openUrl("steam://nav/games/details/" + inspect.game.extId)
+        }
+        CMenuSeparator {
+            visible: otherMenu.steamGame
+            height: visible ? implicitHeight : 0
+        }
+        QQC2.Action {
+            text: "Add to List…"
+            icon.name: "view-list-icons-symbolic"
+            onTriggered: inspect.appRoot.addToList(inspect.game.gameId, inspect.game.title)
+        }
+        CMenuSeparator {}
         QQC2.Action {
             text: "Change Art…"
             icon.name: "insert-image-symbolic"

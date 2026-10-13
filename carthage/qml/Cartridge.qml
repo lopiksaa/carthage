@@ -33,7 +33,7 @@ Item {
                                        && Backend.installs.progress[cart.gameId] !== undefined
                                        ? Backend.installs.progress[cart.gameId] : -1
     property real fill: installing >= 0 ? installing : 0
-    Behavior on fill { NumberAnimation { duration: 1900; easing.type: Easing.OutCubic } }
+    Behavior on fill { NumberAnimation { duration: 1900 * Backend.motion; easing.type: Easing.OutCubic } }
     property bool flat: false
 
     property bool glare: false
@@ -54,10 +54,13 @@ Item {
     // When the card is tilted, rotated or scaled, draw it flat into a texture first and
     // transform that: edges stay smooth instead of stair-stepping (no MSAA needed).
     property bool smoothTransform: false
+    // At exactly the card's own pixel size: drawn untransformed, the texture is pixel for pixel
+    // what the card looks like without it, so switching it on or off at the start and end of a
+    // hover doesn't make the printed label jump (at 1.5× with mipmaps it did, and the letters
+    // shimmered while tilting).
     layer.enabled: smoothTransform
     layer.smooth: true
-    layer.mipmap: true
-    layer.textureSize: Qt.size(Math.ceil(width * dpr * 1.5), Math.ceil(height * dpr * 1.5))
+    layer.textureSize: Qt.size(Math.round(width * dpr), Math.round(height * dpr))
 
     function rect(a) {
         return Qt.rect(a[0] * u, a[1] * u, a[2] * u, a[3] * u)
@@ -82,7 +85,10 @@ Item {
         Image {
             anchors.fill: parent
             readonly property string mode: Backend.headerTick >= 0 && cart.gameId ? Backend.headerOf(cart.gameId) : "launcher"
-            source: "image://gc/header/" + mode + "/" + (cart.source || "other") + "/" + cart.edition + "/"
+            // The launcher header (the default) is the same for every game of a launcher: one
+            // shared, cached image instead of one drawn per game (that made big scrolls stutter).
+            source: mode === "launcher" ? "image://gc/header/" + (cart.source || "other") + "/" + cart.edition
+                  : "image://gc/header/" + mode + "/" + (cart.source || "other") + "/" + cart.edition + "/"
                     + cart.gameId + "?h=" + Backend.headerTick + "&t=" + encodeURIComponent(cart.title)
             sourceSize: Qt.size(Math.ceil(width * cart.dpr), Math.ceil(height * cart.dpr))
             asynchronous: !cart.flat
@@ -165,7 +171,7 @@ Item {
         readonly property var fallbacks: (cart.artFallback || "").split("|").filter(x => x)
         source: cart.artUrl ? (fallbackIndex >= 0 && fallbackIndex < fallbacks.length ? fallbacks[fallbackIndex] : cart.artUrl)
               : cart.artKey ? "image://gc/art/" + cart.artKey + "?r=" + rev + "&g=" + Backend.artGen
-              : cart.gameId ? "image://gc/art/" + cart.gameId + (cart.installed ? "" : "/off")
+              : cart.gameId ? "image://gc/art/" + cart.gameId + (cart.installed || Backend.settings.colorUninstalled ? "" : "/off")
                               + "?r=" + rev + "&g=" + Backend.artGen : ""
         sourceSize: Qt.size(Math.ceil(width * cart.dpr), Math.ceil(height * cart.dpr))
         verticalAlignment: cart.artUrl && !wideArt ? Image.AlignTop : Image.AlignVCenter
@@ -185,6 +191,35 @@ Item {
         fillMode: wideArt ? Image.PreserveAspectFit : Image.PreserveAspectCrop
         asynchronous: !cart.flat
         smooth: true
+    }
+    // Store art still loading, or that never loads (every address failed): the game's name on
+    // a quiet panel, never a black window.
+    Rectangle {
+        readonly property bool failed: !!cart.artUrl && art.status === Image.Error
+                                       && art.fallbackIndex + 1 >= art.fallbacks.length
+        readonly property bool waiting: !!cart.artUrl && art.status !== Image.Ready && !failed
+        visible: failed || waiting
+        x: art.x
+        y: art.y
+        width: art.width
+        height: art.height
+        gradient: Gradient {
+            GradientStop { position: 0; color: "#3a3d4a" }
+            GradientStop { position: 1; color: "#23252e" }
+        }
+        Text {
+            anchors.fill: parent
+            anchors.margins: 40 * cart.u
+            text: cart.title.toUpperCase()
+            color: "#e8e8ee"
+            wrapMode: Text.Wrap
+            maximumLineCount: 4
+            elide: Text.ElideRight
+            verticalAlignment: Text.AlignVCenter
+            font.family: Ui.fontTitles
+            font.weight: Font.Black
+            font.pixelSize: Math.max(9, 50 * cart.u)
+        }
     }
 
     Item {
@@ -226,7 +261,7 @@ Item {
                 GradientStop { position: 1.0; color: "transparent" }
             }
             SequentialAnimation on opacity {
-                running: cart.installing >= 0 && cart.visible
+                running: cart.installing >= 0 && cart.visible && Backend.motion > 0  // (the % says it in words)
                 loops: Animation.Infinite
                 NumberAnimation { to: 0.35; duration: 900; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 1.0; duration: 900; easing.type: Easing.InOutSine }
@@ -235,14 +270,27 @@ Item {
     }
 
     Text {
+        id: label
         readonly property rect r: cart.rect(cart.geo.label)
+        // Long codes shrink to fit, like a printed label, but never below 70 %: past that the
+        // store id is left out ("STEAM - IRON:SOV"), which keeps the label readable.
+        readonly property real minSize: Math.max(1, cart.labelSize * cart.u * 0.7)
+        readonly property string full: (cart.sourceName + " - " + cart.extId + " - " + cart.code).toUpperCase()
+        TextMetrics {
+            id: fullFit
+            font.family: label.font.family
+            font.weight: label.font.weight
+            font.letterSpacing: label.font.letterSpacing
+            font.pixelSize: label.minSize
+            text: label.full
+        }
         x: r.x + 24 * cart.u
         y: r.y
         width: r.width - 48 * cart.u
         height: r.height
         text: cart.labelOverride ? cart.labelOverride
               : cart.installed
-              ? (cart.sourceName + " - " + cart.extId + " - " + cart.code).toUpperCase()
+              ? (fullFit.advanceWidth <= width ? full : (cart.sourceName + " - " + cart.code).toUpperCase())
               : cart.installing >= 0 ? "INSTALLING " + Math.round(cart.installing * 100) + "%"
               : "NOT INSTALLED"
         color: cart.pal.labelText
@@ -250,8 +298,8 @@ Item {
         font.pixelSize: Math.max(1, cart.labelSize * cart.u)
         font.weight: cart.labelSize > 40 ? Font.Bold : Font.Normal
         font.letterSpacing: 2 * cart.u
-        fontSizeMode: Text.HorizontalFit // long codes shrink to fit, like a printed label
-        minimumPixelSize: 1
+        fontSizeMode: Text.HorizontalFit
+        minimumPixelSize: minSize
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         renderType: Text.QtRendering

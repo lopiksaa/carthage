@@ -7,7 +7,7 @@ Item {
     id: app
     objectName: "app"
     // The main pieces by name, for the test harness (tools/harness/Commands.qml).
-    readonly property var parts: ({ addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, setupWizard: setupWizard, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
+    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, settingsPage: settingsPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, firstRun: firstRun, tour: tour, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
 
     readonly property var pal: Backend.theme.p
     // The desktop's animation-speed factor (KDE setting on Linux; 1 elsewhere); 0 = instant.
@@ -15,24 +15,122 @@ Item {
     readonly property bool animate: motion > 0
     property string mode: "library"
     // Discord Rich Presence follows the open screen (Python ignores it unless switched on).
-    function updatePresence() { Backend.setPresence(mode, Backend.sessions.count > 0) }
+    function updatePresence() { Backend.setPresence(mode, Backend.sessions.count > 0, !!app.Window.window && app.Window.window.active) }
+    Connections {
+        target: app.Window.window
+        function onActiveChanged() { app.updatePresence() }
+    }
     onModeChanged: updatePresence()
     Connections {
         target: Backend.sessions
         function onCountChanged() { app.updatePresence() }
     }
     Timer { running: true; interval: 800; onTriggered: app.updatePresence() }
-    function setMode(m) {
-        if (m === mode) return
-        if (inspect.open) inspect.close()
-        mode = m
-        header.searchField.text = ""
-        if (m === "store") storeView.load()
-        else focusTray()
+    // The knob: Library or Store, each back on the page it was last on.
+    property string lastLibraryPage: "library:all"
+    property string lastStorePage: "store:discover"
+    function setMode(m) { navigate(m === "store" ? lastStorePage : lastLibraryPage) }
+    // The sidebar slides out over the content from the top bar's ≡.
+    property bool sidebarOpen: false
+    function toggleSidebar() { sidebarOpen = !sidebarOpen }
+
+    // The sidebar layout concept: one page at a time in the main area, picked in the sidebar.
+    //   library:all · library:source:<launcher> · library:playnext · library:favorites
+    //   store:discover · store:deals · store:free · store:genres · store:wishlist · search · settings
+    property string page: "library:all"
+    property var pageHistory: []
+    readonly property bool libraryGrid: page === "library:all" || page.startsWith("library:source:")
+    readonly property bool listPageShown: page === "library:playnext" || page === "library:favorites" || customListShown
+    readonly property bool customListShown: page.startsWith("library:list:")
+    readonly property string customListId: customListShown ? page.slice(13) : ""
+    readonly property string pageTitle: {
+        if (page.startsWith("library:list:")) {
+            const l = Backend.lists.find(x => "library:list:" + x.id === page)
+            return l ? l.name : "List"
+        }
+        if (page.startsWith("library:source:")) {
+            const l = Backend.games.launchers.find(x => "library:" + x.value === page)
+            return l ? l.text : "Library"
+        }
+        return ({ "library:all": "All Games", "library:playnext": "Play Next", "library:favorites": "Favorites",
+                  "store:discover": "Discover", "store:deals": "Deals", "store:free": "Free Now",
+                  "store:genres": "Genres", "store:wishlist": "Wishlist", "search": "Search",
+                  "settings": "Settings" })[page] || ""
     }
+    property var deals: []
+    property real pageIn: 1
+    NumberAnimation { id: pageInAnim; target: app; property: "pageIn"; from: 0; to: 1; duration: 180 * app.motion; easing.type: Easing.OutCubic }
+    function navigate(p, back) {
+        if (p === "library:source:family") p = "library:source:steam"  // (Steam Family is part of Steam now)
+        sidebarOpen = false  // any way to another page (the knob too) puts the sidebar away
+        if (inspect.open) inspect.close()
+        if (storePage.open) storePage.close()
+        if (p === page) return
+        pageInAnim.restart()
+        if (!back) pageHistory = pageHistory.concat([page]).slice(-20)
+        page = p
+        if (p.startsWith("store:")) lastStorePage = p
+        else if (p.startsWith("library:")) lastLibraryPage = p
+        // Search and Settings keep the knob where it was.
+        const m = p.startsWith("store:") ? "store" : p.startsWith("library:") ? "library" : mode
+        if (m !== mode) mode = m
+        tray.quietFor(400)  // a new page, not a change to animate
+        if (p.startsWith("library:list:")) Backend.showList(p.slice(13))
+        if (p.startsWith("library:source:")) Backend.games.filterMode = p.slice(8)
+        else if (Backend.games.filterMode.startsWith("source:")) Backend.games.filterMode = "all"
+        if (m === "store") {
+            storeView.load()
+            if (deals.length === 0) Backend.store.loadDeals()  // ready before Deals is opened
+        }
+        if (p === "store:genres") storeView.showCategories()
+        else if (p === "store:discover") storeView.backToStore()
+        if (p === "store:deals" && deals.length === 0) Backend.store.loadDeals()
+        if (p === "store:wishlist") loadWishlist()  // fresh each visit (prices change)
+        if (p === "search") Qt.callLater(() => header.searchField.forceActiveFocus())
+        else if (p.startsWith("library:")) focusTray()
+    }
+    function navigateBack() {
+        const h = pageHistory
+        if (!h.length) return navigate("library:all", true)
+        pageHistory = h.slice(0, -1)
+        navigate(h[h.length - 1], true)
+    }
+    function searchGenre(tag) {
+        navigate("search")
+        searchPage.clear()
+        searchPage.setGenres([tag])
+    }
+    property var wishlist: []
+    property bool wishlistLoaded: false
+    property string wishlistError: ""
+    function loadWishlist() {
+        const sid = Backend.steamId()
+        if (!sid) { wishlistError = "Your wishlist needs Steam on this PC."; return }
+        wishlistError = ""
+        Backend.store.loadWishlist(sid)
+    }
+    property int dealsPageNo: 1
+    property bool dealsLoadingMore: false
+    Connections {
+        target: Backend.store
+        function onDealsReady(list) { app.deals = list; app.dealsPageNo = 1 }
+        function onWishlistReady(list) { app.wishlist = list; app.wishlistLoaded = true }
+        function onWishlistFailed(message) { app.wishlistError = message }
+        function onDealsMoreReady(pageNo, list) {
+            const seen = {}
+            for (const it of app.deals) seen[it.key || it.appid] = true
+            app.deals = app.deals.concat(list.filter(it => !seen[it.key || it.appid]))
+            app.dealsLoadingMore = false
+        }
+    }
+    // The top bar's field drives the Search page (your games and the stores, with filters).
     function search(text) {
-        if (mode === "store") storeView.query = text
-        else Backend.games.filterText = text
+        searchPage.text = text
+        if (text !== "" && page !== "search") navigate("search")
+    }
+    // The first game row showing in the tray (for a card sliding away toward its slot).
+    function firstVisibleRow() {
+        return tray.indexAt(tray.contentX + tray.width / 2, tray.contentY + 10)
     }
     function showOwned(gid) {
         setMode("library")
@@ -49,12 +147,13 @@ Item {
     }
     // True while any window/panel sits on top of the tray and dock: they then ignore input,
     // because Qt's tap handlers can still see clicks underneath a modal popup.
-    readonly property bool modalOpen: artPicker.opened || cropEditor.opened || confirm.opened
-                                      || headerPicker.opened || textPrompt.opened || processPicker.opened
-                                      || storePage.open || mediaViewer.opened
-                                      || addGameDialog.opened || slotPanel.opened || inspect.open
-                                      || colorPicker.opened || whatsNew.opened || feedbackDialog.opened
-                                      || app.settingsOpen || Ui.openMenus > 0
+    readonly property bool modalOpen: dialogOpen || storePage.open || inspect.open || app.settingsOpen
+    // Dialogs, panels and menus: these block the sidebar too (a game's view doesn't).
+    readonly property bool dialogOpen: artPicker.opened || cropEditor.opened || confirm.opened
+                                       || headerPicker.opened || textPrompt.opened || processPicker.opened
+                                       || mediaViewer.opened || addGameDialog.opened || slotPanel.opened || listPicker.opened || listGamesPicker.opened
+                                       || colorPicker.opened || whatsNew.opened || feedbackDialog.opened
+                                       || Ui.openMenus > 0
 
     // gameId → true while the cartridge is out of its recess (inspected, flying or docked).
     property var hiddenCards: ({})
@@ -152,6 +251,14 @@ Item {
             notify("Starting " + data.title + "…")
             return result
         }
+        if (result.startsWith("notfound:")) {  // its program was moved or uninstalled
+            if (notFlying) notFlying()
+            const file = result.slice(9).split(/[\\/]/).pop()
+            const text = "Couldn't find " + file + ". It may have moved or been uninstalled."
+            if (gid.startsWith("manual_")) notify(text, "Remove…", function () { confirmRemove(gid, data.title) })
+            else notify(text)
+            return result
+        }
         if (result !== "slot") return result
 
         setHidden(gid, true)
@@ -167,14 +274,21 @@ Item {
             x: start.x, y: start.y, scale: start.scale, cardWidth: start.cardWidth,
             motion: app.motion, lift: start.lift,
         })
+        // The ground answers: a pulse of light from the cartridge as it leaves.
+        const pc = flightLayer.mapToItem(stage, start.x + start.cardWidth * start.scale / 2,
+                                         start.y + start.cardWidth * Backend.theme.ratio * start.scale / 2)
+        Ui.groundPulse(pc.x, pc.y)
         copyCard(data, f.cart)
-        const seat = dock.seatPos(Backend.sessions.indexOf(gid))
-        const target = dock.mapToItem(flightLayer, seat.x, seat.y - dock.riseHeight)
+        const seat = dock.landingPos(Backend.sessions.indexOf(gid))
+        const target = dock.parent.mapToItem(flightLayer, seat.x, seat.y)
         f.launch(target.x, target.y, dock.cartW / start.cardWidth, function () {
             delete app.pendingSeat[gid]
             const s = dock.slotFor(gid)
             if (s) s.seatIn()
             f.destroy()
+        }, function () {
+            const s = dock.slotFor(gid)
+            if (s) s.arriving = true  // the flaps part as it comes in
         })
         return result
     }
@@ -340,6 +454,7 @@ Item {
     property string diceSpot: ""  // the card the light is on
     function rollDice() {
         if (diceTimer.running || diceScroll.running) return
+        if (mediaViewer.opened) mediaViewer.close()  // back from a full-size screenshot first
         const current = inspect.open ? inspect.game.gameId : ""
         const pool = []
         for (const m of [Backend.favorites, Backend.games])
@@ -558,7 +673,7 @@ Item {
     }
 
     Component.onCompleted: {
-        Window.window.searchField = header.searchField
+        Window.window.searchField = header.searchField  // Ctrl+F
         const problems = Backend.libraryProblems()
         if (problems) notify("Couldn't read " + problems + ". Details are in " + Backend.logFile(), "long")
         // Cartridges already in the dock (startup or live reload) are out of their recesses.
@@ -572,11 +687,14 @@ Item {
 
     property real drawerProgress: 0
     property bool settingsOpen: false  // where it's heading
+    // Settings is a page in the sidebar concept; the old drawer stays closed.
     function toggleDrawer() {
-        if (settingsOpen) closeDrawer()
-        else openDrawer()
+        if (page === "settings") navigateBack()
+        else navigate("settings")
     }
-    function openDrawer() {
+    function openDrawer() { navigate("settings") }
+    function closeDrawer() {}
+    function openDrawerOld() {
         if (inspect.open) inspect.close()
         settingsOpen = true
         drawerAnim.to = 1
@@ -585,7 +703,7 @@ Item {
         drawerAnim.restart()
         drawer.focusFirst()
     }
-    function closeDrawer() {
+    function closeDrawerOld() {
         if (!settingsOpen) return
         settingsOpen = false
         drawerAnim.to = 0
@@ -620,11 +738,72 @@ Item {
             id: stage
             anchors.fill: parent
 
+            // The glass look's ground, behind the header and the pages (Plastic draws its own).
+            Binding { target: Ui; property: "groundScroll"; value: app.libraryGrid ? tray.contentY / Math.max(1, app.height) : 0 }
+            WebGround {
+                id: ground
+                objectName: "ground"
+                Component.onCompleted: Ui.glassLayers = [ground, pages]
+                anchors.fill: parent
+                visible: Backend.theme.glassy
+            }
+
+            // Over the content while open: a dimmed tray (choose it to close) and the sidebar.
+            Rectangle {
+                objectName: "sidebarScrim"  // for the test harness
+                anchors.top: header.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                z: 3
+                color: "black"
+                opacity: app.sidebarOpen ? 0.35 : 0
+                visible: opacity > 0.01
+                Behavior on opacity { NumberAnimation { duration: Ui.motionMedium * app.motion; easing.type: Easing.OutCubic } }
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.AllButtons
+                    onClicked: app.sidebarOpen = false
+                    onWheel: (wheel) => wheel.accepted = true
+                }
+            }
+            Sidebar {
+                id: sidebar
+                drawer: true
+                onRight: true
+                enabled: !app.modalOpen && app.sidebarOpen
+                anchors.top: header.bottom
+                anchors.bottom: parent.bottom
+                // From the right edge.
+                readonly property real hiddenX: parent.width + 16
+                x: app.sidebarOpen ? parent.width - width : hiddenX
+                visible: x < hiddenX
+                // In with ease-out; out a little faster with ease-in. (From where it's heading:
+                // the open flag isn't settled yet when the move starts.)
+                Behavior on x {
+                    id: sidebarSlide
+                    NumberAnimation {
+                        readonly property bool leaving: sidebarSlide.targetValue >= sidebar.hiddenX
+                        duration: (leaving ? Ui.motionMedium : Ui.motionSlow - 60) * app.motion
+                        easing.type: leaving ? Easing.InCubic : Easing.OutCubic
+                    }
+                }
+                appRoot: app
+                page: app.page
+                // After the click has finished: disabling the sidebar inside its own click left
+                // the mouse grabbed, and the next click anywhere did nothing.
+                onNavigate: (p) => Qt.callLater(() => { app.navigate(p); app.sidebarOpen = false })
+                onSearchRequested: Qt.callLater(() => { app.navigate("search"); app.sidebarOpen = false })
+                z: 4
+            }
+
             Item {
                 id: body
+                objectName: "appBody"  // (CButton looks for it)
                 // One rule for the whole app: while anything sits on top (closer look, store
                 // page, dialog, menu, drawer), nothing behind it takes clicks, hover or scroll.
-                enabled: !app.modalOpen
+                enabled: !app.modalOpen && !app.sidebarOpen
+                onEnabledChanged: Ui.bodyBlocked = !enabled
                 anchors.top: header.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -632,56 +811,219 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
+                    visible: !Backend.theme.glassy
                     color: app.pal.tray
                 }
                 Image {
                     anchors.fill: parent
+                    visible: !Backend.theme.glassy
                     source: "image://gc/grain/" + Backend.theme.edition + Backend.theme.texQuery
                     fillMode: Image.Tile
                     opacity: 0.2
                     smooth: false
                 }
 
-                LibraryBar {
-                    id: libraryBar
-                    visible: app.mode === "library"
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    tray: tray
-                    appRoot: app
-                }
-                Tray {
-                    id: tray
-                    appRoot: app
-                    visible: app.mode === "library"
-                    anchors.top: libraryBar.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: dock.top
-                    bottomClearance: dock.protrude - dock.lipY + Ui.spacingLarge
-                }
-                StoreView {
-                    id: storeView
-                    appRoot: app
-                    visible: app.mode === "store"
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: dock.top
-                    bottomClearance: dock.protrude - dock.lipY + Ui.spacingLarge
-                    onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                // The pages. A new page fades in with a small rise (ease-out, short: page
+                // switches are frequent); the dock stays outside, unaffected.
+                Item {
+                    id: pages
+                    anchors.fill: parent
+                    opacity: app.pageIn
+                    transform: Translate { y: (1 - app.pageIn) * 6 }
+                    LibraryBar {
+                        id: libraryBar
+                        visible: app.libraryGrid || app.listPageShown
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        tray: tray
+                        appRoot: app
+                        title: app.pageTitle
+                        withSources: false
+                        sourcePage: app.page.startsWith("library:source:")
+                        count: app.page === "library:playnext" ? playNextPage.count
+                             : app.page === "library:favorites" ? favoritesPage.count
+                             : app.customListShown ? customListPage.count : -1
+                        listId: app.customListId
+                    }
+                    // The other pages' title row (the store, search, settings).
+                    Item {
+                        id: pageBar
+                        visible: !libraryBar.visible && app.page !== "search"
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: visible ? 52 : 0
+                        Row {
+                            // The page grid's left edge; on Settings, the centred panel's.
+                            x: app.page === "settings" ? settingsPage.x : tray.contentLeft
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Ui.gapM
+                            EngravedLabel {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: app.pageTitle
+                            }
+                        }
+                    }
+                    Tray {
+                        id: tray
+                        appRoot: app
+                        visible: app.libraryGrid
+                        showShelves: false
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomClearance: dock.clearance
+                    }
+                    // One page per list (switching shows another page instead of rebuilding
+                    // every cartridge in one).
+                    ListPage {
+                        id: playNextPage
+                        visible: app.page === "library:playnext"
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomMargin: dock.clearance
+                        tray: tray
+                        appRoot: app
+                        listModel: Backend.playNext
+                        storeItems: Backend.playNextStore
+                        emptyText: "Nothing to play next"
+                        emptyHint: "Choose the bookmark on a game's page to keep it here. Store games can go here too."
+                        emptyAction: "Browse the Store"
+                        onEmptyActionTriggered: app.navigate("store:discover")
+                    }
+                    ListPage {
+                        id: customListPage
+                        visible: app.customListShown
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomMargin: dock.clearance
+                        tray: tray
+                        appRoot: app
+                        listModel: Backend.customList
+                        storeItems: []
+                        emptyText: "Nothing in this list yet"
+                        emptyHint: "Pick its games here, or choose Add to List… in any cartridge's menu."
+                        emptyAction: "Add Games…"
+                        onEmptyActionTriggered: app.editListGames(app.customListId)
+                    }
+                    ListPage {
+                        id: favoritesPage
+                        visible: app.page === "library:favorites"
+                        anchors.top: libraryBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomMargin: dock.clearance
+                        tray: tray
+                        appRoot: app
+                        listModel: Backend.favoritesList
+                        storeItems: []
+                        emptyText: "No favorites yet"
+                        emptyIcon: "starred"
+                        emptyHint: "Choose Add to Favorites in any cartridge's menu."
+                        emptyAction: "Show All Games"
+                        onEmptyActionTriggered: app.navigate("library:all")
+                    }
+                    StoreView {
+                        id: storeView
+                        appRoot: app
+                        visible: app.page === "store:discover" || app.page === "store:genres"
+                        showBar: false
+                        tray: tray
+                        onGenre: (c) => app.searchGenre(c.tag)
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        bottomClearance: dock.clearance
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    StoreListPage {
+                        id: dealsPage
+                        visible: app.page === "store:deals"
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        appRoot: app
+                        tray: tray
+                        items: app.deals
+                        canLoadMore: app.deals.length > 0
+                        loadingMore: app.dealsLoadingMore
+                        onLoadMore: { app.dealsLoadingMore = true; Backend.store.loadMoreDeals(++app.dealsPageNo) }
+                        emptyText: "Gathering the deals…"
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    StoreListPage {
+                        id: freePage
+                        visible: app.page === "store:free"
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        appRoot: app
+                        tray: tray
+                        items: storeView.free
+                        emptyText: "Looking for free games…"
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    StoreListPage {
+                        id: wishlistPage
+                        visible: app.page === "store:wishlist"
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        appRoot: app
+                        tray: tray
+                        items: app.wishlist
+                        emptyText: app.wishlistError || (app.wishlistLoaded ? "Your Steam wishlist is empty" : "Getting your wishlist…")
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    SearchPage {
+                        id: searchPage
+                        showField: false  // the top bar's field
+                        visible: app.page === "search"
+                        anchors.fill: parent
+                        tray: tray
+                        appRoot: app
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    SettingsPage {
+                        id: settingsPage
+                        visible: app.page === "settings"
+                        appRoot: app
+                        anchors.top: pageBar.bottom
+                        anchors.bottom: parent.bottom
+                        // Centred: in a wide window a left-pinned panel left the right half empty.
+                        x: Math.round((parent.width - width) / 2)
+                        anchors.bottomMargin: Math.max(24, dock.clearance)  // clear of the dock while a game runs
+                        // A settings window, not a wall: as wide as its list and its 640-px column
+                        // need, so the controls end as far from its right edge as they start.
+                        width: Math.min(tray.contentRight - tray.contentLeft, settingsPage.naturalWidth)
+                        onCloseRequested: app.navigateBack()
+                    }
                 }
 
                 Rectangle {
                     id: dockFade
+                    // The cartridges fade into the tray before they pass behind the band.
+                    // Plastic: the tray fades out at the window's bottom, under the floating dock (anchored
+                    // to the dock's top it cut a band across the cartridges).
+                    visible: dock.hideY < 1 && !Backend.theme.glassy
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.bottom: dock.top
-                    height: dock.protrude - dock.lipY + Ui.gridUnit * 2
+                    anchors.bottom: parent.bottom
+                    height: 18 + dock.height + 70
                     gradient: Gradient {
                         GradientStop { position: 0.0; color: Qt.alpha(app.pal.tray, 0) }
-                        GradientStop { position: 0.55; color: Qt.alpha(app.pal.tray, 0.92) }
+                        GradientStop { position: 0.62; color: Qt.alpha(app.pal.tray, 0.9) }
                         GradientStop { position: 1.0; color: app.pal.tray }
                     }
                 }
@@ -690,9 +1032,9 @@ Item {
                 // reaches the cards behind it — so aiming for a docked cartridge can't start another
                 // game. Scrolling still passes through.
                 MouseArea {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.rightMargin: Ui.gridUnit
+                    visible: dock.wanted
+                    anchors.left: dock.left
+                    anchors.right: dock.right
                     anchors.bottom: dock.top
                     height: dock.protrude - dock.lipY + 10
                     hoverEnabled: true
@@ -701,26 +1043,89 @@ Item {
                 }
 
                 CPlaceholder {
-                    anchors.centerIn: tray
+                    // Centered on the tray (inside the pages container).
+                    anchors.horizontalCenter: pages.horizontalCenter
+                    y: tray.y + Math.round((tray.height - height) / 2)
                     width: tray.width - Ui.gridUnit * 4
                     readonly property string filter: Backend.games.filterMode
-                    visible: Backend.games.count + Backend.favorites.count === 0 && app.mode === "library"
+                    visible: Backend.games.count + Backend.favorites.count === 0 && app.libraryGrid
                     iconName: Backend.games.filterText ? "search" : "applications-games"
                     text: Backend.games.filterText ? "No games match “" + Backend.games.filterText + "”"
                         : filter === "installed" ? "No installed games"
                         : filter === "notinstalled" ? "Everything is installed"
-                        : "No games yet"
+                        : "Ready to play?"
                     explanation: Backend.games.filterText ? "Try a different name, or clear the search."
                         : filter !== "all" ? "Set Show to All in the bar above to see the rest."
-                        : "Carthage finds games from Steam, Heroic, Lutris and more. Add any other game with + above."
+                        : "Add a game with the + button at the top right, or install a launcher like Steam or Epic: Carthage finds their games by itself."
+                    // The way out of each empty state, as a button.
+                    actionText: Backend.games.filterText ? "Clear Search"
+                        : filter !== "all" ? "Show All" : "Add a Game…"
+                    onAction: {
+                        if (Backend.games.filterText) Backend.games.filterText = ""
+                        else if (filter !== "all") Backend.games.filterMode = "all"
+                        else app.addGame()
+                    }
+                }
+
+                // Back to top: over the library, top middle, once it's scrolled a screen down; frosted
+                // like the dock on glass.
+                Item {
+                    id: topButton
+                    readonly property bool shown: app.libraryGrid && tray.scrolledAway
+                    readonly property point at: tray.width + tray.height + app.width >= 0
+                        ? tray.mapToItem(parent, (tray.width - width) / 2, 12) : Qt.point(0, 0)
+                    x: at.x
+                    y: at.y + (shown ? 0 : -12)
+                    z: 5
+                    width: topBtn.width
+                    height: topBtn.height
+                    opacity: shown ? 1 : 0
+                    visible: opacity > 0.01
+                    Behavior on opacity { NumberAnimation { duration: 160 * app.motion } }
+                    Behavior on y { NumberAnimation { duration: 160 * app.motion; easing.type: Easing.OutCubic } }
+                    GlassPane {
+                        visible: Backend.theme.glassy
+                        width: parent.width
+                        height: parent.height
+                        behind: Backend.theme.glassy && topButton.visible ? Ui.glassLayers : []
+                        radius: Ui.radiusMedium
+                        blurPx: 22
+                        track: Qt.point(topButton.x, topButton.y)
+                    }
+                    CButton {
+                        id: topBtn
+                        text: "Back to top"
+                        icon.name: "go-up-symbolic"
+                        onClicked: { tray.backToTop(); app.sound("key") }
+                    }
                 }
 
                 Dock {
                     id: dock
                     appRoot: app
-                    anchors.left: parent.left
-                    anchors.right: parent.right
+                    valley: true
+                    behind: Ui.glassLayers  // what the glass frosts
+                    // Always there in the library; elsewhere only while it has something: a game
+                    // in it, an install, a drag.
+                    readonly property bool wanted: app.libraryGrid || app.listPageShown
+                                                   || Backend.sessions.count > 0 || app.dragging || installing !== null
+                    // Room to keep clear above it: its body, plus the cartridges standing in it.
+                    readonly property real clearance: wanted ? 18 + height + (filled > 0 ? protrude - lipY : 0) + Ui.spacingLarge
+                                                             : Ui.spacingLarge
+                    hideY: wanted ? 0 : height + rise + protrude + 20
+                    // Rises with ease-out; leaves faster with ease-in (exits shorter than entrances).
+                    Behavior on hideY {
+                        id: dockSlide
+                        NumberAnimation {
+                            readonly property bool leaving: dockSlide.targetValue > 0
+                            duration: (leaving ? Ui.motionMedium - 20 : Ui.motionSlow - 60) * app.motion
+                            easing.type: leaving ? Easing.InCubic : Easing.OutCubic
+                        }
+                    }
+                    // Floating, centred, 18 px above the window's bottom; its width follows what's in it.
+                    anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 18
                     onClicked: {
                         sounds.play("click_in")
                         dock.bump()
@@ -850,6 +1255,31 @@ Item {
                                notify("That isn't a number of hours. Try again with something like 12 or 3.5.")
                        })
     }
+    // Your own lists.
+    function newList(addGameId) {
+        textPrompt.ask("New List", "Name it after a mood, a friend, a weekend…", "", "Create",
+                       function (v) {
+                           const id = Backend.createList(v)
+                           if (!id) return
+                           if (addGameId) Backend.setInList(id, addGameId, true)
+                           else {
+                               navigate("library:list:" + id)
+                               Qt.callLater(() => editListGames(id))
+                           }
+                       })
+    }
+    function addToList(gid, title) { listPicker.openFor(gid, title) }
+    function renameList(lid) {
+        const l = Backend.lists.find(x => x.id === lid)
+        if (l) textPrompt.ask("Rename List", "", l.name, "Rename", function (v) { Backend.renameList(lid, v) })
+    }
+    function deleteList(lid) {
+        const l = Backend.lists.find(x => x.id === lid)
+        if (!l) return
+        navigate("library:all")
+        Backend.deleteList(lid)
+        notify("Deleted “" + l.name + "”. The games are still in your library.")
+    }
     function renameGame(gid, title) {
         textPrompt.ask("Rename Game", "Only changes the name in Carthage.", title, "Rename",
                        function (v) { Backend.rename(gid, v) },
@@ -862,6 +1292,17 @@ Item {
     AddGameDialog {
         id: addGameDialog
         appRoot: app
+    }
+    ListPicker {
+        id: listPicker
+        appRoot: app
+    }
+    ListGamesPicker {
+        id: listGamesPicker
+    }
+    function editListGames(lid) {
+        const l = Backend.lists.find(x => x.id === lid)
+        if (l) listGamesPicker.openFor(lid, l.name)
     }
     function openStoreItem(item, list) {  // a store game from a library shelf (Play Next)
         storePage.openFor(item, list)
@@ -880,13 +1321,26 @@ Item {
     function pickGameColor(gameId, title) {  // one game's own cartridge color
         colorPicker.openFor("game", gameId, title)
     }
-    SetupWizard {
-        id: setupWizard
+    // First launch (and Settings → Run Setup): the splash and setup, then the tour.
+    signal introCards()  // the library's cartridges in view arrive one by one (TrayCell.qml)
+    function closeInspect() { if (inspect.open) inspect.close() }
+    FirstRun {
+        id: firstRun
         appRoot: app
+        ground: ground
+        onFinished: tourDelay.restart()
+        Component.onCompleted: if (Backend.firstRun) start(true)
+    }
+    Timer { id: tourDelay; interval: 1300; onTriggered: tour.begin() }
+    Tour { id: tour; appRoot: app }
+    function repeatTour() {
+        closeDrawer()
+        tour.begin()
     }
     function runSetup() {
         closeDrawer()
-        setupWizard.start()
+        navigate("library:all")
+        firstRun.start(true)
     }
     WhatsNewDialog { id: whatsNew; appRoot: app }
     function showWhatsNew() {
@@ -896,18 +1350,13 @@ Item {
     Timer {
         running: !!Backend.whatsNew.version && app.powered
         interval: 900
-        onTriggered: if (!setupWizard.opened && !app.modalOpen) whatsNew.openWith(Backend.whatsNew, true)
-    }
-    Timer {
-        running: Backend.firstRun
-        interval: 700
-        onTriggered: setupWizard.start()
+        onTriggered: if (!firstRun.visible && !tour.running && !app.modalOpen) whatsNew.openWith(Backend.whatsNew, true)
     }
 
     Sounds { id: sounds }
 
     // Feedback: after 40 minutes of use (counted while the window is active, across runs),
-    // a toast asks once. Menu → System → Send Feedback is always there.
+    // a toast asks once. Settings → System → Send Feedback is always there.
     FeedbackPrompt {
         id: feedbackPrompt
         appRoot: app
@@ -915,7 +1364,7 @@ Item {
         anchors.left: parent.left
         anchors.leftMargin: 20
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: dock.height + 16
+        anchors.bottomMargin: dock.height + 18 + 16
     }
     Timer {
         interval: 60000
@@ -923,7 +1372,7 @@ Item {
         running: app.powered && !Backend.settings.feedbackAsked && Qt.application.state === Qt.ApplicationActive
         onTriggered: {
             Backend.settings.usageMinutes += 1
-            if (Backend.settings.usageMinutes >= 40 && !app.modalOpen && !app.dragging && !setupWizard.opened) {
+            if (Backend.settings.usageMinutes >= 40 && !app.modalOpen && !app.dragging && !firstRun.visible && !tour.running) {
                 Backend.settings.feedbackAsked = true
                 feedbackPrompt.show()
             }
@@ -948,6 +1397,15 @@ Item {
     }
 
     Shortcut {
+        sequence: "Ctrl+B"
+        onActivated: app.toggleSidebar()
+    }
+    Shortcut {
+        sequence: "Esc"
+        enabled: app.sidebarOpen
+        onActivated: app.sidebarOpen = false
+    }
+    Shortcut {
         sequence: "F10"
         onActivated: app.toggleDrawer()
     }
@@ -960,6 +1418,43 @@ Item {
         sequence: "F6"
         enabled: !inspect.open
         onActivated: tray.activeFocus ? dock.focusFirst() : tray.forceActiveFocus()
+    }
+
+    // Settings → Appearance → Adjust Card Size: the library, with − and + in a bar at the bottom;
+    // Done goes back to Settings. Leaving the library some other way puts the bar away.
+    property bool sizingCards: false
+    function adjustCardSize() {
+        navigate("library:all")
+        sizingCards = true
+    }
+    onPageChanged: if (page !== "library:all") sizingCards = false
+    Item {
+        id: sizeBar
+        z: 950
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: parent.height - 130 - height + (app.sizingCards ? 0 : 24)
+        width: sizeRow.implicitWidth + 2 * Ui.gapL
+        height: 64
+        opacity: app.sizingCards ? 1 : 0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 180 * app.motion; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 220 * app.motion; easing.type: Easing.OutCubic } }
+        Accessible.role: Accessible.Dialog
+        Accessible.name: "Card size"
+        PanelBackground { anchors.fill: parent; radius: Ui.radiusMedium; shadowOffset: 6; shadowBlur: 20 }
+        MouseArea { anchors.fill: parent }  // (clicks on the bar stay on it)
+        Row {
+            id: sizeRow
+            anchors.centerIn: parent
+            spacing: Ui.gapL
+            CardSizer { anchors.verticalCenter: parent.verticalCenter; onStepped: app.sound("key") }
+            CButton {
+                anchors.verticalCenter: parent.verticalCenter
+                kind: "primary"
+                text: "Done"
+                onClicked: { app.sizingCards = false; app.navigate("settings") }
+            }
+        }
     }
 
     readonly property bool powered: powerOn.powered

@@ -9,20 +9,25 @@ Column {
 
     property Item tray          // the main tray (for its geometry)
     property Item appRoot
+    // Which list (the sidebar concept shows any list as a page, without the title).
+    property var listModel: Backend.playNext
+    property var storeItems: Backend.playNextStore
+    property bool asPage: false
+    property int maxRows: 0  // 0: every row; else only this many are built (the search page shows 2)
     readonly property var pal: Backend.theme.p
-    readonly property var storeItems: Backend.playNextStore
     readonly property int libraryCount: shelfLoader.item ? shelfLoader.item.count : 0
     readonly property int count: libraryCount + storeItems.length
-    readonly property bool collapsed: Backend.settings.playNextCollapsed
+    readonly property bool collapsed: !asPage && Backend.settings.playNextCollapsed
     readonly property int columns: Math.max(1, tray.columns)
     readonly property real leftX: tray.contentLeft - tray.leftMargin
 
     visible: count > 0
     height: visible ? implicitHeight : 0
-    topPadding: Ui.gapL
+    topPadding: asPage ? 0 : Ui.gapL
     spacing: Ui.gapS
 
     ShelfTitle {
+        visible: !pn.asPage
         x: pn.leftX
         text: "Play Next"
         count: pn.count
@@ -44,14 +49,17 @@ Column {
             visible: pn.libraryCount > 0
             x: -pn.tray.leftMargin
             width: pn.tray.width
-            height: Math.ceil(pn.libraryCount / pn.columns) * pn.tray.cellHeight
+            readonly property int rows: Math.ceil(pn.libraryCount / pn.columns)
+            // Only as tall as what shows: the cartridges below aren't built at all.
+            height: (pn.maxRows > 0 ? Math.min(rows, pn.maxRows) : rows) * pn.tray.cellHeight
             Component.onCompleted: setSource(Qt.resolvedUrl("Tray.qml"), {
                 shelf: true,
-                trayModel: Backend.playNext,
+                trayModel: pn.listModel,
                 mainTray: pn.tray,
                 appRoot: pn.appRoot,
             })
             onLoaded: {
+                item.trayModel = Qt.binding(() => pn.listModel)  // follows a page switching lists
                 item.leftMargin = Qt.binding(() => pn.tray.leftMargin)
                 item.rightMargin = Qt.binding(() => pn.tray.rightMargin)
                 item.interactive = false

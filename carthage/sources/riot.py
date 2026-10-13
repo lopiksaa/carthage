@@ -22,7 +22,21 @@ NAMES = {
     "valorant": "VALORANT",
     "bacon": "Legends of Runeterra",
     "lion": "2XKO",
+    "teamfighttactics": "Teamfight Tactics",
 }
+
+
+def _registered_name(product, patchline):
+    """The name Riot gives the game in Windows' installed apps list (HKCU\\…\\Uninstall\\
+    "Riot Game <product>.<patchline>"); Teamfight Tactics has no shortcut name, only this."""
+    try:
+        import winreg
+
+        key = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game {product}.{patchline}"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+            return str(winreg.QueryValueEx(k, "DisplayName")[0]).strip()
+    except (ImportError, OSError):
+        return ""
 
 
 def riot_dir():
@@ -74,7 +88,7 @@ def load_from(root):
             "id": f"riot_{product}" + ("" if patchline in ("", "live") else f"_{patchline}"),
             # shortcut_name is the Start-menu shortcut's file name ("League of Legends.lnk").
             "name": values.get("shortcut_name", "").removesuffix(".lnk") or NAMES.get(product)
-                    or product.replace("_", " ").title(),
+                    or _registered_name(product, patchline or "live") or product.replace("_", " ").title(),
             "launch": f'"{client}" --launch-product={product} --launch-patchline={patchline or "live"}',
             "install_dir": folder,
             "short_id": product[:6].upper(),

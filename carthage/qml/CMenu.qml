@@ -8,6 +8,10 @@ import QtQuick.Controls as QQC2
 
 QQC2.Menu {
     id: cmenu  // not `menu`: each MenuItem has its own `menu` property, empty once it's removed
+    // A click outside only closes the menu (it doesn't also reach what's underneath, e.g. the
+    // game view's backdrop, which would close the whole view).
+    modal: true
+    dim: false
 
     readonly property var pal: Backend.theme.p
 
@@ -20,6 +24,20 @@ QQC2.Menu {
         Ui.openMenus = Math.max(0, Ui.openMenus - 1)
     }
     onOpened: if (!counted) { counted = true; Ui.openMenus++ }
+
+    // Open from a button: below it, starting at its left edge, or ending at its right edge when
+    // that side has no room; above it when there's no room below. (Qt alone would push the
+    // menu over its own button.)
+    function openFrom(button) {
+        const win = button.Window.window
+        const p = button.mapToItem(null, 0, 0)
+        const w = Math.max(width, implicitWidth), h = Math.max(height, implicitHeight)
+        const gap = 6
+        const x = p.x + w > win.width - margins ? button.width - w : 0
+        const below = p.y + button.height + gap + h <= win.height - margins
+        const y = below || p.y - gap - h < margins ? button.height + gap : -gap - h
+        popup(button, x, y)
+    }
     onClosed: release()
     Component.onDestruction: release()
 
@@ -28,11 +46,11 @@ QQC2.Menu {
     implicitWidth: 230
 
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 90 }
-        NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: 110; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 90 * Backend.motion; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: 110 * Backend.motion; easing.type: Easing.OutCubic }
     }
     exit: Transition {
-        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 70 }
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 70 * Backend.motion; easing.type: Easing.InCubic }
     }
 
     background: PanelBackground {

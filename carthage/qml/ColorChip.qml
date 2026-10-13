@@ -1,5 +1,4 @@
-// A color chip for the hardware and cartridge colors. With no color it shows "=" (same as the
-// hardware).
+// A color chip for the hardware and cartridge colors.
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -12,6 +11,10 @@ Item {
     property color plastic: "transparent"
     property bool selected: false
     property bool rainbow: false // "pick your own color" (opens the color picker)
+    property bool linked: false  // "same as the hardware": its color, with a link mark
+    // Four colours instead of one (a glass background's corners: top left, top right, bottom
+    // right, bottom left), round the chip.
+    property var colors: []
     readonly property bool plain: plastic.a === 0
     signal picked()
 
@@ -30,7 +33,7 @@ Item {
     Item {
         anchors.fill: parent
         scale: hover.hovered ? 1.08 : 1
-        Behavior on scale { NumberAnimation { duration: 90 } }
+        Behavior on scale { NumberAnimation { duration: 90 * Backend.motion; easing.type: Easing.OutCubic } }
 
         Shape {
             visible: chip.rainbow
@@ -52,6 +55,26 @@ Item {
                 PathRectangle { x: 0; y: 0; width: chip.width; height: chip.height; radius: chip.radius }
             }
         }
+        Shape {
+            visible: chip.colors.length === 4
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeColor: "transparent"
+                // Counter-clockwise from the top right corner.
+                fillGradient: ConicalGradient {
+                    centerX: chip.width / 2
+                    centerY: chip.height / 2
+                    angle: 45
+                    GradientStop { position: 0.00; color: chip.colors[1] ?? "transparent" }
+                    GradientStop { position: 0.25; color: chip.colors[0] ?? "transparent" }
+                    GradientStop { position: 0.50; color: chip.colors[3] ?? "transparent" }
+                    GradientStop { position: 0.75; color: chip.colors[2] ?? "transparent" }
+                    GradientStop { position: 1.00; color: chip.colors[1] ?? "transparent" }
+                }
+                PathRectangle { x: 0; y: 0; width: chip.width; height: chip.height; radius: chip.radius }
+            }
+        }
         Rectangle {
             anchors.fill: parent
             radius: chip.radius
@@ -64,15 +87,15 @@ Item {
             }
             border.width: chip.selected ? 3 : 1
             border.color: chip.selected ? Backend.theme.accent.accent
-                        : chip.plain && !chip.rainbow ? Backend.theme.p.panelTextDim : Qt.rgba(0, 0, 0, 0.25)
-            Text {
-                visible: chip.plain && !chip.rainbow
+                        : chip.plain && !chip.rainbow && !chip.colors.length ? Backend.theme.p.panelTextDim : Qt.rgba(0, 0, 0, 0.25)
+            CIcon {
+                visible: chip.linked
                 anchors.centerIn: parent
-                text: "="
-                color: Backend.theme.p.panelText
-                font.family: Ui.fontText
-                font.weight: Font.Black
-                font.pixelSize: Math.round(chip.size * 0.55)
+                width: Math.round(chip.size * 0.55)
+                height: width
+                source: "link-symbolic"
+                isMask: true
+                color: chip.plastic.hslLightness > 0.6 ? "#1d1f24" : "#ffffff"
             }
         }
     }

@@ -327,6 +327,100 @@ def render_shadow(w, h, edition):
     return blur(img, cw * 0.06)
 
 
+# The glass well's image extends past the well by this fraction of the well's width on each
+# side, for its shadow (CSS 0 24px 40px -22px at 217 px wide).
+GLASS_WELL_MARGIN = 0.22
+
+
+def _gauss(a, sigma):
+    """Separable Gaussian blur of a 2-D float array (numpy, edges extended)."""
+    import numpy as np
+
+    if sigma < 0.5:
+        return a
+    r = int(sigma * 3)
+    k = np.exp(-(np.arange(-r, r + 1) ** 2) / (2 * sigma * sigma))
+    k /= k.sum()
+    pad = np.pad(a, r, mode="edge")
+    tmp = np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 1, pad)
+    return np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 0, tmp)
+
+
+def _qcolor(argb):
+    c = QColor(argb)
+    return c
+
+
+def render_glass_well(w, h, edition, dark=None):
+    """A well in the glass look: a raised glass card (design handoff): fill, a sheen at 160°,
+    a lit top edge, a 1-px ring and a soft shadow below. w, h include GLASS_WELL_MARGIN."""
+    import numpy as np
+
+    from .theme import glass_for
+
+    g = glass_for(edition, dark)
+    m = GLASS_WELL_MARGIN
+    ww = w / (1 + 2 * m)            # the well itself
+    hh = h - 2 * m * ww
+    ox, oy = m * ww, m * ww
+    u = ww / 217.0                  # design px → image px
+    r = 20 * u
+    img = _img(w, h)
+
+    # Shadow: the well shrunk by the spread (22), dropped 24, blurred (CSS blur 40 → sigma 20).
+    sh = QImage(int(w), int(h), QImage.Format_ARGB32_Premultiplied)
+    sh.fill(0)
+    sp = QPainter(sh)
+    sp.setRenderHint(QPainter.Antialiasing)
+    spread = 22 * u
+    sp.fillPath(_rounded(ox + spread, oy + 24 * u + spread, ww - 2 * spread, hh - 2 * spread, max(0, r - spread)), QColor(255, 255, 255))
+    sp.end()
+    ptr = sh.constBits()
+    a = np.frombuffer(ptr, np.uint8).reshape(sh.height(), sh.bytesPerLine() // 4, 4)[:, :int(w), 3].astype(np.float32) / 255
+    a = _gauss(a, 20 * u)
+    col = QColor(g["shadow"])
+    alpha = np.clip(a * col.alphaF() * 255, 0, 255).astype(np.uint8)
+    rgba = np.zeros((alpha.shape[0], alpha.shape[1], 4), np.uint8)
+    f = alpha.astype(np.float32) / 255
+    rgba[..., 0] = (col.red() * f).astype(np.uint8)
+    rgba[..., 1] = (col.green() * f).astype(np.uint8)
+    rgba[..., 2] = (col.blue() * f).astype(np.uint8)
+    rgba[..., 3] = alpha
+    shadow = QImage(rgba.tobytes(), rgba.shape[1], rgba.shape[0], 4 * rgba.shape[1], QImage.Format_RGBA8888_Premultiplied).copy()
+
+    p = QPainter(img)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.drawImage(0, 0, shadow)
+    card = _rounded(ox, oy, ww, hh, r)
+    p.fillPath(card, QColor(g["well"]))
+    # Sheen: linear at 160° (down, a little right), glass-2 fading out by 60 %.
+    import math
+
+    ang = math.radians(160)
+    dx, dy = math.sin(ang), -math.cos(ang)
+    half = abs(ww * dx) / 2 + abs(hh * dy) / 2
+    cx, cy = ox + ww / 2, oy + hh / 2
+    grad = QLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half)
+    sheen = QColor(g["sheen"])
+    grad.setColorAt(0.0, sheen)
+    clear = QColor(sheen)
+    clear.setAlpha(0)
+    grad.setColorAt(0.6, clear)
+    grad.setColorAt(1.0, clear)
+    p.fillPath(card, QBrush(grad))
+    # Ring (1 px inside) and the lit top edge (kept to the top part of the outline).
+    p.setBrush(Qt.NoBrush)
+    p.setPen(QPen(QColor(g["ring"]), 1))
+    p.drawPath(_rounded(ox + 0.5, oy + 0.5, ww - 1, hh - 1, max(0, r - 0.5)))
+    p.save()
+    p.setClipRect(QRectF(ox, oy, ww, max(3, r * 0.75)))
+    p.setPen(QPen(QColor(g["edge"]), 1))
+    p.drawPath(_rounded(ox + 0.5, oy + 0.5, ww - 1, hh - 1, max(0, r - 0.5)))
+    p.restore()
+    p.end()
+    return img
+
+
 def render_recess(w, h, edition):
     """The molded pocket in the tray. w, h include RECESS_PAD on each side."""
     pal = EDITIONS[edition]
@@ -418,6 +512,47 @@ def _tint(img, color):
     p = QPainter(img)
     p.setCompositionMode(QPainter.CompositionMode_SourceIn)
     p.fillRect(img.rect(), QColor(color))
+    p.end()
+    return img
+
+
+# A launcher's mark alone, for small one-color uses (the sidebar's sources). Steam's file is
+# the wordmark: only its round mark is used.
+LAUNCHER_MARKS = {"steam": (0, 0, 92, 90.5)}
+# Many-colored marks turn into a blob in one color: these become a stencil instead (dark parts
+# cut out, light parts kept).
+STENCIL_MARKS = {"lutris", "heroic"}
+
+
+def _stencil(img):
+    import numpy as np
+
+    img = img.convertToFormat(QImage.Format.Format_ARGB32)
+    a = np.frombuffer(img.constBits(), np.uint8).reshape(img.height(), img.bytesPerLine() // 4, 4)[:, :img.width()]
+    b, g, r, alpha = (a[..., i].astype(np.float32) for i in range(4))
+    lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255  # (converted to straight alpha above)
+    keep = np.clip((lum - 0.3) / 0.15, 0, 1) * alpha
+    out = np.zeros_like(a)
+    out[..., 3] = keep.astype(np.uint8)
+    res = QImage(out.tobytes(), img.width(), img.height(), img.width() * 4, QImage.Format.Format_ARGB32)
+    return res.copy()
+
+
+def render_launcher(w, h, source, color):
+    """A launcher's mark in one color, fitted and centered; a generic game icon if none."""
+    spec = HEADER_LOGOS.get("steam" if source == "family" else source) or {}
+    if not spec.get("file"):
+        return render_icon(w, h, "applications-games", color)
+    vb = LAUNCHER_MARKS.get(source) or spec.get("viewBox")
+    a = _svg_aspect(spec["file"], vb)
+    iw, ih = (w, max(1, round(w / a))) if a >= w / h else (max(1, round(h * a)), h)
+    mark = _render_svg(spec["file"], iw, ih, vb)
+    if source in STENCIL_MARKS:
+        mark = _stencil(mark)
+    mark = _tint(mark, QColor("#" + color))
+    img = _img(w, h)
+    p = QPainter(img)
+    p.drawImage((w - iw) // 2, (h - ih) // 2, mark)
     p.end()
     return img
 
@@ -565,13 +700,39 @@ def render_generated_art(w, h, title):
 
     font = QFont("Nunito")
     font.setWeight(QFont.Black)
-    font.setPixelSize(max(6, int(w * 0.12)))
-    p.setFont(font)
     rect = QRectF(w * 0.07, h * 0.08, w * 0.86, h * 0.6)
+    # As big as fits: the longest word on one line and the whole title in the box (long names
+    # used to be cut mid-word).
+    from PySide6.QtGui import QFontMetricsF
+
+    text = title.upper()
+    size = int(w * 0.12)
+    minimum = max(12, int(w * 0.045))
+    wrap = int(Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap)
+    fits = False
+    while size >= minimum:
+        font.setPixelSize(size)
+        fm = QFontMetricsF(font)
+        longest = max((fm.horizontalAdvance(word) for word in text.split()), default=0)
+        box = fm.boundingRect(rect, wrap, text)
+        if longest <= rect.width() and box.height() <= rect.height():
+            fits = True
+            break
+        size -= 1
+    if not fits:
+        wrap |= int(Qt.TextWrapAnywhere)
+        size = int(w * 0.12)
+        while size > minimum:
+            font.setPixelSize(size)
+            if QFontMetricsF(font).boundingRect(rect, wrap, text).height() <= rect.height():
+                break
+            size -= 1
+    font.setPixelSize(max(size, minimum))
+    p.setFont(font)
     p.setPen(QColor(0, 0, 0, 110))
-    p.drawText(rect.translated(w * 0.012, w * 0.016), Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap, title.upper())
+    p.drawText(rect.translated(w * 0.012, w * 0.016), wrap, title.upper())
     p.setPen(QColor(255, 255, 255))
-    p.drawText(rect, Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap, title.upper())
+    p.drawText(rect, wrap, title.upper())
     p.end()
     return img
 
@@ -641,6 +802,9 @@ class ImageProvider(QQuickImageProvider):
             return render_shadow(w, h, parts[1])
         if kind == "recess":
             return render_recess(w, h, parts[1])
+        if kind == "glasswell":  # glasswell/<edition>[/dark|light]: includes GLASS_WELL_MARGIN on each side
+            mode = parts[2] if len(parts) > 2 else ""
+            return render_glass_well(w, h, parts[1], None if mode not in ("dark", "light") else mode == "dark")
         if kind == "header":  # header/<source>/<edition>  or  header/<mode>/<source>/<edition>/<gameId>
             if len(parts) >= 5:
                 mode, source, edition, gid = parts[1], parts[2], parts[3], "/".join(parts[4:])
@@ -653,6 +817,8 @@ class ImageProvider(QQuickImageProvider):
                 return render_header_mode(w, h, mode, source, edition, title,
                                           logo, self._library.source_name(source))
             return render_header(w, h, parts[1], parts[2], self._library.source_name(parts[1]))
+        if kind == "launcher":  # launcher/<source>/<rrggbb[aa]>: a launcher's mark, tinted
+            return render_launcher(w, h, parts[1], parts[2] if len(parts) > 2 else "000000")
         if kind == "icon":  # icon/<name>/<rrggbb[aa]>: a bundled UI icon, tinted
             return render_icon(w, h, parts[1], parts[2] if len(parts) > 2 else "000000")
         if kind == "grain":  # grain/<edition>?tex=…: the tileable overlay itself
@@ -667,7 +833,8 @@ class ImageProvider(QQuickImageProvider):
                     img = img.copy((img.width() - w) // 2, (img.height() - h) // 2, w, h)
                     img = img.convertToFormat(QImage.Format_ARGB32_Premultiplied)
             if img is None:
-                title = self._library.title_for(parts[1]) or parts[1]
+                # (_demo: the first-run splash's cartridge, a picture with no title on it)
+                title = "" if parts[1] == "_demo" else self._library.title_for(parts[1]) or parts[1]
                 img = render_generated_art(w, h, title)
             if len(parts) > 2 and parts[2] == "off":
                 img = not_installed(img)

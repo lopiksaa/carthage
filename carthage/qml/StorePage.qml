@@ -70,10 +70,21 @@ FocusScope {
     readonly property real motion: appRoot ? appRoot.motion : 1
     readonly property var pal: Backend.theme.p
 
-    readonly property real panelW: Math.min(Ui.detailsWidth, width - 64)
-    readonly property bool wide: width >= 300 + 56 + panelW + 96
-    readonly property real heroH: wide ? Math.min(height * 0.68, 540) : Math.min(height * 0.38, 330)
+    // Wide: the cartridge at the top left, the details using the rest of the width (up to a
+    // readable 860), both from the top (like the closer look). Narrow: the cartridge above.
+    readonly property real sideM: 76  // room for the ← → keys
+    readonly property bool wide: width >= 300 + 56 + Ui.detailsWidth + 96
+    // Wide, the cartridge gives way first: the details always get their full width.
+    readonly property real heroH: wide ? Math.min(height * 0.56, 470, (width - 2 * sideM - 56 - Ui.detailsWidth) * Backend.theme.ratio)
+                                       : Math.min(height * 0.38, 330)
     readonly property real heroW: Math.round(heroH / Backend.theme.ratio)
+    // The cartridge sits in the middle of the window's height; the details center on it (and
+    // stay inside the window when they're long and scroll).
+    readonly property real heroTop: Math.round((height - heroH) / 2)
+    readonly property real panelW: wide ? Math.min(720, width - sideM - heroW - 56 - sideM)
+                                        : Math.min(Ui.detailsWidth, width - 64)
+    // The cartridge and the details as one group, centered on a wide screen.
+    readonly property real heroLeft: Math.max(sideM, Math.round((width - (heroW + 56 + panelW)) / 2))
 
     visible: level > 0.001 || open
 
@@ -82,7 +93,9 @@ FocusScope {
     property real swapFade: 1 // dips while stepping to the next game
     property int swapDir: 1   // which way the details move meanwhile (with the card's turn)
 
+    property double openedAt: 0
     function openFor(it, list) {
+        openedAt = Date.now()
         siblings = list || []
         show(it)
         open = true
@@ -98,6 +111,7 @@ FocusScope {
         offers = it.offers || []
         offerIndex = 0
         if (it.appid) Backend.store.loadDetails(it.appid)
+        else if ((it.store || "") === "epic") Backend.store.loadEpicDetails(keyOf(it), it.name || "")
         // Get the games on either side ready, so ← → shows them at once.
         const list = siblings || []
         for (let k = 0; k < list.length; k++) {
@@ -152,9 +166,9 @@ FocusScope {
     }
     SequentialAnimation {
         id: edgeNudge
-        NumberAnimation { target: page; property: "spin"; to: 8; duration: 60 }
-        NumberAnimation { target: page; property: "spin"; to: -8; duration: 90 }
-        NumberAnimation { target: page; property: "spin"; to: 0; duration: 60 }
+        NumberAnimation { target: page; property: "spin"; to: 8; duration: 60 * page.motion; easing.type: Easing.OutQuad }
+        NumberAnimation { target: page; property: "spin"; to: -8; duration: 90 * page.motion; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: page; property: "spin"; to: 0; duration: 60 * page.motion; easing.type: Easing.InQuad }
     }
 
     function shuffle(dir) {
@@ -212,6 +226,9 @@ FocusScope {
         function onDetailsReady(appid, d) {
             if (appid === page.item.appid) page.info = d
         }
+        function onEpicDetailsReady(key, d) {
+            if (key === page.keyOf(page.item)) page.info = Object.assign({}, page.info, d)
+        }
         function onOffersReady(key, list) {
             if (key !== page.keyOf(page.item)) return
             // Keep what the item already knew (e.g. Epic's "Free until …") for stores the
@@ -242,6 +259,7 @@ FocusScope {
     ShaderEffectSource {
         id: src
         sourceItem: page.stage
+        sourceRect: Qt.rect(page.x, page.y, page.width, page.height)  // the part behind
         live: page.visible
         visible: false
     }
@@ -254,6 +272,12 @@ FocusScope {
         blurMax: 48
         autoPaddingEnabled: false
     }
+    // The game's art under the scrim (at most 55%: white text stays readable over any art).
+    GameBackdrop {
+        anchors.fill: parent
+        level: page.level * 0.55 * (1 - page.galleryLevel)
+        source: page.info.background || page.item.hero || ""
+    }
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0.04, 0.04, 0.05, Backend.theme.dark ? 0.72 : 0.64)
@@ -264,15 +288,18 @@ FocusScope {
         enabled: page.open
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons
-        onClicked: page.close()
+        onClicked: if (Date.now() - page.openedAt > 450) page.close()  // (not the double-click's second click)
         onWheel: (w) => w.accepted = true
     }
 
     Card3D {
         id: card
-        x: page.wide ? Math.round((page.width - (page.heroW + 56 + page.panelW)) / 2) - (width - page.heroW) / 2
-                     : Math.round((page.width - width) / 2)
-        y: page.wide ? Math.round((page.height - height) / 2) : 20 - (height - page.heroH) / 2 + page.heroH * 0.1
+        x: page.wide ? page.heroLeft - (width - page.heroW) / 2 : Math.round((page.width - width) / 2)
+        y: page.wide ? page.heroTop - (height - page.heroH) / 2 : 20 - (height - page.heroH) / 2 + page.heroH * 0.1
+        Behavior on y {  // re-centering when the details arrive
+            enabled: page.open
+            NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }
+        }
         width: page.heroW * 2.1
         height: page.heroH * 1.35
         cardHeight: page.heroH
@@ -440,9 +467,14 @@ FocusScope {
 
     Item {
         id: detailsPanel
-        readonly property real avail: page.wide ? page.height - 80 : page.height - (20 + page.heroH + 24) - 20
+        readonly property real avail: page.wide ? page.height - page.heroTop - 40 : page.height - (20 + page.heroH + 24) - 20
         x: page.panelBaseX - page.galleryLevel * 40
-        y: page.wide ? Math.round((page.height - height) / 2) : 20 + page.heroH + 24
+        // Level with the cartridge's top, and it stays there while the details arrive.
+        y: page.wide ? page.heroTop : 20 + page.heroH + 24
+        Behavior on y {
+            enabled: page.open
+            NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }
+        }
         width: details.width
         height: pinned.height + Ui.gapL + details.height
         opacity: page.level * page.swapFade * morph.detailsOpacity
@@ -458,7 +490,7 @@ FocusScope {
                 width: parent.width
                 spacing: Ui.gapS
                 Text {
-                    text: [page.storeName].concat(page.info.genres || []).join("  ·  ").toUpperCase()
+                    text: page.storeName.toUpperCase()
                     color: Ui.onScrimDim
                     font.family: Ui.fontLabels
                     font.weight: Font.Black
@@ -535,7 +567,7 @@ FocusScope {
                     font.pixelSize: Ui.textTitle
                 }
                 CIcon {
-                    visible: page.info.linux === true
+                    visible: page.info.linux === true && Qt.platform.os === "linux"
                     anchors.verticalCenter: parent.verticalCenter
                     width: 18
                     height: 18
@@ -548,9 +580,13 @@ FocusScope {
                 }
             }
 
+            // One row of actions: Buy, then Play Next as a small key beside it.
+            Row {
+              width: parent.width
+              spacing: Ui.gapM
             CButton {
                 id: buyButton
-                width: parent.width
+                width: parent.width - nextKey.width - Ui.gapM
                 big: true
                 kind: "primary"
                 opacity: morph.morphing ? 0 : 1
@@ -569,11 +605,17 @@ FocusScope {
                 }
             }
             CButton {
+                id: nextKey
                 // Mentioning playNextStore re-checks it whenever Play Next changes.
                 readonly property bool next: Backend.playNextStore, Backend.isPlayNextStore(page.keyOf(page.item), page.item.appid || 0)
                 kind: "scrim"
-                text: next ? "Remove from Play Next" : "Add to Play Next"
+                width: buyButton.height
+                height: buyButton.height
                 icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+                Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
+                QQC2.ToolTip.visible: tipWanted
+                QQC2.ToolTip.text: Accessible.name
+                QQC2.ToolTip.delay: 300
                 // Remembers the store on show (Steam, Epic…) with its offer and price.
                 onClicked: Backend.setPlayNextStore(Object.assign({}, page.item, {
                     key: page.keyOf(page.item),
@@ -584,6 +626,7 @@ FocusScope {
                     discount: page.shown.discount || 0,
                     offers: page.offer ? [page.offer].concat(page.offers.filter(o => o !== page.offer)) : (page.item.offers || []),
                 }), !next)
+            }
             }
             CButton {
                 visible: page.steamShown && page.info.owned === true
@@ -605,6 +648,7 @@ FocusScope {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             WheelAccel { id: detailsWheel; flickable: details; step: 90 }
+            AutoScroll { flickable: details }
             QQC2.ScrollBar.vertical: CScrollBar { onDark: true }
 
             Column {
@@ -627,43 +671,22 @@ FocusScope {
                     wrapMode: Text.Wrap
                 }
 
-                Flow {
-                    width: parent.width
-                    spacing: Ui.gapS
-                    Repeater {
-                        model: [
-                            page.info.controller || "",
-                            page.info.achievements ? page.info.achievements + " achievements" : "",
-                            page.info.dlcCount ? page.info.dlcCount + " DLC" : "",
-                            (page.info.languages || []).length ? (page.info.languages || []).length + " languages" : "",
-                            page.info.linux ? "Native Linux" : "",
-                            page.info.ageRating ? page.info.ageRating + "+" : "",
-                        ].filter(x => x)
-                        delegate: Rectangle {
-                            required property var modelData
-                            height: 28
-                            width: chipText.implicitWidth + 18
-                            radius: 14
-                            color: Ui.scrimControl
-                            Text {
-                                id: chipText
-                                anchors.centerIn: parent
-                                text: modelData
-                                color: Ui.onScrim
-                                font.family: Ui.fontText
-                                font.weight: Font.Bold
-                                font.pixelSize: Ui.textCaption
-                            }
-                        }
-                    }
-                }
 
                 Repeater {
+                    // Two folds: the long description, and everything else in one place.
                     model: [
                         { title: "About This Game", text: page.info.about || "" },
-                        { title: "Features", text: (page.info.features || []).join("  ·  ") },
-                        { title: "Languages", text: (page.info.languages || []).map(x => x.trim()).join(", ") },
-                        { title: "Minimum Requirements", text: page.info.requirements || "" },
+                        { title: "Details", text: [
+                            [page.info.controller || "",
+                             page.info.achievements ? page.info.achievements + (page.info.achievements === 1 ? " achievement" : " achievements") : "",
+                             page.info.dlcCount ? page.info.dlcCount + " DLC" : "",
+                             Qt.platform.os === "windows" ? (page.info.windows === false ? "Doesn't run on Windows" : "")
+                                 : page.info.linux ? "Runs natively on Linux" : "",
+                             page.info.ageRating ? "Rated " + page.info.ageRating + "+" : ""].filter(x => x).join("  ·  "),
+                            (page.info.features || []).length ? "Features: " + page.info.features.join(", ") : "",
+                            (page.info.languages || []).length ? "Languages: " + page.info.languages.map(x => x.trim()).join(", ") : "",
+                            page.info.requirements ? "Minimum requirements: " + page.info.requirements : "",
+                          ].filter(x => x).join("\n\n") },
                     ].filter(x => x.text)
                     delegate: FoldSection {
                         required property var modelData
@@ -700,7 +723,7 @@ FocusScope {
         gallery: mediaGallery
         view: galleryView
         button: buyButton
-        active: page.open && page.wide
+        active: false  // full view only when a screenshot is clicked (scrolling just scrolls)
         motion: page.motion
         onEntered: galleryView.forceActiveFocus()
     }
@@ -710,6 +733,7 @@ FocusScope {
         shown: page.open
         arrows: page.wide && page.siblings.length > 1
         opacity: page.level
+        arrowY: page.wide ? card.y + card.height / 2 : -1
         onStep: (dir) => page.step(dir)
         onClose: page.close()
     }

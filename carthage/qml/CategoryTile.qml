@@ -82,7 +82,7 @@ Item {
             color: "#ffffff"
             font.family: Ui.fontText
             font.weight: Font.Black
-            font.pixelSize: tile.compact ? Ui.textLead + 2 : Ui.textTitle + 2
+            font.pixelSize: tile.compact ? Ui.textLead : Ui.textTitle
             wrapMode: Text.Wrap
             maximumLineCount: 2
             elide: Text.ElideRight
@@ -101,7 +101,7 @@ Item {
     }
 
     property real lift: hover.hovered ? 1 : 0
-    Behavior on lift { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
-    HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
+    Behavior on lift { NumberAnimation { duration: 110 * Backend.motion; easing.type: Easing.OutCubic } }
+    HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor; enabled: !Ui.bodyBlocked }
     TapHandler { id: tap; gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: tile.chosen() }
 }

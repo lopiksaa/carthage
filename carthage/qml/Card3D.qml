@@ -9,6 +9,16 @@ View3D {
     id: view
 
     property var game: ({})
+    // The face is drawn into a texture; with animations off nothing else asks the 3D view to
+    // redraw, so a new game (or store) kept the old face. Redraw now, and again as late art and
+    // header images arrive.
+    onGameChanged: { redraw.n = 0; redraw.restart(); update() }
+    Timer {
+        id: redraw
+        property int n: 0
+        interval: 150
+        onTriggered: { view.update(); if (++n < 4) restart() }
+    }
     property real spin: 0 // degrees around the vertical axis; 180 shows the back
     property real tiltX: 0
     property real tiltY: 0
@@ -18,6 +28,13 @@ View3D {
     readonly property string ownColor: view.game.gameId ? (Backend.settings.gameColors[view.game.gameId] || "") : ""
     readonly property var pal: ownColor ? Backend.theme.paletteFor(edition) : Backend.theme.cp
     readonly property string edition: ownColor ? Backend.theme.editionFor(ownColor) : Backend.theme.cardEdition
+    // The faces are drawn at about twice their size on screen (at most 720 px): much bigger and a
+    // small card's text and edges shimmer and stair-step when the texture is shrunk.
+    readonly property real faceW: Math.max(240, Math.min(720, Math.round(cardHeight / Backend.theme.ratio * Screen.devicePixelRatio * 2)))
+    // The back's engraved code: the same as the front's label (Cartridge.qml), in full.
+    readonly property string backLabel: (view.game.label
+        || [view.game.sourceName || "", view.game.extId || "", view.game.code || ""].filter(x => x).join(" - "))
+        .replace(/[?&#]/g, "")
     readonly property real fov: 20
     // Camera distance that makes the 878-unit-tall card exactly cardHeight pixels tall.
     readonly property real distance: (439 / Math.tan(fov * Math.PI / 360)) * (height / cardHeight)
@@ -57,7 +74,7 @@ View3D {
                 PrincipledMaterial {
                     baseColorMap: Texture {
                         sourceItem: Cartridge {
-                            width: 720
+                            width: view.faceW
                             flat: true
                             gameId: view.game.gameId || ""
                             title: view.game.title || ""
@@ -67,7 +84,7 @@ View3D {
                             code: view.game.code || ""
                             extId: view.game.extId || ""
                             installed: view.game.installed !== false
-                            artKey: view.game.gameId ? view.game.gameId + (view.game.installed === false ? "/off" : "") : ""
+                            artKey: view.game.gameId ? view.game.gameId + (view.game.installed === false && !Backend.settings.colorUninstalled ? "/off" : "") : ""
                             artUrl: view.game.artUrl || ""
                             artFallback: view.game.artFallback || ""
                             labelOverride: view.game.label || ""
@@ -81,10 +98,10 @@ View3D {
                 PrincipledMaterial {
                     baseColorMap: Texture {
                         sourceItem: Image {
-                            width: 720
-                            height: 720 * Backend.theme.ratio
+                            width: view.faceW
+                            height: view.faceW * Backend.theme.ratio
                             source: "image://gc/back/" + view.edition + "/flat/"
-                                    + (view.game.sourceName || "") + "-" + (view.game.extId || "")
+                                    + view.backLabel
                                     + Backend.theme.cardTexQuery
                             sourceSize: Qt.size(width, height)
                         }

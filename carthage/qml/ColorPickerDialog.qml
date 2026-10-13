@@ -31,7 +31,7 @@ CDialog {
         gameTitle = title || ""
         let current = t === "card" ? Backend.settings.cardColor : Backend.settings.hardware
         if (t === "game") current = ownColor || Backend.settings.cardColor
-        const plastic = Backend.theme.plasticOf(current === "same" ? Backend.settings.hardware : current)
+        const plastic = Backend.theme.plasticOf(current === "same" || current === "auto" ? Backend.theme.cardValue : current)
         setFrom(plastic || "#5b6ee1")
         hexField.text = pickedHex
         open()
@@ -54,7 +54,7 @@ CDialog {
 
         Text {
             id: title
-            text: dlg.target === "hardware" ? "Hardware Color" : "Cartridge Color"
+            text: dlg.target === "hardware" ? "Theme Color" : "Cartridge Color"
             color: dlg.pal.panelText
             font.family: Ui.fontText
             font.weight: Font.Black

@@ -1,0 +1,9 @@
+[
+  {"at": 700, "do": "size", "w": 520, "h": 480},
+  {"at": 900, "do": "settingsSection", "id": "look"},
+  {"at": 1800, "shot": "/tmp/carthage-audit-min-settings.png"},
+  {"at": 2300, "do": "navigate", "page": "search"},
+  {"at": 2600, "do": "searchPage", "text": "Hades"},
+  {"at": 7600, "shot": "/tmp/carthage-audit-min-search.png"},
+  {"at": 8000, "do": "exit"}
+]

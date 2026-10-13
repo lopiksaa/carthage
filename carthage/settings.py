@@ -21,20 +21,28 @@ class Settings(QObject):
 
     DEFAULTS = {
         "tiltEnabled": True, "soundsEnabled": True, "showTitles": True, "cardWidth": 150,
-        "soundVolume": 0.3, "hardware": "black", "texturedPlastic": True, "preferOfficialArt": False,
-        # The plastic texture (theme.TEXTURES), on hardware and cartridges.
-        "plasticTexture": "Plastic012A",
+        "soundVolume": 0.3, "hardware": "black", "preferOfficialArt": False,
+        "look": "glass",  # glass (default) or plastic
+        "themeMode": "",  # "dark" / "light"; "" = the hardware colour's own (never chosen)
+        "background": "mesh",  # the glass ground: mesh, rays (underwater), iris (holographic), topo, still
+        "groundColors": "nebula",  # the glass ground's colours (theme.GROUNDS)
+        "groundTuning": {},  # Settings → Appearance → Advanced (theme.GROUND_TUNING, hue1–hue4)
+        "groundBlur": 0.5,
+        "gameBackground": "backdrop",
+        "colorUninstalled": False,  # uninstalled games' art in colour (off: greyed out)  # the game view: "blur" (the library, blurred) or "backdrop" (the game's art)  # the glass ground's blur, 0–1
         "sortMode": "recent", "filterMode": "all", "hidden": [], "noSlot": [],
         "titles": {}, "headers": {}, "headerTexts": {}, "sgdbIds": {},
-        "cardColor": "same", "testCartridge": False, "related": {}, "installedFirst": False,
+        "cardColor": "black", "testCartridge": False, "related": {}, "installedFirst": False,
         "checkUpdates": True, "setupDone": False, "hideAdult": True,
         "favorites": [], "crtEffects": True,
         "favoritesShelf": False,
         # Library shelves folded shut (their title stays, with the count).
         "favoritesCollapsed": False,
         "playNextCollapsed": False,
+        "sidebarCollapsed": False,
         # Play Next bookmarks, in order: a library game id, or a store game {appid, name, capsule, header}.
         "playNext": [],
+        "lists": [],  # your own lists: [{id, name, ids: [gameId, …]}]
         # Cartridge colors for single games (game id → a preset name or "c_rrggbb").
         "gameColors": {},
         "otherStores": False,
@@ -57,7 +65,9 @@ class Settings(QObject):
         from .chrome import CONFIG_HOME
 
         self._path = CONFIG_HOME / "carthage" / "settings.json"
-        self._values = dict(self.DEFAULTS)
+        # A deep copy: the defaults' lists and dicts must never be shared with the live values
+        # (reset() copies them the same way).
+        self._values = copy.deepcopy(self.DEFAULTS)
         # No settings file yet: first run (the setup wizard shows).
         self.first_run = not self._path.exists()
         try:
@@ -65,6 +75,12 @@ class Settings(QObject):
             for key, value in saved.items():
                 if key in self.DEFAULTS and _same_kind(self.DEFAULTS[key], value):
                     self._values[key] = value
+            # Updating from before the glass backgrounds: keep the look they had, on Plastic
+            # (new installs start on Glass).
+            if "groundColors" not in saved:
+                self._values["look"] = "plastic"
+                if "cardColor" not in saved:
+                    self._values["cardColor"] = "same"  # (their old default)
         except (OSError, ValueError):
             pass
         self._save_timer = QTimer(self)
@@ -131,8 +147,15 @@ class Settings(QObject):
     favoritesShelf = _prop("favoritesShelf", bool, changed)
     favoritesCollapsed = _prop("favoritesCollapsed", bool, changed)
     playNextCollapsed = _prop("playNextCollapsed", bool, changed)
+    sidebarCollapsed = _prop("sidebarCollapsed", bool, changed)
     crtEffects = _prop("crtEffects", bool, changed)
-    texturedPlastic = _prop("texturedPlastic", bool, changed)
-    plasticTexture = _prop("plasticTexture", str, changed)
+    look = _prop("look", str, changed)
+    themeMode = _prop("themeMode", str, changed)
+    background = _prop("background", str, changed)
+    groundColors = _prop("groundColors", str, changed)
+    groundTuning = _prop("groundTuning", "QVariantMap", changed)
+    groundBlur = _prop("groundBlur", float, changed)
+    gameBackground = _prop("gameBackground", str, changed)
+    colorUninstalled = _prop("colorUninstalled", bool, changed)
     preferOfficialArt = _prop("preferOfficialArt", bool, changed)
     del _prop

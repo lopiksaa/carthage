@@ -24,10 +24,24 @@ Item {
     width: cardW + 2 * pad
     height: cardH + 2 * pad + (item.players !== undefined ? 76 : 58)
 
+    // The same pocket as the library's (TrayCell.qml): a recess on plastic, a raised glass card
+    // on glass.
     Image {
+        visible: !Backend.theme.glassy
         width: card.cardW + 2 * card.pad
         height: card.cardH + 2 * card.pad
-        source: "image://gc/recess/" + Backend.theme.edition
+        source: visible ? "image://gc/recess/" + Backend.theme.edition : ""
+        sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
+        asynchronous: true
+    }
+    Image {  // (the image reaches past the well for its shadow)
+        readonly property real m: 0.22 * (card.cardW + 2 * card.pad)  // render.GLASS_WELL_MARGIN
+        visible: Backend.theme.glassy
+        x: -m
+        y: -m
+        width: card.cardW + 2 * card.pad + 2 * m
+        height: card.cardH + 2 * card.pad + 2 * m
+        source: visible ? "image://gc/glasswell/" + Backend.theme.edition + "/" + (Backend.theme.dark ? "dark" : "light") : ""
         sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
         asynchronous: true
     }
@@ -53,6 +67,7 @@ Item {
         sourceIcon: card.store
         installed: true
         artUrl: card.item.capsule || ""
+        title: card.item.name || ""
         artFallback: card.item.header || ""
         labelOverride: card.item.price ? card.item.price.toUpperCase() : card.storeName.toUpperCase()
         labelSize: 64
@@ -60,7 +75,7 @@ Item {
         layer.enabled: card.forSale
         layer.effect: MultiEffect { saturation: -1; brightness: -0.08 }
         forSale: card.forSale
-        forSaleLeft: card.item.discount > 0
+        forSaleLeft: true  // always top-left: it never moves for a sale tag
         transform: [
             Translate { y: -card.cardW * 0.035 * lift.value },
             Scale {
@@ -179,12 +194,12 @@ Item {
         }
     }
 
-    NumberAnimation { id: liftAnim; target: lift; property: "value"; duration: 110; easing.type: Easing.OutCubic }
+    NumberAnimation { id: liftAnim; target: lift; property: "value"; duration: 110 * Backend.motion; easing.type: Easing.OutCubic }
     QtObject { id: lift; property real value: 0 }
     HoverHandler {
         id: hh
         cursorShape: Qt.PointingHandCursor
-        enabled: !card.appRoot.modalOpen
+        enabled: !card.appRoot.modalOpen && !Ui.bodyBlocked
         onHoveredChanged: {
             liftAnim.to = hovered ? 1 : 0
             liftAnim.restart()
@@ -193,7 +208,7 @@ Item {
     }
     TapHandler {
         gesturePolicy: TapHandler.ReleaseWithinBounds
-        enabled: !card.appRoot.modalOpen
+        enabled: !card.appRoot.modalOpen && !Ui.bodyBlocked
         onTapped: card.chosen(card.item, cart)
     }
     Accessible.role: Accessible.Button

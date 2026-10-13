@@ -105,6 +105,7 @@ class Game:
     developer: str = ""
     publisher: str = ""
     released: int = 0  # unix time
+    family: bool = False  # lent by your Steam Family (not on your own account)
     code: str = field(default="")
 
     def __post_init__(self):
@@ -152,7 +153,7 @@ def real_games():
             installed=g["installed"], last_played=g["last_played"], playtime=g["playtime"],
             added=g["added"], install_dir=g["install_dir"],
             developer=g.get("developer", ""), publisher=g.get("publisher", ""), released=g.get("released", 0),
-            executable=f"steam://rungameid/{g['appid']}",
+            executable=f"steam://rungameid/{g['appid']}", family=g.get("family", False),
         ))
     for g in _read("Heroic", heroic.load):
         games.append(Game(
@@ -161,10 +162,11 @@ def real_games():
             install_dir=g.get("install_dir", ""),
         ))
     if os.name == "nt":
-        from .sources import battlenet, epic, riot
+        from .sources import battlenet, epic, riot, standalone
 
+        # (Games with their own launcher count as installed apps, as on Linux.)
         for label, source, module in (("Battle.net", "battlenet", battlenet), ("Epic Games", "epic", epic),
-                                      ("Riot Client", "riot", riot)):
+                                      ("Riot Client", "riot", riot), ("own launchers", "desktop", standalone)):
             for g in _read(label, module.load):
                 games.append(Game(
                     game_id=g["id"], title=g["name"], source=source, ext_id=g["short_id"],
@@ -363,7 +365,7 @@ class GameModel(QAbstractListModel):
 
 def source_label(source):
     """A launcher's name for menus and lists ("battlenet" → "Battle.net")."""
-    special = {"desktop": "Installed Apps", "custom": "Added by You", "battlenet": "Battle.net"}
+    special = {"desktop": "Installed Apps", "custom": "Added by You", "battlenet": "Battle.net", "family": "Steam Family"}
     return special.get(source) or SOURCES.get(source, (source.upper(),))[0].title()
 
 
@@ -388,6 +390,8 @@ class TrayModel(QSortFilterProxyModel):
         self._favorites = set()
         self._play_next = {}  # game_id → position in the Play Next list
         self._genre = 0       # a genre's Steam tag (genres.py); 0 = every genre
+        self._genre_all = []  # several genres, all required (the search page)
+        self._genre_none = []  # genres a game must not have (the search page)
         self._genres = {}     # game_id → {tag, …}
         self._mirror = mirror
         self.setDynamicSortFilter(True)
@@ -454,10 +458,34 @@ class TrayModel(QSortFilterProxyModel):
 
     genre = Property(int, _get_genre, _set_genre, notify=changed)
 
+    def _get_genre_list(self):
+        return self._genre_all
+
+    def _set_genre_list(self, value):
+        value = [int(v) for v in value or []]
+        if value != self._genre_all:
+            self._genre_all = value
+            self.invalidateFilter()
+            self.changed.emit()
+
+    genreList = Property("QVariantList", _get_genre_list, _set_genre_list, notify=changed)
+
+    def _get_genre_none(self):
+        return self._genre_none
+
+    def _set_genre_none(self, value):
+        value = [int(v) for v in value or []]
+        if value != self._genre_none:
+            self._genre_none = value
+            self.invalidateFilter()
+            self.changed.emit()
+
+    genreExclude = Property("QVariantList", _get_genre_none, _set_genre_none, notify=changed)
+
     def set_genres(self, genres):
         """{game_id: [tag, …]} from genres.lookup()."""
         self._genres = {g: set(t) for g, t in genres.items()}
-        if self._opts()._genre:
+        if self._opts()._genre or self._opts()._genre_all or self._opts()._genre_none:
             self.invalidateFilter()
 
     def _get_sort(self):
@@ -485,8 +513,8 @@ class TrayModel(QSortFilterProxyModel):
         for g in m._games:
             if g.game_id not in m._hidden and g.source != "carthage":
                 counts[g.source] = counts.get(g.source, 0) + 1
-        return [{"value": "source:" + s, "text": source_label(s)}
-                for s, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+        return [{"value": "source:" + s, "text": source_label(s), "count": n}
+                for s, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
 
     def filterAcceptsRow(self, row, parent):
         m = self.sourceModel()
@@ -505,9 +533,14 @@ class TrayModel(QSortFilterProxyModel):
             return False
         if o._filter == "notinstalled" and g.installed:
             return False
+        # The Steam Family's games are Steam games (the closer look marks the ones lent to you).
         if o._filter.startswith("source:") and g.source != o._filter[7:]:
             return False
         if o._genre and o._genre not in self._genres.get(g.game_id, ()):
+            return False
+        if o._genre_all and not set(o._genre_all) <= self._genres.get(g.game_id, set()):
+            return False
+        if o._genre_none and set(o._genre_none) & self._genres.get(g.game_id, set()):
             return False
         return not o._text or o._text.casefold() in g.title.casefold()
 

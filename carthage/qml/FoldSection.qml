@@ -38,12 +38,12 @@ Column {
     }
     Text {
         id: body
-        width: parent.width
+        width: Math.min(parent.width, 720)  // readable lines on a wide view
         text: sec.text
         color: Ui.onScrimDim
         font.family: Ui.fontText
-        font.pixelSize: Ui.textBody
-        lineHeight: 1.15
+        font.pixelSize: Ui.textLead
+        lineHeight: 1.3
         wrapMode: Text.Wrap
         maximumLineCount: sec.expanded ? 400 : sec.foldedLines
         elide: Text.ElideRight

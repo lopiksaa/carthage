@@ -1,0 +1,15 @@
+[
+  {"at": 800, "do": "settingsSection", "id": "keys"},
+  {"at": 1600, "shot": "/tmp/carthage-audit-keys.png"},
+  {"at": 1900, "do": "settingsState", "label": "keys"},
+  {"at": 2400, "do": "settingsSection", "id": "store"},
+  {"at": 3300, "do": "settingsState", "label": "store"},
+  {"at": 3700, "do": "navigate", "page": "settings"},
+  {"at": 3900, "do": "setup", "step": 1},
+  {"at": 4600, "shot": "/tmp/carthage-audit-setup.png"},
+  {"at": 5000, "do": "closeAll"},
+  {"at": 5300, "do": "feedbackDialog", "text": "audit message", "answer": true, "email": "sam@example.com"},
+  {"at": 6100, "shot": "/tmp/carthage-audit-feedback.png"},
+  {"at": 6500, "do": "closeAll"},
+  {"at": 7000, "do": "exit"}
+]

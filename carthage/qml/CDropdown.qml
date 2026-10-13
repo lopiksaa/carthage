@@ -4,6 +4,7 @@
 // A long list (Genre) sets chipColumns: it opens a panel of chips in that many columns instead
 // of a menu, so it never has to scroll.
 import QtQuick
+import QtQuick.Shapes
 import Carthage
 import QtQuick.Controls as QQC2
 
@@ -14,6 +15,8 @@ CButton {
     property var value
     property var options: [] // [{ value, text }]
     property int chipColumns: 0 // 0: a menu; more: a panel of chips in this many columns
+    property bool compact: false // just the value (a narrow bar); the label stays in Accessible.name
+    property string compactIcon     // shown instead of the label when compact, so two "All"s differ
     signal picked(var value)
 
     readonly property string currentText: (options.find(o => o.value === value) || options[0] || {}).text || ""
@@ -21,17 +24,34 @@ CButton {
     kind: "plain"
     implicitWidth: row_.implicitWidth + 2 * Ui.gapM
     Accessible.name: label + ": " + currentText
-    onClicked: dd.chipColumns > 0 ? chipPanel.open() : menu.popup(dd, 0, dd.height + 6)
+    onClicked: dd.chipColumns > 0 ? chipPanel.open() : menu.openFrom(dd)
 
     contentItem: Item {
         implicitWidth: row_.implicitWidth
-        implicitHeight: row_.implicitHeight
+        implicitHeight: valueText.implicitHeight
+        opacity: dd.looksDisabled ? 0.4 : 1
+        transform: Translate { y: dd.faceShift }
+        // Optical centre: the capitals sit on the middle line, on whole pixels; the label shares
+        // the value's baseline, the chevron centres on the capitals.
+        FontMetrics { id: capFm; font: valueText.font }
+        readonly property int capMid: Math.round(height / 2)
+        readonly property int baseY: capMid + Math.round(capFm.capitalHeight / 2)
         Row {
             id: row_
-            anchors.centerIn: parent
+            x: Math.round((parent.width - width) / 2)
+            height: parent.height
             spacing: 6
+            CIcon {
+                visible: dd.compact && dd.compactIcon !== ""
+                y: parent.parent.capMid - 7
+                width: 14
+                height: 14
+                source: dd.compactIcon
+                color: dd.isKey ? Qt.alpha(dd.fg, 0.62) : dd.pal.panelTextDim
+            }
             Text {
-                anchors.verticalCenter: parent.verticalCenter
+                visible: !dd.compact
+                anchors.baseline: valueText.baseline
                 text: dd.label
                 color: dd.isKey ? Qt.alpha(dd.fg, 0.62) : dd.pal.panelTextDim
                 font.family: Ui.fontButtons
@@ -39,20 +59,29 @@ CButton {
                 font.pixelSize: Ui.textCaption
             }
             Text {
-                anchors.verticalCenter: parent.verticalCenter
+                id: valueText
+                y: parent.parent.baseY - baselineOffset
                 text: dd.currentText
                 color: dd.fg
                 font.family: Ui.fontButtons
                 font.weight: Font.Black
                 font.pixelSize: Ui.textBody
             }
-            CIcon {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 12
-                height: 12
-                source: "go-down-symbolic"
-                isMask: true
-                color: dd.isKey ? Qt.alpha(dd.fg, 0.62) : dd.pal.panelTextDim
+            Shape {  // the chevron: a drawn stroke, as heavy as the label (an icon file came out a hairline)
+                y: parent.parent.capMid - 3
+                width: 10
+                height: 6
+                preferredRendererType: Shape.CurveRenderer
+                ShapePath {
+                    strokeColor: dd.isKey ? Qt.alpha(dd.fg, 0.62) : dd.pal.panelTextDim
+                    strokeWidth: 1.75
+                    fillColor: "transparent"
+                    capStyle: ShapePath.RoundCap
+                    joinStyle: ShapePath.RoundJoin
+                    startX: 1; startY: 1
+                    PathLine { x: 5; y: 5 }
+                    PathLine { x: 9; y: 1 }
+                }
             }
         }
     }

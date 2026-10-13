@@ -50,6 +50,18 @@ def running_appid_windows():
         return 0
 
 
+def signed_in_windows():
+    """Is someone signed in to Steam on Windows? (ActiveProcess\\ActiveUser is 0 while it shows
+    its sign-in window, and while it's closed.)"""
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam\ActiveProcess") as k:
+            return int(winreg.QueryValueEx(k, "ActiveUser")[0] or 0) != 0
+    except (OSError, ValueError):
+        return True  # can't tell: don't claim it isn't
+
+
 def find_root():
     if os.name == "nt":
         for c in (_windows_steam_path(), Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Steam"):
@@ -229,6 +241,32 @@ def load(root=None):
             "added": 0,
             **_meta(appinfo, appid),
         }
+    # The Steam Family's games you don't own yourself (installed ones are marked too).
+    family, _ = family_cache()
+    if family and owned:
+        for appid, info in family.items():
+            if appid in owned:
+                continue
+            a = appinfo.get(appid)
+            if a and a["type"] not in ("game", ""):
+                continue
+            if appid in games:
+                games[appid]["family"] = True
+                continue
+            name = info.get("name") or (a["name"] if a else "")
+            if not name or _TOOL_NAMES.search(name):
+                continue
+            games[appid] = {
+                "appid": appid,
+                "name": name,
+                "installed": False,
+                "install_dir": "",
+                "last_played": 0,
+                "playtime": 0,
+                "added": 0,
+                "family": True,
+                **_meta(appinfo, appid),
+            }
     return list(games.values())
 
 
@@ -253,10 +291,13 @@ def _dir_size(path):
 
 _LOG_TOTAL = re.compile(rb"AppID (\d+) update started : download (\d+)/(\d+).*?stage (\d+)/(\d+)")
 _LOG_STATE = re.compile(rb"AppID (\d+) App update changed : ([^\n]*)")
+# A preload (a game downloaded before its release): Steam stops, it isn't installing any more.
+_LOG_PRELOADED = re.compile(rb"AppID (\d+) update canceled : Finished preloading")
 
 
 def _log_state(root):
-    """From the tail of Steam's content log: {appid: (stage_total, latest_update_state)}."""
+    """From the tail of Steam's content log: {appid: (stage_total, latest_update_state)};
+    the state is "Preloaded" when the last thing Steam did was finish a preload."""
     path = root / "logs" / "content_log.txt"
     try:
         with open(path, "rb") as f:
@@ -272,6 +313,11 @@ def _log_state(root):
     for m in _LOG_STATE.finditer(tail):
         appid = int(m.group(1))
         info.setdefault(appid, [0, ""])[1] = m.group(2).decode(errors="replace").strip()
+    for m in _LOG_PRELOADED.finditer(tail):
+        appid = int(m.group(1))
+        started = tail.rfind(b"AppID %d update started" % appid)
+        if started < m.start():  # (a later start: the game came out and is installing for real)
+            info.setdefault(appid, [0, ""])[1] = "Preloaded"
     return {k: tuple(v) for k, v in info.items()}
 
 
@@ -300,6 +346,8 @@ def installing(root=None):
             if log is None:
                 log = _log_state(root)
             total, state = log.get(appid, (0, ""))
+            if state == "Preloaded":
+                continue
             total = total or int(st.get("bytestostage", 0) or 0) or int(st.get("bytestodownload", 0) or 0)
             if "Committing" in state:
                 out[appid] = 0.97
@@ -319,6 +367,76 @@ def owned_cache():
         return {int(k): v for k, v in data.get("games", {}).items()}, data.get("t", 0)
     except (OSError, ValueError):
         return {}, 0
+
+
+FAMILY_CACHE = OWNED_CACHE.with_name("steam_family.json")
+
+
+def family_members(root):
+    """The other members of your Steam Family (Steam IDs), from Steam's own settings file
+    (read only). Empty when you're not in a family."""
+    sid = steam_id64(root)
+    if not sid:
+        return []
+    me = int(sid) - 76561197960265728
+    try:
+        text = (Path(root) / "userdata" / str(me) / "config" / "localconfig.vdf").read_text(errors="ignore")
+    except OSError:
+        return []
+    start = text.find('"FamilyGroup"')
+    if start < 0:
+        return []
+    block = text[start:]
+    end = block.find('"members"')
+    block = block[end:] if end >= 0 else ""
+    close = 0
+    depth = 0
+    for i, ch in enumerate(block):  # the members { … } block only
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                close = i
+                break
+    ids = [int(a) for a in re.findall(r'"accountid"\s+"(\d+)"', block[:close])]
+    return [a + 76561197960265728 for a in ids if a != me]
+
+
+def family_cache():
+    """Games your Steam Family can lend you: {appid: {name}} (members with public game lists)."""
+    try:
+        data = json.loads(FAMILY_CACHE.read_text(encoding="utf-8"))
+        return {int(k): v for k, v in data.get("games", {}).items()}, data.get("t", 0)
+    except (OSError, ValueError):
+        return {}, 0
+
+
+def refresh_family(key, members):
+    """Fetch the family members' games (Steam Web API, public profiles only) and cache them.
+    Returns True if the cache changed. Network — call from a worker thread only."""
+    games = {}
+    reached = False
+    for sid in members:
+        url = ("https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+               f"?key={key}&steamid={sid}&include_appinfo=1&format=json")
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                resp = json.load(r).get("response", {})
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            continue
+        reached = True
+        for g in resp.get("games") or []:  # (a private profile lists none)
+            if g.get("appid"):
+                games[str(g["appid"])] = {"name": g.get("name", "")}
+    if not reached and members:
+        return False  # offline: keep the old cache
+    old, _ = family_cache()
+    FAMILY_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = FAMILY_CACHE.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"t": int(time.time()), "games": games}))
+    os.replace(tmp, FAMILY_CACHE)
+    return {int(k): v for k, v in games.items()} != old
 
 
 def refresh_owned(key, steam_id):

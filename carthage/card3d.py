@@ -101,19 +101,42 @@ class CardGeometry(QQuick3DGeometry):
             u = (x + w / 2) / w
             return (1 - u if mirror else u), (y + h / 2) / h
 
-        c = vert(0, 0, z, 0, 0, 1, *uv(0, 0))
-        ring = [vert(x, y, z, 0, 0, 1, *uv(x, y)) for x, y, _, _ in pts]
-        front_start = len(idx)
-        for i in range(n):
-            idx += [c, ring[i], ring[(i + 1) % n]]
-        front_count = len(idx) - front_start
+        # Front and back: an even grid of small quads between the outline's left and right
+        # edges (not a fan of slivers from the middle: their long, thin edges showed as faint
+        # lines across the art). Rows at every corner, notch and wall point, and at most 40
+        # units apart; 12 columns across.
+        right = sorted({(round(y, 4), x) for x, y, _, _ in pts if x > 0})
+        left = sorted({(round(y, 4), x) for x, y, _, _ in pts if x < 0})
 
-        c = vert(0, 0, -z, 0, 0, -1, *uv(0, 0, True))
-        ring = [vert(x, y, -z, 0, 0, -1, *uv(x, y, True)) for x, y, _, _ in pts]
-        back_start = len(idx)
-        for i in range(n):
-            idx += [c, ring[(i + 1) % n], ring[i]]
-        back_count = len(idx) - back_start
+        def edge(chain, y):
+            for (y0, x0), (y1, x1) in zip(chain, chain[1:]):
+                if y0 <= y <= y1:
+                    return x0 if y1 == y0 else x0 + (x1 - x0) * (y - y0) / (y1 - y0)
+            return chain[0][1] if y < chain[0][0] else chain[-1][1]
+
+        ys = sorted({y for y, _ in right} | {y for y, _ in left})
+        rows = []
+        for a, b in zip(ys, ys[1:]):
+            steps = max(1, math.ceil((b - a) / 40))
+            rows += [a + (b - a) * k / steps for k in range(steps)]
+        rows.append(ys[-1])
+        cols = 12
+
+        def face(zz, nz, mirror):
+            start = len(idx)
+            grid = []
+            for y in rows:
+                xl, xr = edge(left, y), edge(right, y)
+                grid.append([vert(xl + (xr - xl) * c / cols, y, zz, 0, 0, nz, *uv(xl + (xr - xl) * c / cols, y, mirror))
+                             for c in range(cols + 1)])
+            for r in range(len(rows) - 1):
+                for c in range(cols):
+                    a, b, d, e = grid[r][c], grid[r][c + 1], grid[r + 1][c], grid[r + 1][c + 1]
+                    idx.extend([a, b, e, a, e, d] if nz > 0 else [a, e, b, a, d, e])
+            return start, len(idx) - start
+
+        front_start, front_count = face(z, 1, False)
+        back_start, back_count = face(-z, -1, True)
 
         side_start = len(idx)
         top = [vert(x, y, z, nx, ny, 0, 0, 0) for x, y, nx, ny in pts]

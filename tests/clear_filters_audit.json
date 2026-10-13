@@ -1,0 +1,8 @@
+[
+  {"at": 800, "do": "navigate", "page": "search"},
+  {"at": 1100, "do": "searchPage", "text": "Hades", "store": "epic", "price": "10"},
+  {"at": 4300, "do": "searchCount"},
+  {"at": 4700, "do": "clickText", "text": "Clear Filters"},
+  {"at": 5200, "do": "searchCount"},
+  {"at": 5700, "do": "exit"}
+]

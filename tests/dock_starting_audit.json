@@ -1,0 +1,9 @@
+[
+  {"at": 800, "do": "play", "index": 4},
+  {"at": 1600, "do": "state2", "label": "starting-seat"},
+  {"at": 1700, "shot": "/tmp/carthage-dock-starting.png"},
+  {"at": 3300, "do": "state2", "label": "running-seat"},
+  {"at": 3400, "shot": "/tmp/carthage-dock-running.png"},
+  {"at": 3900, "do": "quitAll"},
+  {"at": 4700, "do": "exit"}
+]

@@ -6,7 +6,8 @@ import QtQuick.Controls as QQC2
 
 QQC2.ApplicationWindow {
     id: root
-    visible: true
+    visible: !Backend.testPlacedShow
+    flags: Backend.testNoFocus ? (Qt.Window | Qt.WindowDoesNotAcceptFocus) : Qt.Window
     color: Backend.theme.p.tray
     font.family: Ui.fontText  // standard controls (fields, menus) inherit the chosen font
 
@@ -19,6 +20,29 @@ QQC2.ApplicationWindow {
 
     property int reloadCount: 0
     property Item searchField: null
+
+    // Carthage's own palette, set here so every control inherits it: otherwise Qt Quick
+    // Controls take their colors from the system theme (on Windows, text selections came out
+    // in the desktop's accent color).
+    readonly property var chromePal: Backend.chromeColors(Backend.theme.dark)
+    palette.window: chromePal.window
+    palette.windowText: chromePal.windowText
+    palette.base: chromePal.base
+    palette.alternateBase: chromePal.alternateBase
+    palette.text: chromePal.text
+    palette.placeholderText: chromePal.placeholderText
+    palette.button: chromePal.button
+    palette.buttonText: chromePal.buttonText
+    palette.highlight: chromePal.highlight
+    palette.highlightedText: chromePal.highlightedText
+    palette.toolTipBase: chromePal.toolTipBase
+    palette.toolTipText: chromePal.toolTipText
+    palette.link: chromePal.link
+    palette.linkVisited: chromePal.linkVisited
+    palette.accent: chromePal.accent
+    palette.disabled.text: chromePal.disabled
+    palette.disabled.windowText: chromePal.disabled
+    palette.disabled.buttonText: chromePal.disabled
 
     Binding {
         target: Backend.theme
@@ -39,6 +63,7 @@ QQC2.ApplicationWindow {
 
     Shortcut {
         sequences: [StandardKey.Find]
+        enabled: root.searchField !== null  // App.qml may handle it itself
         onActivated: if (root.searchField) root.searchField.forceActiveFocus()
     }
     Shortcut {
@@ -47,11 +72,11 @@ QQC2.ApplicationWindow {
     }
     Shortcut {
         sequences: [StandardKey.ZoomIn, "Ctrl+="]
-        onActivated: Backend.settings.cardWidth = Math.min(204, Backend.settings.cardWidth + 18)
+        onActivated: Backend.settings.cardWidth = Math.min(Ui.cardMax, Backend.settings.cardWidth + Ui.cardStep)
     }
     Shortcut {
         sequences: [StandardKey.ZoomOut]
-        onActivated: Backend.settings.cardWidth = Math.max(114, Backend.settings.cardWidth - 18)
+        onActivated: Backend.settings.cardWidth = Math.max(Ui.cardMin, Backend.settings.cardWidth - Ui.cardStep)
     }
 
     Loader {
@@ -59,6 +84,70 @@ QQC2.ApplicationWindow {
         anchors.fill: parent
         source: Qt.resolvedUrl("App.qml")
         focus: true
+    }
+
+    // While the window is being resized: a cover with the logo, in the background's own colours.
+    // Behind it everything is laid out again, and the web-drawn ground hides and pauses (read
+    // by the window while the web engine resized it, it could break and stay white). The cover
+    // comes at once; once the size holds still the ground comes back, then the cover fades.
+    Item {
+        id: resizeCover
+        property bool armed: false  // (not for the window's own first sizing)
+        readonly property var colours: Backend.theme.glassy ? Backend.theme.groundNow : []
+        function sized() {
+            if (!armed || root.visibility === Window.Minimized || root.visibility === Window.Hidden) return
+            fadeOut.stop()
+            reveal.stop()
+            opacity = 1
+            Ui.resizing = true
+            settle.restart()
+        }
+        z: 900
+        anchors.fill: parent
+        opacity: 0
+        visible: opacity > 0.01
+        Timer { id: settle; interval: 250; onTriggered: { Ui.resizing = false; reveal.restart() } }
+        Timer { id: reveal; interval: 150; onTriggered: fadeOut.start() }  // (the ground draws first)
+        NumberAnimation { id: fadeOut; target: resizeCover; property: "opacity"; to: 0; duration: 260 * Backend.motion; easing.type: Easing.OutCubic }
+        Timer { interval: 1500; running: true; onTriggered: resizeCover.armed = true }
+        Connections {
+            target: root
+            function onWidthChanged() { resizeCover.sized() }
+            function onHeightChanged() { resizeCover.sized() }
+        }
+        Rectangle {
+            anchors.fill: parent
+            color: Backend.theme.glassy ? Backend.theme.glass.bg : Backend.theme.p.tray
+            gradient: resizeCover.colours.length === 4 ? coverGradient : null
+            Gradient {
+                id: coverGradient
+                GradientStop { position: 0; color: Qt.tint(resizeCover.colours[0], Qt.alpha(resizeCover.colours[1], 0.5)) }
+                GradientStop { position: 1; color: Qt.tint(resizeCover.colours[3], Qt.alpha(resizeCover.colours[2], 0.5)) }
+            }
+        }
+        Row {
+            anchors.centerIn: parent
+            spacing: Ui.gapL
+            CIcon {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 26
+                height: 36
+                source: "carthage"
+                isMask: true
+                color: Backend.theme.p.trayText
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "CARTHAGE"
+                color: Backend.theme.p.trayText
+                font.family: Ui.fontLabels
+                font.weight: Font.Black
+                font.pixelSize: Ui.textTitle
+                font.letterSpacing: 6
+            }
+        }
+        // (nothing behind it takes the pointer while it shows)
+        MouseArea { anchors.fill: parent; enabled: resizeCover.visible; hoverEnabled: true }
     }
 
     // App.qml calls Window.window.showPassiveNotification(text, "short" | "long", action, fn).
@@ -87,8 +176,8 @@ QQC2.ApplicationWindow {
         height: 48
         opacity: shown ? 1 : 0
         visible: opacity > 0.01
-        Behavior on opacity { NumberAnimation { duration: 160 } }
-        Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 160 * Backend.motion; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 200 * Backend.motion; easing.type: Easing.OutCubic } }
         Accessible.role: Accessible.AlertMessage
         Accessible.name: message
         PanelBackground { anchors.fill: parent; radius: Ui.radiusMedium; shadowOffset: 6; shadowBlur: 20 }

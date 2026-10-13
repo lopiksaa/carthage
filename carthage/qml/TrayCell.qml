@@ -5,6 +5,26 @@ import Carthage
 Item {
     id: cell
 
+    // Arriving (after setup, App.qml introCards): the cartridges in view pop in one by one, in
+    // reading order; the rest are simply there.
+    property real intro: 1
+    opacity: intro
+    NumberAnimation { id: introAnim; target: cell; property: "intro"; from: 0; to: 1; duration: 360 * Backend.motion; easing.type: Easing.OutBack }
+    Timer { id: introWait; onTriggered: introAnim.restart() }
+    Connections {
+        target: cell.appRoot
+        function onIntroCards() {
+            const g = cell.GridView.view
+            // (any card on screen at all: the ones partly hidden or under the dock too)
+            if (!g || Backend.motion <= 0 || cell.y + cell.height <= g.contentY || cell.y >= g.contentY + g.height) return
+            const row = Math.floor((cell.y - g.contentY) / g.cellHeight)
+            const col = Math.round(cell.x / g.cellWidth)
+            cell.intro = 0
+            introWait.interval = 450 + (Math.max(0, row) * g.columns + col) * 70
+            introWait.restart()
+        }
+    }
+
     required property int index
     required property string gameId
     required property string title
@@ -102,8 +122,20 @@ Item {
         height: cell.cardH + 2 * cell.pad
 
         Image {
+            visible: !Backend.theme.glassy
             anchors.fill: parent
-            source: "image://gc/recess/" + cell.edition
+            source: visible ? "image://gc/recess/" + cell.edition : ""
+            sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
+            asynchronous: true
+        }
+        Image {  // glass: a raised glass card; the image reaches past the well for its shadow
+            readonly property real m: 0.22 * parent.width  // render.GLASS_WELL_MARGIN
+            visible: Backend.theme.glassy
+            x: -m
+            y: -m
+            width: parent.width + 2 * m
+            height: parent.height + 2 * m
+            source: visible ? "image://gc/glasswell/" + Backend.theme.edition + "/" + (Backend.theme.dark ? "dark" : "light") : ""
             sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
             asynchronous: true
         }
@@ -123,11 +155,14 @@ Item {
                 width: parent.width
                 text: engraved.text
                 font: engraved.font
+                fontSizeMode: engraved.fontSizeMode
+                minimumPixelSize: engraved.minimumPixelSize
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 maximumLineCount: 3
                 elide: Text.ElideRight
                 color: cell.pal.engraveHi
+                visible: !Backend.theme.glassy
             }
             Text {
                 id: engraved
@@ -136,12 +171,15 @@ Item {
                 font.family: Ui.fontTitles
                 font.weight: Font.ExtraBold
                 font.pixelSize: Math.max(8, cell.cardW * 0.085)
+                // Long names shrink to fit rather than being cut (down to 70%).
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Math.max(7, cell.cardW * 0.06)
                 font.letterSpacing: 1
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 maximumLineCount: 3
                 elide: Text.ElideRight
-                color: cell.pal.engrave
+                color: Backend.theme.glassy ? Backend.theme.glass.text2 : cell.pal.engrave
             }
         }
     }
@@ -165,7 +203,7 @@ Item {
         id: spot
         visible: opacity > 0
         opacity: cell.spotlit && !cell.out ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: spot.opacity < 0.5 ? 40 : 280; easing.type: Easing.OutQuad } }
+        Behavior on opacity { NumberAnimation { duration: (spot.opacity < 0.5 ? 40 : 280) * Backend.motion; easing.type: Easing.OutQuad } }
         Repeater {
             model: [0.5, 0.25, 0.12]
             Rectangle {
@@ -192,7 +230,9 @@ Item {
         gameId: cell.gameId
         title: cell.title
         source: cell.source
-        smoothTransform: cell.lift > 0.001 || cell.pressScale !== 1
+        // (until the tilt has settled too: it springs back after the lift is gone, and text
+        // drawn directly under a slight tilt slants letter by letter)
+        smoothTransform: cell.lift > 0.001 || cell.pressScale !== 1 || Math.abs(cell.tiltX) > 0.02 || Math.abs(cell.tiltY) > 0.02
         sourceName: cell.sourceName
         sourceIcon: cell.sourceIcon
         code: cell.code
@@ -248,7 +288,7 @@ Item {
         HoverHandler {
             id: hover
             cursorShape: Qt.PointingHandCursor
-            enabled: !cell.appRoot.modalOpen
+            enabled: !cell.appRoot.modalOpen && !Ui.bodyBlocked  // (a handler isn't switched off with its item)
             onHoveredChanged: if (hovered && !cell.out) cell.appRoot.sound("hover")
         }
         DragHandler {
@@ -300,8 +340,12 @@ Item {
         anchors.horizontalCenter: pocket.horizontalCenter
         width: pocket.width + Ui.spacingLarge
         text: cell.title
+        // The name opens the game too (people aim for it).
+        TapHandler { onTapped: if (!cell.out) cell.appRoot.choose(cell) }
+        HoverHandler { cursorShape: Qt.PointingHandCursor; enabled: !Ui.bodyBlocked }
         color: cell.installed ? cell.pal.trayText : cell.pal.trayTextDim
-        font: Qt.application.font
+        font.family: Ui.fontText  // the chosen text font (was the app default, Nunito)
+        font.pixelSize: Ui.textBody
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
         maximumLineCount: 2

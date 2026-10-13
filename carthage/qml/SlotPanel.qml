@@ -29,11 +29,11 @@ QQC2.Popup {
     closePolicy: QQC2.Popup.CloseOnEscape | QQC2.Popup.CloseOnPressOutside
 
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 110 }
-        NumberAnimation { property: "y"; from: panel.y + 8; to: panel.y; duration: 160; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 110 * Backend.motion; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "y"; from: panel.y + 8; to: panel.y; duration: 160 * Backend.motion; easing.type: Easing.OutCubic }
     }
     exit: Transition {
-        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 80 }
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 80 * Backend.motion; easing.type: Easing.InCubic }
     }
 
     background: PanelBackground {
@@ -149,7 +149,7 @@ QQC2.Popup {
             width: parent.width
             text: "Other"
             icon.name: "overflow-menu-symbolic"
-            onClicked: editMenu.popup(otherButton, 0, otherButton.height + 6)
+            onClicked: editMenu.openFrom(otherButton)
         }
 
         CButton {
@@ -159,7 +159,8 @@ QQC2.Popup {
             kind: panel.tracked ? "danger" : "plain"
             text: panel.tracked ? "Quit Game" : "Eject Card"
             icon.name: panel.tracked ? "system-shutdown-symbolic" : "media-eject-symbolic"
-            enabled: panel.state_ === "running" || panel.state_ === "starting" || panel.state_ === "handoff"
+            // (Not while closing: that ends by itself or turns into Force Quit / Keep Waiting.)
+            enabled: ["running", "starting", "handoff", "unconfirmed"].indexOf(panel.state_) >= 0
             onClicked: {
                 const s = panel.slot
                 panel.close()
@@ -170,7 +171,9 @@ QQC2.Popup {
         Text {
             visible: !panel.tracked
             width: parent.width
-            text: "Carthage can't see when games started through another launcher close. Eject the card when you're done."
+            text: panel.state_ === "unconfirmed"
+                  ? "Carthage didn't see this game start, so it can't tell when it closes. Eject the card when you're done."
+                  : "Carthage can't see when games started through another launcher close. Eject the card when you're done."
             color: panel.pal.panelTextDim
             font.family: Ui.fontText
             font.pixelSize: Ui.textCaption

@@ -1,0 +1,8 @@
+[
+  {"at": 900, "do": "hitTest", "x": 450, "y": 700},
+  {"at": 1200, "do": "click", "x": 450, "y": 700},
+  {"at": 1650, "do": "state2", "label": "cartridge-through-guard-band"},
+  {"at": 2000, "do": "click", "x": 450, "y": 780},
+  {"at": 2450, "do": "state2", "label": "cartridge-through-shell"},
+  {"at": 2900, "do": "exit"}
+]

@@ -29,7 +29,7 @@ built in, in the same style as your library.
 
 Get it from the [latest release](https://github.com/lopiksaa/carthage/releases/latest):
 
-- **Windows:** the setup `.exe`
+- **Windows:** the setup `.exe` (available, but not yet verified)
 - **Linux:** run this in a terminal (running it again updates Carthage):
 
   ```sh
@@ -38,28 +38,30 @@ Get it from the [latest release](https://github.com/lopiksaa/carthage/releases/l
 
   Or download the AppImage from the release.
 
-Carthage updates itself. You can turn that off in Menu → System.
+Installed Windows and AppImage builds can download and apply updates. Other installs can check for
+updates and open the release page. Control update checks in Settings → System.
 
-## Keys and privacy
+## Keys and network
 
-Carthage works without any keys. It finds your installed games, draws a printed label for
-cartridges without art, and shows the stores. Three free keys add more. You can add them
-during setup or later in Menu → Accounts & Keys:
+Carthage works without keys: it reads installed and previously played Steam games from local files,
+draws a printed label when art is missing, and shows the stores. Three optional keys add remote
+library, art and price data. Add them during setup or later in Settings → Accounts & Keys:
 
-| Key | What it adds | Sent only to |
+| Key | What it adds | Service |
 |---|---|---|
 | SteamGridDB | Custom game art for your cartridges, fetched from SteamGridDB's website | www.steamgriddb.com |
-| Steam Web API | Every Steam game you own, with your play time, not only the ones installed on this PC | api.steampowered.com |
-| IsThereAnyDeal (experimental, not tested) | GOG, Microsoft Store, EA and Battle.net prices in the store | api.isthereanydeal.com |
+| Steam Web API | Steam-owned games not found in local files, with Steam-reported playtime (game details must be public) | api.steampowered.com |
+| IsThereAnyDeal | Prices from GOG, Microsoft Store, EA and Battle.net in the store | api.isthereanydeal.com |
 
-Keys are kept in your system's password store: the Secret Service keyring (KDE Wallet or GNOME
-Keyring) on Linux, and Credential Manager on Windows. They're never written to a file or a log.
+Keys are saved in your operating system's password store: Secret Service on Linux and Credential
+Manager on Windows. They are not kept in Carthage's config or logs.
 
-Carthage has no accounts, analytics or telemetry. It only goes online to:
+Other network activity:
 
-- load the Steam and Epic stores
-- check GitHub for updates (you can turn this off)
-- show Discord Rich Presence, if you turn that on (it's off by default)
+- Steam and Epic provide store data.
+- GitHub provides update checks and downloads; update checks can be turned off in Settings → System.
+- Discord receives library/store activity when Rich Presence is enabled.
+- Sending feedback submits your message, Carthage's version and operating system, and your email if supplied.
 
 ## Run from source
 
@@ -98,8 +100,6 @@ This project is inspired by [Cartridges](https://github.com/kra-mo/cartridges).
 ## License
 
 Carthage is free software under the [GNU General Public License v3.0 or later](LICENSE).
-
-**AI Usage Disclaimer:** Co-built with Anthropic's Claude.
 
 The license covers the code, not the name or the logo. You're welcome to make your own version
 of Carthage, but please give it a different name and icon, so nobody mistakes it for this one.

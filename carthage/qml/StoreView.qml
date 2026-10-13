@@ -18,8 +18,10 @@ Item {
     readonly property bool searching: query.trim().length >= 2
     readonly property bool gridMode: searching || category !== null
     property string gridState: "ready"
+    property string gridWarning: ""
     function search() {
         gridState = "loading"
+        gridWarning = ""
         Backend.store.search(view.query)
     }
     function reloadCategory() {
@@ -34,7 +36,25 @@ Item {
         category = null
         browsing = false
     }
+    // The sidebar concept: no filter bar; a genre opens the search page; shelves for the
+    // library's top genres ("Because you play …", games you don't own).
+    property bool showBar: true
+    // The page grid (the sidebar concept): the library tray's edges and columns, so every
+    // page lines up. Without a tray, the old fixed margins.
+    property Item tray: null
+    readonly property real edge: tray ? tray.contentLeft : 28
+    readonly property real edgeRight: tray ? tray.width - tray.contentRight : 24
+    readonly property real gridLeft: tray ? tray.leftMargin : 24
+    property var onGenre: null
+    property var because: []  // [{key, title, items}]
+    readonly property var topGenres: Backend.topGenres.slice(0, 2)
+    function loadBecause() {
+        for (const g of topGenres) Backend.store.browse("because:" + g.value, { tags: [g.value], sort: "rated" })
+    }
+    onTopGenresChanged: if (!showBar) loadBecause()
+    onBecauseChanged: shelfSettle.restart()
     function openCategory(c) {
+        if (onGenre) { onGenre(c); return }
         category = c
         categoryItems = []
         reloadCategory()
@@ -54,10 +74,14 @@ Item {
             && (filterGenre === 0 || (it.tags || []).indexOf(filterGenre) >= 0)
     }
     function filtered(list) { return filtering ? (list || []).filter(passes) : (list || []) }
-    onFilterStoreChanged: rebuildShelves()
+    onFilterStoreChanged: {
+        if (filterStore === "epic") filterGenre = 0
+        rebuildShelves()
+    }
     onFilterGenreChanged: rebuildShelves()
     function rebuildShelves() {
         shelfModel = sections.slice(0, 1)
+            .concat(because)
             .concat(free.length ? [{ key: "free", title: "Free for a Limited Time", items: free }] : [])
             .concat(charts.length ? [{ key: "charts", title: "Most Played Right Now", items: charts }] : [])
             .concat(sections.slice(1))
@@ -84,6 +108,7 @@ Item {
         Backend.store.loadCharts()
         Backend.store.loadFree()
         Backend.store.loadAllCategoryArt()
+        if (!showBar && because.length === 0) loadBecause()
     }
     readonly property bool hideAdult: Backend.settings.hideAdult
     onHideAdultChanged: {
@@ -92,6 +117,7 @@ Item {
         if (searching) search()
     }
     onQueryChanged: {
+        gridWarning = ""
         searchDelay.restart()
         // From query itself: the searching binding may not have updated yet.
         if (query.trim().length >= 2) gridState = "loading"
@@ -127,6 +153,19 @@ Item {
         function onSearchFailed(term) {
             if (term === view.query.trim()) view.gridState = "error"
         }
+        function onSearchWarning(term, message) {
+            if (term === view.query.trim()) view.gridWarning = message
+        }
+        function onBrowseReady(key, list) {
+            if (!key.startsWith("because:")) return
+            const tag = parseInt(key.slice(8))
+            const g = view.topGenres.find(x => x.value === tag)
+            if (!g) return
+            const sec = { key: key, title: "Because You Play " + g.text, items: list.filter(it => !it.owned).slice(0, 14) }
+            view.because = view.because.filter(s => s.key !== key).concat([sec])
+                .sort((a, b) => view.topGenres.findIndex(x => "because:" + x.value === a.key)
+                              - view.topGenres.findIndex(x => "because:" + x.value === b.key))
+        }
         function onChartsReady(list) { view.charts = list }
         function onFreeReady(list) { view.free = list }
         function onSearchReady(term, list) {
@@ -146,7 +185,7 @@ Item {
     // The store bar: like the library's, with the store's filters.
     Item {
         id: storeBar
-        visible: !view.browsing
+        visible: !view.browsing && view.showBar
         width: parent.width
         height: visible ? 52 : 0
         EngravedLabel {
@@ -170,9 +209,10 @@ Item {
             CDropdown {
                 anchors.verticalCenter: parent.verticalCenter
                 kind: "key"
-                label: "Genre"
+                label: "Steam genre"
                 chipColumns: 3
                 value: view.filterGenre
+                enabled: view.filterStore !== "epic"
                 options: [{ value: 0, text: "All" }].concat(Backend.store.categories.map(c => ({ value: c.tag, text: c.name })))
                 onPicked: (v) => view.filterGenre = v
             }
@@ -200,8 +240,8 @@ Item {
                 id: bannerItem
                 objectName: "storeBanner"  // for the test harness
                 visible: view.spotlight.length > 0
-                x: 24
-                width: parent.width - 48
+                x: view.edge
+                width: parent.width - view.edge - view.edgeRight
                 height: implicitHeight
                 items: view.spotlight
                 appRoot: view.appRoot
@@ -238,8 +278,8 @@ Item {
             height: 110
             orientation: ListView.Horizontal
             spacing: Ui.gapL
-            leftMargin: 28
-            rightMargin: 28
+            leftMargin: view.edge
+            rightMargin: view.edgeRight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             model: Backend.store.categories
@@ -263,6 +303,7 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         QQC2.ScrollBar.vertical: CScrollBar {}
         WheelAccel { flickable: shelves; step: 110 }
+        AutoScroll { flickable: shelves }
 
         delegate: Column {
             id: shelf
@@ -271,7 +312,7 @@ Item {
             spacing: Ui.gapM
 
             EngravedLabel {
-                x: 28
+                x: view.edge
                 text: shelf.modelData.title
             }
             // The shelf's cartridges, laid out as chosen in Settings → Store.
@@ -283,12 +324,16 @@ Item {
                 id: rows
                 Grid {
                     id: grid
-                    x: 24
-                    readonly property real cellW: Math.floor((shelves.width - 48) / columns)
-                    columns: Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
+                    x: view.tray ? view.gridLeft : 24
+                    readonly property real cellW: view.tray ? view.tray.cellWidth : Math.floor((shelves.width - 48) / columns)
+                    columns: view.tray ? view.tray.columns : Math.max(1, Math.floor((shelves.width - 48) / (view.cardW + 40)))
                     rowSpacing: Ui.gapL
                     Repeater {
-                        model: shelf.modelData.items
+                        // Whole rows only: a shelf ending in a half-empty row looks unfinished.
+                        model: {
+                            const all = shelf.modelData.items
+                            return all.length > grid.columns ? all.slice(0, all.length - all.length % grid.columns) : all
+                        }
                         delegate: Item {
                             required property var modelData
                             width: grid.cellW
@@ -314,8 +359,8 @@ Item {
                     height: view.cardW * Backend.theme.ratio + view.cardW * 0.07
                             + (shelf.modelData.key === "charts" ? 76 : 58)
                     orientation: ListView.Horizontal
-                    leftMargin: 32
-                    rightMargin: 32
+                    leftMargin: view.edge
+                    rightMargin: view.edgeRight
                     spacing: 22
                     boundsBehavior: Flickable.StopAtBounds
                     model: shelf.modelData.items
@@ -342,20 +387,23 @@ Item {
         visible: view.browsing && !view.gridMode
         anchors.fill: parent
         anchors.topMargin: storeBar.height
-        leftMargin: 24
-        rightMargin: 24
+        leftMargin: view.edge - Ui.gapS
+        rightMargin: view.edgeRight - Ui.gapS
         topMargin: 18
         bottomMargin: view.bottomClearance + Ui.gapXXL
         clip: true
         model: Backend.store.categories
-        readonly property int cols: Math.max(2, Math.floor((width - 48) / 236))
-        cellWidth: Math.floor((width - 48) / cols)
+        readonly property real span: width - leftMargin - rightMargin
+        readonly property int cols: Math.max(2, Math.floor(span / 236))
+        cellWidth: Math.floor(span / cols)
         cellHeight: 140
         boundsBehavior: Flickable.StopAtBounds
         QQC2.ScrollBar.vertical: CScrollBar {}
         WheelAccel { flickable: browseGrid; step: 110 }
+        AutoScroll { flickable: browseGrid }
         header: Row {
-            height: 60
+            visible: view.showBar  // the sidebar concept has its own title and no "back"
+            height: visible ? 60 : 0
             spacing: Ui.gapL
             CButton {
                 anchors.verticalCenter: parent.verticalCenter
@@ -395,11 +443,22 @@ Item {
         clip: true
         model: view.filtered(view.query.trim().length >= 2 ? view.results : view.categoryItems)
         header: Column {
-            visible: view.category !== null && view.query.trim().length < 2
+            visible: view.gridWarning !== "" || (view.category !== null && view.query.trim().length < 2)
             width: resultsGrid.width - 48
             height: visible ? implicitHeight + 10 : 0
             spacing: Ui.gapM
+            Text {
+                id: warningText
+                visible: view.gridWarning !== ""
+                width: parent.width
+                text: view.gridWarning
+                color: view.pal.trayTextDim
+                font.family: Ui.fontText
+                font.pixelSize: Ui.textCaption
+                wrapMode: Text.Wrap
+            }
             Row {
+                visible: view.category !== null && view.query.trim().length < 2
                 spacing: Ui.gapL
                 CButton {
                     anchors.verticalCenter: parent.verticalCenter
@@ -426,6 +485,7 @@ Item {
         cellHeight: view.cardW * Backend.theme.ratio + 90
         QQC2.ScrollBar.vertical: CScrollBar {}
         WheelAccel { flickable: resultsGrid; step: resultsGrid.cellHeight * 0.34 }
+        AutoScroll { flickable: resultsGrid }
         delegate: Item {
             required property var modelData
             width: resultsGrid.cellWidth
@@ -440,13 +500,16 @@ Item {
             }
         }
         CPlaceholder {
+            parent: resultsGrid  // (on the view, not its empty content)
             anchors.centerIn: parent
-            width: parent.width - 80
+            width: resultsGrid.width - 80
             visible: resultsGrid.count === 0 && (view.searching || view.category !== null)
             iconName: view.gridState === "error" ? "network-disconnect"
                     : view.gridState === "loading" ? "view-refresh" : "search"
             readonly property string categoryName: view.category ? view.category.name : ""
-            text: view.gridState === "error" ? "Couldn't reach the Steam store. Check your connection."
+            text: view.gridState === "error"
+                ? (view.searching ? "Couldn't reach Steam or Epic Games Store. Check your connection."
+                                   : "Couldn't reach Steam. Check your connection.")
                 : view.gridState === "loading" ? (view.searching ? "Searching the store…" : "Loading " + categoryName + "…")
                 : view.searching ? "Nothing in the store matches “" + view.query.trim() + "”"
                 : "Nothing in " + categoryName + " right now"
@@ -470,7 +533,7 @@ Item {
         width: parent.width - 80
         visible: !view.gridMode && !view.browsing && view.state_ !== "ready"
         iconName: view.state_ === "error" ? "network-disconnect" : "view-refresh"
-        text: view.state_ === "error" ? view.error : "Opening the Steam store…"
+        text: view.state_ === "error" ? view.error : "Loading store…"
         actionText: view.state_ === "error" ? "Try Again" : ""
         onAction: view.load()
     }

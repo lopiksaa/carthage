@@ -1,13 +1,10 @@
-"""The Steam store, read-only, through the public endpoints the Steam website itself uses:
+"""Steam store data and Epic search/free games, read-only, through public storefront endpoints:
 
-  featuredcategories   specials / top sellers / new releases / coming soon
-  featured             the banner: Steam's spotlight and popular new releases
-  storesearch          search by name
-  appdetails           one game's page (description, price, screenshots…)
+    Steam: featuredcategories, featured shelves, storesearch, appdetails
+    Epic:  catalog search, free games, product details
 
-No account, no key, no purchases: buying and wishlisting happen in the Steam client
-(steam://store/<id>). Region and currency come from Steam's own detection (no cc= sent).
-Requests are cached (memory + ~/.cache/carthage/store) and run in worker threads.
+No store account or purchase is required in Carthage; checkout opens in each storefront. Region
+and currency are determined by the storefront APIs. Requests are cached and run in worker threads.
 """
 
 import json
@@ -18,6 +15,10 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+# At import time, on the main thread: importing it from several worker threads at once
+# returned a half-made placeholder on Python 3.15 ("'lazy_import' object is not callable").
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
@@ -56,6 +57,8 @@ ADULT_TAGS = {12095, 6650, 24904, 9130}
 
 _country = {"cc": None}
 HARDWARE = re.compile(r"^Steam (Deck|Frame|Machine|Controller|Link|Index)\b", re.I)
+# Soundtracks and artbooks Steam lists like games ("Morimens OST | …", "… Soundtrack").
+NOT_A_GAME = re.compile(r"\b(OST|Soundtrack|Original Score|Artbook|Art Book)\b", re.I)
 
 
 def country():
@@ -111,6 +114,46 @@ def _money(cents, currency):
     return f"{value}{sym}" if currency == "EUR" else f"{sym}{value}"
 
 
+def _filter_epic_search(items, max_price="", sale=False):
+    """Apply the search filters Epic's name-search endpoint doesn't accept."""
+    filtered = []
+    for item in items:
+        if sale and not item.get("discount"):
+            continue
+        filtered.append(item)
+    return _filter_store_price(filtered, max_price)
+
+
+def _filter_store_price(items, max_price=""):
+    if not max_price:
+        return items
+    def cents(item):
+        offers = item.get("offers") or [{}]
+        return item.get("cents", offers[0].get("cents", 1 << 30))
+    if max_price == "free":
+        return [item for item in items if cents(item) == 0]
+    limit = int(max_price) * 100
+    return [item for item in items if cents(item) < limit]
+
+
+def _epic_search(fetch_json, term, cc, money):
+    """Return Epic search results and whether the request failed."""
+    try:
+        return shops.epic_search(fetch_json, term, cc, money), False
+    except FETCH_ERRORS:
+        return [], True
+
+
+def _store_search_status(steam_failed, epic_failed):
+    if steam_failed and epic_failed:
+        return True, ""
+    if steam_failed:
+        return False, "Steam search is unavailable; showing Epic results only."
+    if epic_failed:
+        return False, "Epic search is unavailable; showing Steam results only."
+    return False, ""
+
+
 def _art_urls(appid, sample_url=""):
     """Tall capsule + header URLs. Newer games keep assets under a hashed folder, so derive
     both from any asset URL the API gave us (same folder), else use the plain pattern."""
@@ -119,6 +162,21 @@ def _art_urls(appid, sample_url=""):
         base = m.group(1)
         return base + "library_600x900_2x.jpg", base + "header.jpg"
     return CDN.format(id=appid, name="library_600x900_2x.jpg"), CDN.format(id=appid, name="header.jpg")
+
+
+def _steam_price(option, is_free, release):
+    coming_soon = bool(release.get("is_coming_soon"))
+    if coming_soon:
+        cents = option.get("final_price_in_cents") if option else (0 if is_free else None)
+        return {"price": _release_text(release),
+                "cents": int(cents) if cents is not None else 1 << 30, "comingSoon": True}
+    if is_free:
+        return {"price": "Free", "cents": 0, "comingSoon": False}
+    if option:
+        cents = option.get("final_price_in_cents")
+        return {"price": option.get("formatted_final_price") or "",
+                "cents": int(cents) if cents is not None else 1 << 30, "comingSoon": False}
+    return {"price": "", "cents": 1 << 30, "comingSoon": False}
 
 
 def _item(appid, name, final=None, original=None, discount=0, currency="EUR", free=False, sample=""):
@@ -167,19 +225,20 @@ def _batch(appids):
             assets = it.get("assets") or {}
             rel = it.get("release") or {}
             b = it.get("best_purchase_option") or {}
-            price = b.get("formatted_final_price") or ("Free" if it.get("is_free") or not b else "")
+            price = _steam_price(b, bool(it.get("is_free")), rel)
             tags = {t.get("tagid") for t in it.get("tags") or []}
             out[it["appid"]] = {
                 "appid": it["appid"],
                 "name": it["name"],
-                "price": price,
+                "price": price["price"],
                 "original": b.get("formatted_original_price") or "" if b.get("discount_pct") else "",
                 "discount": int(b.get("discount_pct") or 0),
+                "cents": price["cents"],
                 "capsule": _asset_url(assets, "library_capsule", "library_capsule_2x"),
                 "capsuleLarge": _asset_url(assets, "library_capsule_2x", "library_capsule"),
                 "header": _asset_url(assets, "header_2x", "header"),
                 "hero": _asset_url(assets, "library_hero_2x", "library_hero", "hero_capsule_2x", "hero_capsule"),
-                "comingSoon": bool(rel.get("is_coming_soon")),
+                "comingSoon": price["comingSoon"],
                 "releaseText": _release_text(rel),
                 "adult": bool(ADULT_DESCRIPTORS & set(it.get("content_descriptorids") or []))
                          or len(ADULT_TAGS & tags) >= 2,
@@ -245,6 +304,11 @@ def _compact(n):
 
 def _strip_html(html):
     text = re.sub(r"<br\s*/?>", "\n", html or "")
+    # Headings, paragraphs and list items start their own line (not glued to the text before).
+    text = re.sub(r"<li\b[^>]*>", "\n• ", text, flags=re.I)
+    text = re.sub(r"</li>", "", text, flags=re.I)
+    text = re.sub(r"</?(h[1-6]|p|ul|ol|div)\b[^>]*>", "\n", text, flags=re.I)
+    text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"<[^>]+>", "", text)
     from html import unescape  # (the argument is also called html)
 
@@ -252,12 +316,46 @@ def _strip_html(html):
     return re.sub(r"\n{3,}", "\n\n", unescape(text)).strip()
 
 
+def _in_parallel(fn, items, workers=6):
+    """fn over items on a few threads. [] when Carthage is quitting meanwhile (no new threads
+    can start then; that's not an error worth a traceback)."""
+    try:
+        with ThreadPoolExecutor(workers) as pool:
+            return list(pool.map(fn, items))
+    except RuntimeError:
+        return []
+
+
+def _requirements(data):
+    """A store page's minimum requirements for this system (Linux's on Linux, Windows' on
+    Windows), else the other one's."""
+    def minimum(key):
+        r = data.get(key)
+        return r.get("minimum", "") if isinstance(r, dict) else ""
+
+    keys = ["pc_requirements", "linux_requirements"] if os.name == "nt" else ["linux_requirements", "pc_requirements"]
+    text = minimum(keys[0]) or minimum(keys[1])
+    return _strip_html(text).replace("Minimum:", "").strip()[:1200]
+
+
+def _about_without(about, short):
+    """About This Game without its first paragraph when that's just the short description again
+    (it's already shown above it)."""
+    a, s = about.strip(), short.strip()
+    if s and a.startswith(s[:80]):
+        rest = a[len(s):].lstrip() if a.startswith(s) else a.split("\n", 1)[1].lstrip() if "\n" in a else ""
+        return rest
+    return a
+
+
 class Store(QObject):
     featuredReady = Signal("QVariantList")  # [{key, title, items: [...]}]
     searchReady = Signal(str, "QVariantList")
+    searchWarning = Signal(str, str)  # term, partial-result warning
     # A search or category that couldn't load: shown in its own grid, not as the store-wide
     # error.
     searchFailed = Signal(str)
+    browseWarning = Signal(str, str)  # request key, partial-result warning
     categoryFailed = Signal(int)
     detailsReady = Signal(int, "QVariantMap")
     failed = Signal(str)
@@ -273,6 +371,10 @@ class Store(QObject):
         self._fetching = {}
         CACHE.mkdir(parents=True, exist_ok=True)
         self._cat_art = self._load_category_art()
+        # Category art found by a worker is remembered on the UI thread (categoryArt reads the
+        # same dict there).
+        self._categoryArtFound.connect(self._remember_category_art)
+        self._categoryArtDone.connect(self._category_art_done)
         from .itad import Itad
 
         self._itad = Itad(CACHE, _money)  # used while "Other stores" is on (and there's a key)
@@ -280,6 +382,7 @@ class Store(QObject):
 
     def _shown(self, items):
         """What a list shows: adult games left out ("Hide adult content"), owned ones marked."""
+        items = [i for i in items if not NOT_A_GAME.search(i.get("name", ""))]
         if self._hide_adult():
             items = [i for i in items if not i.get("adult")]
         owned = self._owned()
@@ -323,7 +426,8 @@ class Store(QObject):
             for key, title in SECTIONS:
                 seen, items = set(), []
                 for it in (d.get(key) or {}).get("items", []):
-                    if it.get("id") in seen or it.get("type", 0) != 0 or HARDWARE.match(it.get("name", "")):
+                    if it.get("id") in seen or it.get("type", 0) != 0 or HARDWARE.match(it.get("name", "")) \
+                            or NOT_A_GAME.search(it.get("name", "")):
                         continue  # skip duplicates, bundles and Valve hardware
                     seen.add(it["id"])
                     items.append(_item(it["id"], it.get("name", ""), it.get("final_price"),
@@ -506,6 +610,8 @@ class Store(QObject):
 
     categoryReady = Signal(int, "QVariantList")  # tag, items
     categoryArtChanged = Signal()
+    _categoryArtFound = Signal(int, "QVariantList")  # worker → UI thread: tag, items
+    _categoryArtDone = Signal(bool)  # worker → UI thread: every category was looked at
 
     def _load_category_art(self):
         try:
@@ -548,21 +654,28 @@ class Store(QObject):
         self._art_job = True
 
         def work():
+            complete = False
             try:
                 for tag in todo:
                     items = self._category_items(tag, count=12)
                     if items:
-                        self._remember_category_art(tag, items)
+                        self._categoryArtFound.emit(tag, items)
                     time.sleep(0.3)  # be gentle with Steam
-                self._cat_art["_t"] = time.time()
-                try:
-                    (CACHE / "category_art.json").write_text(json.dumps(self._cat_art), encoding="utf-8")
-                except OSError:
-                    pass
-            finally:
-                self._art_job = False
+                complete = True
+            except RuntimeError:  # Carthage closed while this ran: nothing left to tell
+                return
+            self._categoryArtDone.emit(complete)
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _category_art_done(self, complete):
+        self._art_job = False
+        if complete:
+            self._cat_art["_t"] = time.time()
+            try:
+                (CACHE / "category_art.json").write_text(json.dumps(self._cat_art), encoding="utf-8")
+            except OSError:
+                pass
 
     def _category_items(self, tag, count=CATEGORY_SIZE):
         try:
@@ -579,6 +692,173 @@ class Store(QObject):
         info = _batch(ids)
         return [info[i] for i in ids if i in info]
 
+    # The search panel and the store pages (sidebar layout concept).
+    browseReady = Signal(str, "QVariantList")  # request key, items
+    browseFailed = Signal(str)
+    dealsReady = Signal("QVariantList")
+    SORTS = {"top": "topsellers", "new": "Released_DESC", "rated": "Reviews_DESC", "price": "Price_ASC"}
+
+    def _steam_query(self, term="", tags=(), sale=False, max_price="", sort="top", count=CATEGORY_SIZE,
+                     untags=(), page=1):
+        """Steam's store search with filters: text, genres (all of them, and none of `untags`),
+        on sale, a price cap ("free", or euros/dollars as a number), sorted; `page` for more.
+        None if it failed."""
+        q = {"query": "", "start": 0, "count": count, "category1": GAMES_ONLY, "json": 1,
+             "cc": country(), "l": "english"}
+        if term:
+            q["term"] = term
+        if tags:
+            q["tags"] = ",".join(str(int(t)) for t in tags)
+        if untags:
+            q["untags"] = ",".join(str(int(t)) for t in untags)
+        if page > 1:
+            q["page"] = int(page)
+        if sale:
+            q["specials"] = 1
+        if max_price:
+            q["maxprice"] = max_price
+        s = self.SORTS.get(sort, "topsellers")
+        if s == "topsellers":
+            if not term:
+                q["filter"] = "topsellers"
+        else:
+            q["sort_by"] = s
+        try:
+            raw = _fetch_json("https://store.steampowered.com/search/results/", q).get("items", [])
+        except FETCH_ERRORS:
+            return None
+        ids = [int(m.group(1)) for it in raw
+               if (m := re.search(r"/apps/(\d+)/", it.get("logo", ""))) and not HARDWARE.match(it.get("name", ""))]
+        info = _batch(ids)
+        return [info[i] for i in ids if i in info]
+
+    @Slot(str, "QVariantMap")
+    def browse(self, key, req):
+        """Store games for the search panel: {term, tags, sale, maxPrice, sort, store}. Steam
+        does the filtering; a text search also asks Epic (games Steam doesn't sell)."""
+        term = (req.get("term") or "").strip()
+        tags = [int(t) for t in req.get("tags") or []]
+        untags = [int(t) for t in req.get("untags") or []]
+        page = int(req.get("page") or 1)
+        only = req.get("store") or "all"
+
+        def work():
+            items = []
+            steam_failed = False
+            if only in ("all", "steam"):
+                got = self._steam_query(term, tags, bool(req.get("sale")), req.get("maxPrice") or "", req.get("sort") or "top",
+                                        untags=untags, page=page)
+                if got is None:
+                    steam_failed = True
+                    if only == "steam":
+                        self.browseFailed.emit(key)
+                        return
+                else:
+                    items = _filter_store_price(got, req.get("maxPrice") or "")
+            if term and only in ("all", "epic") and not tags and not untags and page == 1:
+                epic, epic_failed = _epic_search(_fetch_json, term, country(), _money)
+                if epic_failed and only == "epic":
+                    self.browseFailed.emit(key)
+                    return
+                both_failed, warning = _store_search_status(steam_failed, epic_failed)
+                if both_failed:
+                    self.browseFailed.emit(key)
+                    return
+                seen = {shops.norm_title(i["name"]) for i in items}
+                epic_items = []
+                for el in epic:
+                    it = shops.epic_item(el, _money)
+                    if shops.norm_title(it["name"]) in seen:
+                        continue
+                    epic_items.append(it)
+                items.extend(_filter_epic_search(epic_items, req.get("maxPrice") or "", bool(req.get("sale"))))
+                if warning:
+                    self.browseWarning.emit(key, warning)
+                if req.get("sort") == "price":
+                    items.sort(key=lambda it: it.get("cents", (it.get("offers") or [{}])[0].get("cents", 1 << 30)))
+            elif steam_failed:
+                self.browseFailed.emit(key)
+                return
+            self.browseReady.emit(key, self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    wishlistReady = Signal("QVariantList")
+    wishlistFailed = Signal(str)
+
+    @staticmethod
+    def _cheapest(it):
+        """A Steam item, switched to Epic's offer when Epic sells it cheaper (on sale)."""
+        try:
+            o = shops.epic_offer_for(_fetch_json, it["name"], country(), _money)
+        except FETCH_ERRORS:
+            o = None
+        if o and o["discount"] and it.get("cents") and o["cents"] < it["cents"]:
+            return dict(it, store="epic", price=o["price"], original=o["original"],
+                        discount=o["discount"], dealUrl=o["url"], alsoOn="Steam")
+        return dict(it, alsoOn="Epic" if o else "")
+
+    @Slot(str)
+    def loadWishlist(self, steam_id):
+        """Your Steam wishlist (public, no key needed): games on sale first (biggest discount
+        first), then the rest, newest wish first; each at its best price across Steam and Epic."""
+        def work():
+            try:
+                raw = _fetch_json("https://api.steampowered.com/IWishlistService/GetWishlist/v1/",
+                                  {"steamid": steam_id}).get("response", {}).get("items") or []
+            except FETCH_ERRORS:
+                self.wishlistFailed.emit("Steam didn't answer. Check the connection and try again.")
+                return
+            added = {int(w["appid"]): int(w.get("date_added") or 0) for w in raw if w.get("appid")}
+            info = _batch(list(added))
+            items = [info[a] for a in added if a in info]
+            items = _in_parallel(self._cheapest, items)
+            items.sort(key=lambda it: (-(it.get("discount") or 0), -added.get(it.get("appid"), 0)))
+            self.wishlistReady.emit(self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    dealsMoreReady = Signal(int, "QVariantList")  # page, items
+
+    @Slot(int)
+    def loadMoreDeals(self, page):
+        """The next page of Steam's best-selling discounts, each compared with Epic's price."""
+        def work():
+            steam = self._steam_query(sale=True, count=36, page=page) or []
+
+            items = _in_parallel(self._cheapest, steam)
+            self.dealsMoreReady.emit(page, self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    @Slot()
+    def loadDeals(self):
+        """Deals from every store, together: Steam's best-selling discounts, each compared with
+        Epic's price (the cheaper one shows, with its store), then Epic's own discounts."""
+        def work():
+            steam = self._steam_query(sale=True, count=36) or []
+
+            items = _in_parallel(self._cheapest, steam)
+            seen = {shops.norm_title(i["name"]) for i in items}
+            v = {"keywords": "", "count": 24, "country": country(), "locale": "en-US",
+                 "category": shops.EPIC_CATEGORY, "withPrice": True, "onSale": True,
+                 "sortBy": "currentPrice", "sortDir": "DESC"}
+            try:
+                url = shops.EPIC_GRAPHQL + "?" + urllib.parse.urlencode({
+                    "operationName": "searchStoreQuery", "variables": json.dumps(v),
+                    "extensions": json.dumps({"persistedQuery": {"version": 1, "sha256Hash": shops.EPIC_SEARCH_HASH}})})
+                els = (((_fetch_json(url).get("data") or {}).get("Catalog") or {}).get("searchStore") or {}).get("elements") or []
+            except FETCH_ERRORS:
+                els = []
+            for el in els:
+                it = shops.epic_item(el, _money)
+                if it["discount"] and shops.norm_title(it["name"]) not in seen:
+                    seen.add(shops.norm_title(it["name"]))
+                    items.append(it)
+            self.dealsReady.emit(self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
     @Slot(int)
     def loadCategory(self, tag):
         """Top sellers in one category (Steam's store search filtered by tag)."""
@@ -588,7 +868,7 @@ class Store(QObject):
                 self.categoryFailed.emit(tag)
                 return
             self.categoryReady.emit(tag, self._shown(items))
-            self._remember_category_art(tag, items)
+            self._categoryArtFound.emit(tag, items)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -600,24 +880,28 @@ class Store(QObject):
             if len(term) < 2:
                 self.searchReady.emit(term, [])
                 return
+            steam_failed = False
             try:
                 d = _get("storesearch/", {"term": term})
             except FETCH_ERRORS:
-                self.searchFailed.emit(term)
-                return
+                d = {}
+                steam_failed = True
             items = []
             for it in d.get("items", []):
-                if it.get("type") != "app" or HARDWARE.match(it.get("name", "")) or "Soundtrack" in it.get("name", ""):
+                if it.get("type") != "app" or HARDWARE.match(it.get("name", "")) or NOT_A_GAME.search(it.get("name", "")):
                     continue
                 p = it.get("price") or {}
                 items.append(_item(it["id"], it.get("name", ""), p.get("final"), p.get("initial"),
                                    round(100 - 100 * p["final"] / p["initial"]) if p.get("initial") else 0,
                                    p.get("currency", "EUR"), free=not p, sample=it.get("tiny_image", "")))
             items = _with_art(items)
-            try:
-                epic = shops.epic_search(_fetch_json, term, country(), _money)
-            except FETCH_ERRORS:
-                epic = []
+            epic, epic_failed = _epic_search(_fetch_json, term, country(), _money)
+            both_failed, warning = _store_search_status(steam_failed, epic_failed)
+            if both_failed:
+                self.searchFailed.emit(term)
+                return
+            if warning:
+                self.searchWarning.emit(term, warning)
             on_steam = {shops.norm_title(i["name"]) for i in items}
             for el in epic:
                 t = shops.norm_title(el.get("title"))
@@ -625,6 +909,26 @@ class Store(QObject):
                     on_steam.add(t)
                     items.append(shops.epic_item(el, _money))
             self.searchReady.emit(term, self._shown(items))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    epicDetailsReady = Signal(str, "QVariantMap")  # item key, details
+
+    @Slot(str, str)
+    def loadEpicDetails(self, key, title):
+        """Details for a game sold only on Epic: description, About, screenshots, credits."""
+        def work():
+            try:
+                els = shops.epic_search(_fetch_json, title, country(), _money, count=6)
+            except FETCH_ERRORS:
+                els = []
+            want = shops.norm_title(title)
+            el = next((e for e in els if shops.norm_title(e.get("title")) == want), None)
+            if el is None:
+                return
+            d = shops.epic_details(_fetch_json, shops._epic_slug(el), el)
+            if d:
+                self.epicDetailsReady.emit(key, d)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -698,8 +1002,10 @@ class Store(QObject):
                 "original": po.get("initial_formatted", "") if po.get("discount_percent") else "",
                 "discount": int(po.get("discount_percent") or 0),
                 "description": _strip_html(data.get("short_description", "")),
+                "background": data.get("background_raw") or data.get("background") or "",
                 "genres": [g.get("description", "") for g in data.get("genres") or []][:4],
                 "linux": bool((data.get("platforms") or {}).get("linux")),
+                "windows": bool((data.get("platforms") or {}).get("windows", True)),
                 "screenshots": [s.get("path_thumbnail", "") for s in data.get("screenshots") or []][:12],
                 "screenshotsFull": [s.get("path_full", "") for s in data.get("screenshots") or []][:12],
                 "movies": [{"thumb": m.get("thumbnail", ""), "name": m.get("name", ""),
@@ -707,7 +1013,8 @@ class Store(QObject):
                             "url": m.get("hls_h264") or (m.get("mp4") or {}).get("max")
                                    or (m.get("mp4") or {}).get("480") or (m.get("webm") or {}).get("max") or ""}
                            for m in data.get("movies") or []][:4],
-                "about": _strip_html(data.get("about_the_game") or data.get("detailed_description") or "")[:4000],
+                "about": _about_without(_strip_html(data.get("about_the_game") or data.get("detailed_description") or ""),
+                                        _strip_html(data.get("short_description", "")))[:4000],
                 "features": [c.get("description", "") for c in data.get("categories") or []][:12],
                 "languages": _strip_html((data.get("supported_languages") or "").replace("<strong>*</strong>", "")).split(",")
                              if data.get("supported_languages") else [],
@@ -719,10 +1026,7 @@ class Store(QObject):
                 "metacriticUrl": (data.get("metacritic") or {}).get("url") or "",
                 "ageRating": int(data.get("required_age") or 0),
                 "website": data.get("website") or "",
-                "requirements": _strip_html(((data.get("linux_requirements") or {}) if isinstance(data.get("linux_requirements"), dict)
-                                             else {}).get("minimum", "")
-                                            or ((data.get("pc_requirements") or {}) if isinstance(data.get("pc_requirements"), dict)
-                                                else {}).get("minimum", "")).replace("Minimum:", "").strip()[:1200],
+                "requirements": _requirements(data),
                 "reviews": "",
                 "reviewPct": -1,
                 "reviewCount": "",

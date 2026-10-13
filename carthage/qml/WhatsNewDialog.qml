@@ -228,8 +228,8 @@ CDialog {
         }
         ParallelAnimation {
             id: swap
-            NumberAnimation { target: page; property: "opacity"; from: 0.2; to: 1; duration: 180; easing.type: Easing.OutCubic }
-            NumberAnimation { target: tile; property: "scale"; from: 0.9; to: 1; duration: 240; easing.type: Easing.OutBack }
+            NumberAnimation { target: page; property: "opacity"; from: 0.2; to: 1; duration: 180 * dlg.motion; easing.type: Easing.OutCubic }
+            NumberAnimation { target: tile; property: "scale"; from: 0.9; to: 1; duration: 240 * dlg.motion; easing.type: Easing.OutBack }
         }
 
         Row {

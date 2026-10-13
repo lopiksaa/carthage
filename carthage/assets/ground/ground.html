@@ -1,0 +1,349 @@
+<!doctype html>
+<!-- The glass look's ground, drawn with WebGL 2 in Carthage's web view (WebGround.qml).
+     Mesh: a lit satin surface folding slowly. Underwater: rays of sunlight streaming down
+     through the water, fading into the deep. Holographic: liquid swirls of
+     colour with a pearly, rainbow foil sheen. Contours: a living relief map whose levels rise
+     through the land, so every line travels. Done properly: real simplex noise, colours mixed in
+     OKLab (blends stay clean instead of going grey), four chosen hues with controlled lightness
+     and chroma, motion at the screen's own refresh rate, and a triangular dither so the smooth
+     gradients never band. Carthage sets everything with setGround({...}) (see WebGround.qml). -->
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#0d0e12}canvas{display:block;position:absolute;left:0;top:0;width:100%;height:100%}</style>
+</head><body><canvas id="c"></canvas>
+<script>
+"use strict";
+// hues: the four corners' hues (top left, top right, bottom right, bottom left); tone (0..1)
+// lifts the night ground or dims the day one (a grey ground: pewter, silver); lift: Advanced's
+// brightness (-1..1); blur (0..1): Settings → Appearance → Blur. The rest is Advanced
+// (theme.py GROUND_TUNING), light in degrees.
+const S = { variant: 3, dark: 1, hues: [265, 303, 233, 340], chroma: 0.12, tone: 0, lift: 0, speed: 1, moving: true,
+            scale: 1, turbulence: 1, depth: 1, light: 130, rays: 1, sheen: 1, lines: 1, glow: 1,
+            vignette: 1, grain: 0, blur: 0.5 };
+
+const VS = `#version 300 es
+in vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }`;
+
+const FS = `#version 300 es
+precision highp float;
+out vec4 outColor;
+uniform vec2 R; uniform float T; uniform int V; uniform float D;
+uniform vec3 B; uniform vec3 K0, K1, K2, K3;   // the ground and its four corners, in OKLab
+// Advanced: size, turbulence, depth, light direction (radians), light rays, holographic
+// sheen, line density, line glow, vignette, grain.
+uniform float SC, TU, DE, LA, RA, SH, LN, GL, VG, GR;
+
+// Simplex noise (Ashima Arts / Ian McEwan, MIT).
+vec3 permute(vec3 x){ return mod(((x * 34.0) + 1.0) * x, 289.0); }
+float snoise(vec2 v){
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+  vec2 i = floor(v + dot(v, C.yy)); vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1;
+  i = mod(i, 289.0);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+  m = m * m; m = m * m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5); vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+  vec3 g; g.x = a0.x * x0.x + h.x * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+// Broad folds: three octaves only, so a surface reads as a few big, slow shapes.
+float silk(vec2 p){ return 0.62 * snoise(p) + 0.28 * snoise(p * 1.9 + 3.1) + 0.10 * snoise(p * 3.7 - 1.7); }
+
+// OKLab → linear sRGB → sRGB.
+vec3 oklab2lin(vec3 c){
+  float l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
+  float m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
+  float s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
+  float l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+  return vec3( 4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+              -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+              -0.0041960863*l - 0.7034186147*m + 1.7076147010*s);
+}
+vec3 lin2srgb(vec3 c){ c = max(c, 0.0); return mix(12.92 * c, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
+
+float hash(vec2 p){ p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
+
+// The four corners blended across the screen (g: a position, 0..1 each way).
+vec3 corners(vec2 g){
+  return mix(mix(K0, K1, smoothstep(0.0, 1.0, g.x)), mix(K3, K2, smoothstep(0.0, 1.0, g.x)), smoothstep(0.0, 1.0, g.y));
+}
+// The four colours as one ramp, low (0) to high (1): bottom left, bottom right, top right, top left.
+vec3 ramp(float e){
+  return e < 1.0 / 3.0 ? mix(K3, K2, smoothstep(0.0, 1.0 / 3.0, e))
+       : e < 2.0 / 3.0 ? mix(K2, K1, smoothstep(1.0 / 3.0, 2.0 / 3.0, e))
+       : mix(K1, K0, smoothstep(2.0 / 3.0, 1.0, e));
+}
+
+// A colour on a lit surface: ambient and diffuse in lightness, a soft highlight and a rim.
+vec3 lit(vec3 base, vec3 N, vec3 L, bool night){
+  float diff = clamp(dot(N, L), 0.0, 1.0);
+  vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+  float spec = pow(clamp(dot(N, H), 0.0, 1.0), 40.0);
+  float fres = pow(1.0 - clamp(N.z, 0.0, 1.0), 3.0);
+  float shade = night ? (0.55 + 0.75 * diff) : (0.84 + 0.18 * diff);
+  vec3 lab = vec3(base.x * shade, base.yz * (0.85 + 0.25 * diff));
+  lab.x += (night ? 0.10 : 0.05) * spec + (night ? 0.05 : 0.03) * fres;
+  return lab;
+}
+
+// Mesh: a slow, broad heightfield (satin, poured paint), shaded with the light.
+vec3 mesh(vec2 uv, vec2 q, float t, bool night, vec3 L){
+  float sc = 0.55 / SC;
+  vec2 sp = q * sc;
+  vec2 flow = vec2(t * 0.012, -t * 0.008);
+  vec2 wq = sp + 0.30 * TU * vec2(snoise(sp * 0.7 + flow), snoise(sp * 0.7 - flow + 7.3));
+  float h = silk(wq + flow);
+  const float e = 0.004;
+  float hx = silk(wq + vec2(e, 0.0) + flow) - h;
+  float hy = silk(wq + vec2(0.0, e) + flow) - h;
+  float relief = 0.7 * DE;   // how much the folds stand up
+  vec3 N = normalize(vec3(-hx / e * relief * sc, hy / e * relief * sc, 1.0));
+  return lit(corners(vec2(uv.x + 0.25 * h, uv.y - 0.2 * h)), N, L, night);
+}
+
+// Underwater: rays of sunlight streaming down through the water from the surface above. The
+// sun sits above the top edge on the light's side; its rays fan out from it, swaying, widening
+// and fading slowly as the waves above move, each reaching its own depth before the water
+// swallows it. The water deepens and darkens below.
+vec3 underwater(vec2 uv, vec2 q, float as, float t, bool night){
+  float d = uv.y;                                       // depth: 0 at the surface (the top)
+  float drift = 0.18 * snoise(vec2(q.x * 0.5 / SC + t * 0.008, q.y * 0.4 - t * 0.005));
+  vec3 water = corners(vec2(uv.x + drift, d + 0.5 * drift));
+  // The water swallows the light: the deep is darker (by day, denser) and richer in colour.
+  water.x *= night ? mix(1.08, 0.40, d) : mix(1.03, 0.80, d);
+  water.yz *= mix(0.9, 1.3, d);
+  // (high above: the rays come down nearly parallel, converging a little toward the surface)
+  vec2 sun = vec2(as * (0.5 + 0.6 * cos(LA)), -1.1);
+  vec2 v = q - sun;
+  // Across the rays: the angle round the sun (0 = straight down); each ray is a straight line.
+  float ang = atan(v.x, v.y);
+  float a = ang * 12.0 / SC;
+  // Broad beams with soft edges, a finer grain of light inside them.
+  float broad = smoothstep(-0.4, 0.8, 0.7 * snoise(vec2(a, t * 0.035)) + 0.3 * snoise(vec2(a * 2.3 + 3.1, t * 0.06)));
+  float fine = smoothstep(0.2, 0.9, snoise(vec2(a * 5.0 - 1.7, t * 0.08)));
+  float rays = broad * broad * (0.75 + 0.25 * fine);
+  // Each ray reaches its own depth, and all of them fade on the way down.
+  float reach = 0.55 + 0.35 * snoise(vec2(a * 0.9 + 7.0, t * 0.025));
+  rays *= smoothstep(reach + 0.45, reach - 0.35, d) * exp(-d * 0.8);
+  // The glow of the light just under the surface, brightest on the sun's side.
+  float haze = exp(-d * 5.0) * 0.45 + exp(-length(q - vec2(sun.x, 0.0)) * 1.6) * 0.35;
+  // The light adds to the water: brighter, and toward the light's own pale colour.
+  float amt = RA * rays * (night ? 0.34 : 0.13) + haze * (night ? 0.14 : 0.05);
+  vec3 lab = water;
+  lab.x = min(0.99, lab.x + amt);
+  lab.yz = mix(lab.yz, K0.yz * 0.5, clamp(amt * 2.0, 0.0, 0.6));
+  return lab;
+}
+
+// Holographic: draped holographic foil, like liquid chrome. Long folds that flow and curve; the
+// foil reflects a rainbow that depends on which way the surface faces, so the colours run in
+// bands along the folds (thin where they bend sharply, broad where the foil lies flat), with
+// silver where it catches the light and the palette's deep colour in the shadows.
+float drape(vec2 s, float tt){
+  vec2 r = vec2(0.91 * s.x - 0.42 * s.y, 0.42 * s.x + 0.91 * s.y);   // folds lean a little
+  return 0.70 * snoise(vec2(r.x * 1.3, r.y * 0.40 + tt)) + 0.24 * snoise(vec2(r.x * 2.7 + 4.0, r.y * 0.75 - tt * 1.3))
+       + 0.06 * snoise(vec2(r.x * 5.9 - 2.0, r.y * 1.6 + tt * 1.7));
+}
+// A rainbow in OKLCH, phase 0..1 round the hue wheel (yellows a little lighter, as in nature).
+vec3 spectrum(float ph, float L, float C){
+  float h = 6.2831853 * ph;
+  return vec3(L + 0.06 * cos(h - 1.9), C * cos(h), C * sin(h));
+}
+vec3 holo(vec2 uv, vec2 q, float t, bool night, vec3 L){
+  float sc = 0.42 / SC;
+  float tt = t * 0.02;
+  vec2 p = q * sc;
+  p += 0.7 * TU * vec2(snoise(p * 0.35 + vec2(tt * 0.6, 0.0)), snoise(p * 0.35 + vec2(3.7, -tt * 0.5)));
+  float h = drape(p, tt);
+  const float e = 0.003;
+  float hx = drape(p + vec2(e, 0.0), tt) - h;
+  float hy = drape(p + vec2(0.0, e), tt) - h;
+  float k = 0.42 * DE * sc;
+  vec3 N = normalize(vec3(-hx / e * k, hy / e * k, 1.0));
+  vec3 Rf = reflect(vec3(0.0, 0.0, -1.0), N);              // what the foil reflects
+  float facing = clamp(dot(N, L), 0.0, 1.0);
+  vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+  float sheen = pow(clamp(dot(N, H), 0.0, 1.0), 4.0);
+  float spec = pow(clamp(dot(N, H), 0.0, 1.0), 60.0);
+  float tilt = length(N.xy);
+  // The rainbow the foil reflects: its phase follows the facing, so it bands along the folds.
+  float ph = 0.9 * dot(Rf.xy, vec2(0.8, -0.6)) + 1.2 * tilt + 0.6 * tilt * tilt + 0.2 * h + t * 0.004;
+  vec3 rainbow = spectrum(ph, night ? 0.75 : 0.87, night ? 0.19 : 0.11);
+  // The deep colour: the palette, deepened.
+  vec3 deep = corners(vec2(uv.x + 0.2 * h, uv.y));
+  deep = night ? vec3(deep.x * 0.75, deep.yz * 1.5) : vec3(deep.x * 0.97, deep.yz * 1.3);
+  // The valleys between the folds lie in shadow; the rainbow shows where the foil catches light.
+  float ao = mix(0.55, 1.0, smoothstep(-0.75, 0.35, h));
+  float lit_ = facing * ao;
+  float irid = SH * smoothstep(0.03, 0.30, tilt) * smoothstep(0.05, 0.45, lit_);
+  vec3 col = mix(deep, rainbow, clamp(irid, 0.0, 1.0) * (night ? 0.95 : 0.8));
+  col.x *= night ? (0.42 + 0.72 * lit_) : (0.82 + 0.24 * lit_);
+  // Chrome: a broad silver sheen on the ridges and a sharp highlight, with a breath of the palette.
+  vec3 silver = vec3(night ? 0.86 : 0.98, K0.yz * 0.25);
+  col = mix(col, silver, clamp((0.62 * sheen * (1.0 - 0.4 * irid) + 0.85 * spec) * ao, 0.0, 1.0));
+  return col;
+}
+
+// Contours: a relief map. The land is tinted by height with the four colours and lit from the
+// light's side; its levels rise slowly through it, so every line travels uphill; every fifth
+// line is an index line, bolder; a soft glow and a pulse run along them.
+vec3 contours(vec2 uv, vec2 q, float t, bool night, vec3 L){
+  float sc = 0.7 / SC;
+  vec2 p = q * sc;
+  vec2 flow = vec2(t * 0.005, -t * 0.0035);
+  vec2 wq = p + 0.3 * TU * vec2(snoise(p * 0.5 + flow), snoise(p * 0.5 - flow + 5.1));
+  float h = 0.58 * snoise(wq + flow) + 0.28 * snoise(wq * 2.2 - flow * 1.3 + 3.3) + 0.14 * snoise(wq * 4.6 + flow * 2.1 - 7.7);
+  vec3 N = normalize(vec3(-vec2(dFdx(h), dFdy(h)) * R.y * 0.30 * DE, 1.0));
+  float diff = clamp(dot(N, L), 0.0, 1.0);
+  float lv = (h * 0.5 + 0.5) * 20.0 * LN - t * 0.12;
+  vec3 land = ramp(clamp(h * 0.6 + 0.5, 0.0, 1.0));
+  vec3 col = land;
+  col.x += (night ? 0.035 : -0.025) * (fract(lv) - 0.5);              // terraces
+  col.x *= night ? (0.62 + 0.62 * diff) : (0.90 + 0.14 * diff);        // hill shading
+  // The lines, one pixel wide at any zoom (index lines two), none where they'd crowd.
+  float fw = max(fwidth(lv), 1e-4);
+  float dist = abs(fract(lv + 0.5) - 0.5) / fw;                        // to the nearest line, in pixels
+  float index = step(mod(floor(lv + 0.5), 5.0), 0.5);
+  float hw = mix(0.55, 1.1, index);
+  float room = smoothstep(0.45, 0.2, fw);
+  float line = (1.0 - smoothstep(hw, hw + 1.0, dist)) * room;
+  float pulse = 0.6 + 0.4 * sin(floor(lv + 0.5) * 0.8 - t * 0.6);
+  float glow = exp(-dist / mix(5.0, 9.0, index)) * GL * pulse * room;
+  vec3 ink = night ? vec3(min(0.95, land.x + 0.42), land.yz * 0.9) : vec3(max(0.2, land.x - 0.42), land.yz * 1.2);
+  return mix(col, ink, clamp(line * mix(0.55, 0.95, index) * pulse + glow * (night ? 0.35 : 0.18), 0.0, 1.0));
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / R; uv.y = 1.0 - uv.y;
+  float as = R.x / R.y; vec2 q = vec2(uv.x * as, uv.y);
+  bool night = D > 0.5;
+  // The light, from its direction (0° the right, 90° above), slightly toward the viewer.
+  vec3 L = normalize(vec3(0.82 * cos(LA), 0.82 * sin(LA), 0.57));
+  vec3 lab;
+  if (V == 0) lab = B;
+  else if (V == 2) lab = underwater(uv, q, as, T, night);
+  else if (V == 4) lab = holo(uv, q, T, night, L);
+  else if (V == 5) lab = contours(uv, q, T, night, L);
+  else lab = mesh(uv, q, T, night, L);
+
+  // A gentle vignette in lightness only (hue stays clean), and grain if asked for.
+  float v = smoothstep(0.35, 1.2, length((uv - 0.5) * vec2(1.15, 1.35)));
+  lab.x *= 1.0 - VG * (night ? 0.30 : 0.06) * v;
+  lab.x += GR * 0.08 * (hash(gl_FragCoord.xy + fract(T * 7.13) * 91.0) - 0.5);
+
+  vec3 rgb = lin2srgb(oklab2lin(lab));
+  // Triangular dither, ±1 step: no banding, no visible grain.
+  float n = hash(gl_FragCoord.xy) + hash(gl_FragCoord.xy + 17.3) - 1.0;
+  rgb += n / 255.0;
+  outColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
+}`;
+
+const canvas = document.getElementById("c");
+let gl = canvas.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "low-power" });
+function sh(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+let prog = null;
+const U = {};
+const UNIFORMS = ["R", "T", "V", "D", "B", "K0", "K1", "K2", "K3", "SC", "TU", "DE", "LA", "RA", "SH", "LN", "GL", "VG", "GR"];
+function setup(){
+  prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const aLoc = gl.getAttribLocation(prog, "a"); gl.enableVertexAttribArray(aLoc); gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+  for (const n of UNIFORMS) U[n] = gl.getUniformLocation(prog, n);
+}
+// The GPU can take the context away (a driver reset, the GPU process restarting): ask for it
+// back and build everything again then, instead of staying black.
+let lost = false;
+canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); lost = true; console.warn("ground: context lost"); });
+canvas.addEventListener("webglcontextrestored", () => {
+  try { setup(); lost = false; draw(); } catch (e) { console.warn("ground: " + e.message); }
+});
+try {
+  if (!gl) throw new Error("no WebGL 2");
+  setup();
+} catch (e) {
+  // No WebGL 2 (a virtual machine, an old GPU, a blocked driver): a still gradient in the same
+  // palette instead, so the ground is never a black hole and setGround keeps working.
+  console.warn("ground: " + e.message + "; using a still gradient");
+  gl = null;
+  canvas.style.display = "none";
+}
+
+// The palette: the four hues in OKLCH, with lightness and chroma chosen for night (deep,
+// saturated) or day (light, soft) — never muddy. (theme.py ground_colours() mirrors it.)
+const lch = (L, C, h) => [L, C * Math.cos(h * Math.PI / 180), C * Math.sin(h * Math.PI / 180)];
+const CORNERS = { night: [[0.42, 1.05], [0.36, 1.0], [0.30, 0.9], [0.26, 0.8]],
+                  day: [[0.84, 0.95], [0.80, 1.0], [0.86, 0.85], [0.82, 0.9]] };
+const clampL = (L) => Math.max(0, Math.min(0.99, L));
+const lift = () => (S.dark ? 0.12 : 0.06) * S.lift;
+function baseColour(){
+  const k = (1 - 0.85 * S.tone) * S.chroma / 0.12;
+  return S.dark ? lch(clampL(0.17 + 0.13 * S.tone + lift()), 0.025 * k, S.hues[0])
+                : lch(clampL(0.90 - 0.11 * S.tone + lift()), 0.03 * k, S.hues[0]);
+}
+function palette(){
+  const t = (S.dark ? 0.16 : -0.12) * S.tone + lift();
+  return (S.dark ? CORNERS.night : CORNERS.day).map(([L, k], i) => lch(clampL(L + t), S.chroma * k, S.hues[i]));
+}
+
+let t = 40, last = performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (!S.moving) return;
+  t += dt * S.speed;
+  draw();
+}
+// Blur: the browser blurs the canvas (on the GPU). The canvas reaches past the window by twice
+// the radius, so the edges blur into more of the picture instead of into the dark behind it;
+// and the more it's blurred, the fewer pixels are drawn (the blur hides it, and it's cheaper).
+let blurPx = -1;
+function applyBlur(){
+  const r = Math.round(S.blur * 0.10 * window.innerHeight * 2) / 2;   // full: a tenth of the height
+  if (r === blurPx) return;
+  blurPx = r;
+  const pad = 2 * r;
+  Object.assign(canvas.style, r > 0
+    ? { filter: `blur(${r}px)`, left: `-${pad}px`, top: `-${pad}px`, width: `calc(100% + ${2 * pad}px)`, height: `calc(100% + ${2 * pad}px)` }
+    : { filter: "", left: "0", top: "0", width: "100%", height: "100%" });
+}
+function draw(){
+  if (!gl) return drawFlat();
+  if (lost) return;
+  applyBlur();
+  const dpr = (window.devicePixelRatio || 1) * (blurPx > 0 ? Math.max(0.2, 1 / (1 + blurPx / 12)) : 1);
+  const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h){ canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h);
+  const P = palette();
+  gl.uniform2f(U.R, w, h); gl.uniform1f(U.T, t); gl.uniform1i(U.V, S.variant); gl.uniform1f(U.D, S.dark);
+  gl.uniform3fv(U.B, baseColour());
+  gl.uniform3fv(U.K0, P[0]); gl.uniform3fv(U.K1, P[1]); gl.uniform3fv(U.K2, P[2]); gl.uniform3fv(U.K3, P[3]);
+  gl.uniform1f(U.SC, S.scale); gl.uniform1f(U.TU, S.turbulence); gl.uniform1f(U.DE, S.depth);
+  gl.uniform1f(U.LA, S.light * Math.PI / 180); gl.uniform1f(U.RA, S.rays);
+  gl.uniform1f(U.SH, S.sheen); gl.uniform1f(U.LN, S.lines); gl.uniform1f(U.GL, S.glow);
+  gl.uniform1f(U.VG, S.vignette); gl.uniform1f(U.GR, S.grain);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+// OKLab → CSS oklab(), for the still fallback.
+const css = (c) => `oklab(${c[0]} ${c[1]} ${c[2]})`;
+function drawFlat(){
+  const P = palette(), B = baseColour();
+  document.body.style.background = S.variant === 0 ? css(B)
+    : `radial-gradient(ellipse at 15% 0%, ${css(P[0])}, transparent 60%),`
+    + ` radial-gradient(ellipse at 100% 100%, ${css(P[3])}, transparent 55%),`
+    + ` linear-gradient(160deg, ${css(P[1])}, ${css(B)} 70%)`;
+}
+// Called from Carthage.
+window.setGround = (o) => { Object.assign(S, o); draw(); };
+window.addEventListener("resize", () => { blurPx = -1; draw(); });
+if (gl) requestAnimationFrame(frame); else drawFlat();
+</script></body></html>

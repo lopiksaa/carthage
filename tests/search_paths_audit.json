@@ -1,0 +1,17 @@
+[
+  {"at": 800, "do": "navigate", "page": "search"},
+  {"at": 1000, "do": "searchPage", "text": "Hades", "store": "all"},
+  {"at": 2600, "do": "searchCount"},
+  {"at": 3200, "do": "searchPage", "store": "steam"},
+  {"at": 5000, "do": "searchCount"},
+  {"at": 5600, "do": "searchPage", "store": "epic"},
+  {"at": 7600, "do": "searchCount"},
+  {"at": 8200, "do": "searchPage", "sale": true},
+  {"at": 10400, "do": "searchCount"},
+  {"at": 11000, "do": "searchPage", "sale": false, "price": "10"},
+  {"at": 13200, "do": "searchCount"},
+  {"at": 13800, "do": "searchPage", "price": ""},
+  {"at": 14200, "do": "searchMore"},
+  {"at": 16400, "do": "searchCount"},
+  {"at": 16800, "do": "exit"}
+]

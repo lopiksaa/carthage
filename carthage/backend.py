@@ -8,7 +8,7 @@ from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 from .library import GameModel, TrayModel, real_games
 from .sessions import SessionModel
 from .settings import Settings
-from .theme import PLASTIC_TEXTURE, TEXTURES, Theme
+from .theme import PLASTIC_TEXTURE, Theme
 from .version import VERSION
 from .watchers import InstallWatch, LibraryWatcher
 
@@ -48,6 +48,13 @@ class Backend(QObject):
         self._tray = TrayModel(self._library, self)
         self._favorites = TrayModel(self._library, self, part="favorites", mirror=self._tray)
         self._play_next = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        # Favorites as a list (the sidebar concept): like Play Next, they stay in the tray too.
+        self._favorites_list = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        # The open custom list (one model, filled with the list shown).
+        self._custom_list = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        self._shown_list = ""
+        # The search page's library results: its own text and genres, not the tray's.
+        self._search_library = TrayModel(self._library, self, part="all")
         self._play_next_store = []
         st = self._settings
         self._apply_favorites()
@@ -71,11 +78,17 @@ class Backend(QObject):
             self._tray.changed.connect(self._save_tray)
         self._tray.installedFirst = st.get("installedFirst")
         st.changed.connect(lambda: setattr(self._tray, "installedFirst", st.get("installedFirst")))
+        # One plastic, no variants: the default texture at its default depth (the texture
+        # choices and the strength slider are gone; old settings are ignored).
+        self._theme.set_card_texture(PLASTIC_TEXTURE)
+        self._theme.texture = PLASTIC_TEXTURE
+
         def apply_texture():
-            tex = st.get("plasticTexture")
-            tex = tex if tex in dict(TEXTURES) else PLASTIC_TEXTURE
-            self._theme.set_card_texture(tex)
-            self._theme.texture = tex if st.get("texturedPlastic") else "none"
+            self._settle_mode()
+            self._theme.look = st.get("look")
+            self._theme.mode = st.get("themeMode")
+            self._theme.groundColors = st.get("groundColors")
+            self._theme.set_ground_tuning(st.get("groundTuning"))
 
         apply_texture()
         st.changed.connect(apply_texture)
@@ -129,6 +142,17 @@ class Backend(QObject):
             self._test_on = self._settings.get("testCartridge")
             self._settings.changed.connect(self._test_toggled)
             self._watch.failed.connect(self.libraryError)
+
+    def _settle_mode(self):
+        """The mode is always chosen, dark or light: picking a colour must never change it.
+        Settings from before the Mode switch (or after Reset) start in the mode their colour
+        had, so nothing changes on the first start; from then on only the switch changes it."""
+        st = self._settings
+        if st.get("themeMode") not in ("dark", "light"):
+            from .theme import EDITIONS, edition_of
+
+            e = edition_of(st.get("hardware")) or "dark"
+            st.set("themeMode", "dark" if EDITIONS[e]["isDark"] else "light")
 
     def _load_real(self):
         try:
@@ -245,9 +269,37 @@ class Backend(QObject):
     @Property(float, constant=True)
     def motion(self):
         """Animation speed factor: KDE's accessibility setting on Linux, 1 elsewhere; 0 = instant."""
+        import os
+
         from . import chrome
 
+        if os.environ.get("GC_DEMO") and os.environ.get("GC_MOTION"):  # test runs: 0 for still screenshots
+            return float(os.environ["GC_MOTION"])
+
         return chrome.animation_factor()
+
+    @Property(bool, constant=True)
+    def testSilent(self):
+        """Test runs (GC_DEMO) make no sound unless GC_SOUND=1: they run beside someone working."""
+        import os
+
+        return bool(os.environ.get("GC_DEMO")) and not os.environ.get("GC_SOUND")
+
+    @Property(bool, constant=True)
+    def testPlacedShow(self):
+        """Test runs on a chosen screen (GC_SCREEN): the harness shows the window once it's
+        there, so it never flashes up on the screen someone is using."""
+        import os
+
+        return bool(os.environ.get("GC_DEMO") and os.environ.get("GC_SCREEN"))
+
+    @Property(bool, constant=True)
+    def testNoFocus(self):
+        """Test runs with GC_NOFOCUS: the window never takes the keyboard focus (so a test can
+        run on another screen while someone uses this one)."""
+        import os
+
+        return bool(os.environ.get("GC_DEMO") and os.environ.get("GC_NOFOCUS"))
 
     @Property(bool, constant=True)
     def fake(self):
@@ -260,6 +312,13 @@ class Backend(QObject):
     @Property(QObject, constant=True)
     def theme(self):
         return self._theme
+
+    @Slot(bool, result="QVariantMap")
+    def chromeColors(self, dark):
+        """The standard controls' fixed palette (chrome.py), for Main.qml to set on the window."""
+        from . import chrome
+
+        return chrome.colors(dark)
 
     @Property(QObject, constant=True)
     def settings(self):
@@ -294,7 +353,8 @@ class Backend(QObject):
             self._apply_favorites()
 
     def _apply_favorites(self):
-        ids = self._settings.get("favorites") if self._settings.get("favoritesShelf") else []
+        self._favorites_list.set_play_next(self._settings.get("favorites"))
+        ids = []  # the sidebar concept: favorites are a list page, not a shelf above the tray
         self._tray.set_favorites(ids)
         self._favorites.set_favorites(ids)
 
@@ -323,13 +383,30 @@ class Backend(QObject):
         self._genres_busy = False
         if not result:
             return
-        for m in (self._tray, self._favorites, self._play_next):
+        for m in (self._tray, self._favorites, self._play_next, self._search_library):
             m.set_genres(result)
         from .store import Store
 
         present = {t for tags in result.values() for t in tags}
         self._genre_options = [{"value": t, "text": n} for n, t in Store.CATEGORIES if t in present]
+        counts = {}
+        for tags in result.values():
+            for t in tags:
+                counts[t] = counts.get(t, 0) + 1
+        names = dict((t, n) for n, t in Store.CATEGORIES)
+        self._top_genres = [{"value": t, "text": names[t], "count": c}
+                            for t, c in sorted(counts.items(), key=lambda kv: -kv[1]) if t in names]
         self.genresChanged.emit()
+
+    @Property("QVariantList", notify=genresChanged)
+    def topGenres(self):
+        """The library's genres, most games first: [{value: tag, text, count}]."""
+        return getattr(self, "_top_genres", [])
+
+    @Property(QObject, constant=True)
+    def searchLibrary(self):
+        """The search page's library results (own text and genreList)."""
+        return self._search_library
 
     @Property("QVariantList", notify=genresChanged)
     def genreOptions(self):
@@ -370,6 +447,85 @@ class Backend(QObject):
     def achievements(self):
         """Steam achievements for the closer look (achievements.py)."""
         return self._achievements
+
+    # ── Your own lists ──────────────────────────────────────────────────────────────────────
+    listsChanged = Signal()
+
+    def _lists(self):
+        return [dict(x) for x in self._settings.get("lists") or []]
+
+    def _save_lists(self, lists):
+        self._settings.set("lists", lists)
+        if self._shown_list:
+            self.showList(self._shown_list)
+        self.listsChanged.emit()
+
+    @Property("QVariantList", notify=listsChanged)
+    def lists(self):
+        """[{id, name, count}] in the order they were made."""
+        return [{"id": x["id"], "name": x["name"], "count": len(x.get("ids") or [])} for x in self._lists()]
+
+    @Slot(str, result=str)
+    def createList(self, name):
+        import uuid
+
+        name = name.strip()
+        if not name:
+            return ""
+        lists = self._lists()
+        lid = uuid.uuid4().hex[:8]
+        lists.append({"id": lid, "name": name, "ids": []})
+        self._save_lists(lists)
+        return lid
+
+    @Slot(str, str)
+    def renameList(self, lid, name):
+        lists = self._lists()
+        for x in lists:
+            if x["id"] == lid and name.strip():
+                x["name"] = name.strip()
+        self._save_lists(lists)
+
+    @Slot(str)
+    def deleteList(self, lid):
+        self._save_lists([x for x in self._lists() if x["id"] != lid])
+
+    @Slot(str, str, bool)
+    def setInList(self, lid, game_id, on):
+        lists = self._lists()
+        for x in lists:
+            if x["id"] == lid:
+                ids = [g for g in x.get("ids") or [] if g != game_id]
+                x["ids"] = ids + [game_id] if on else ids
+        self._save_lists(lists)
+
+    @Slot(str, str, result=bool)
+    def inList(self, lid, game_id):
+        return any(x["id"] == lid and game_id in (x.get("ids") or []) for x in self._lists())
+
+    @Slot(str)
+    def showList(self, lid):
+        """Fills customList with this list's games."""
+        self._shown_list = lid
+        ids = next((x.get("ids") or [] for x in self._lists() if x["id"] == lid), [])
+        self._custom_list.set_play_next(ids)
+
+    @Property(QObject, constant=True)
+    def customList(self):
+        return self._custom_list
+
+    @Slot(result=str)
+    def steamId(self):
+        """Your Steam ID (from Steam's own files), "" without Steam."""
+        from .sources import steam
+
+        root = steam.find_root()
+        return str(steam.steam_id64(root) or "") if root else ""
+
+    @Property(QObject, constant=True)
+    def favoritesList(self):
+        """Every favorite, in the order added, without taking them off the tray (the sidebar's list)."""
+        return self._favorites_list
 
     @Property(QObject, constant=True)
     def playNext(self):
@@ -444,7 +600,7 @@ class Backend(QObject):
 
     @Slot(str, result=bool)
     def isFavorite(self, game_id):
-        return self._settings.get("favoritesShelf") and game_id in self._settings.get("favorites")
+        return game_id in self._settings.get("favorites")
 
     @Slot(str, bool)
     def setFavorite(self, game_id, on):
@@ -473,10 +629,11 @@ class Backend(QObject):
     def updater(self):
         return self._updater
 
-    @Slot(str, bool)
-    def setPresence(self, screen, game_running):
-        """Which screen is open, for Discord ("library" / "store"); cleared while a game runs."""
-        self._presence.set(screen, game_running)
+    @Slot(str, bool, bool)
+    def setPresence(self, screen, game_running, active=True):
+        """Which screen is open, for Discord ("library" / "store"); cleared while a game runs
+        or while the window isn't the active one."""
+        self._presence.set(screen, game_running, active)
 
     @Property(QObject, constant=True)
     def keys(self):
@@ -540,7 +697,8 @@ class Backend(QObject):
     @Slot(str, result=str)
     def launch(self, game_id):
         """Returns what the UI should show:
-        slot | noslot | running | install (handed to Steam) | install-elsewhere | missing."""
+        slot | noslot | running | install (handed to Steam) | install-elsewhere | missing |
+        notfound:<path> (its program isn't there any more)."""
         from . import launcher
 
         g = self._library.game(game_id)
@@ -548,6 +706,13 @@ class Backend(QObject):
             return "missing"
         from .library import TEST_CARTRIDGE_ID
 
+        # (Only looks at the disk, so test runs check it too.)
+        gone = launcher.missing_program(g) if g.installed and g.executable and not self._fake else ""
+        if gone and self._sessions.indexOf(game_id) < 0:
+            import logging
+
+            logging.getLogger("carthage").warning("%s: its program is missing (%s)", g.title, gone)
+            return "notfound:" + gone
         if self._test_run and game_id != TEST_CARTRIDGE_ID:
             # A scripted test (GC_DEMO) on the real library never starts anything, whatever
             # gets clicked. The Test Cartridge launches nothing, so it may run.
@@ -619,7 +784,21 @@ class Backend(QObject):
         for g in self._library._games:
             if g.source != "carthage":
                 counts[g.source] = counts.get(g.source, 0) + 1
-        return [{"name": source_label(s), "count": n} for s, n in sorted(counts.items(), key=lambda kv: -kv[1])]
+        return [{"name": source_label(s), "source": s, "count": n} for s, n in sorted(counts.items(), key=lambda kv: -kv[1])]
+
+    @Slot(result=bool)
+    def copyDiagnostics(self):
+        """Settings → System → Copy Diagnostics: the report for a bug report, on the clipboard."""
+        import logging
+
+        from . import diagnostics
+
+        try:
+            diagnostics.copy(self)
+            return True
+        except Exception:  # noqa: BLE001 — a broken report must not break the app; say so instead
+            logging.getLogger("carthage").exception("Couldn't build the diagnostics")
+            return False
 
     @Slot(QUrl, result=str)
     def localPath(self, url):
@@ -850,6 +1029,7 @@ class Backend(QObject):
             "sourceIcon": icon, "code": g.code, "extId": g.ext_id, "installed": g.installed,
             "noSlot": g.no_slot, "lastPlayed": g.last_played, "playtime": g.playtime,
             "developer": g.developer, "publisher": g.publisher, "released": g.released,
+            "family": g.family,  # lent by the Steam Family, not on your own account
         }
 
     @Slot(str, result=str)

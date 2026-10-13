@@ -76,7 +76,7 @@ QQC2.Popup {
             MediaPlayer {
                 id: player
                 videoOutput: video
-                audioOutput: AudioOutput { volume: 0.6 }
+                audioOutput: AudioOutput { volume: 0.6; muted: Backend.testSilent }
                 source: viewer.opened && viewer.cur.kind === "video" ? viewer.cur.url : ""
                 onSourceChanged: if (source.toString() !== "") play()
             }
@@ -144,9 +144,11 @@ QQC2.Popup {
             orientation: ListView.Horizontal
             spacing: Ui.gapM
             leftMargin: Math.max(20, (width - contentWidth) / 2)
+            rightMargin: 20  // the last thumbnail (and its ring) never touches the edge
             model: viewer.media
             currentIndex: viewer.index
-            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+            // The chosen thumbnail in the middle of the strip (as far as the ends allow).
+            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Center)
             delegate: Rectangle {
                 required property var modelData
                 required property int index

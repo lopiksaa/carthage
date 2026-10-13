@@ -1,0 +1,6 @@
+[
+  {"at": 800, "do": "mode", "value": "store"},
+  {"at": 2500, "do": "storeFilter", "store": "all", "genre": 1},
+  {"at": 3000, "do": "storeFilter", "store": "epic"},
+  {"at": 3600, "do": "exit"}
+]

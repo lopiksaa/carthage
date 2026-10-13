@@ -28,8 +28,28 @@ QtObject {
         return i
     }
 
+    // The window position of the nth visible item whose text is `text` ("" if none), including
+    // popups (menus, dialogs). Fast: the harness's click-by-label uses it.
+    function locate(text, nth) {
+        const hits = []
+        const win = app.Window.window
+        const walk = (item) => {
+            if (!item || !item.visible || item.opacity <= 0.01) return
+            if (typeof item.text === "string" && item.text.trim() === text && item.width > 0) {
+                const p = item.mapToItem(null, item.width / 2, item.height / 2)
+                if (p.x >= 0 && p.y >= 0 && p.x < win.width && p.y < win.height) hits.push(p)
+            }
+            for (const c of item.children) walk(c)
+        }
+        // The window's root item: the content and the overlay (dialogs, menus) are under it.
+        let top = win.contentItem
+        while (top.parent) top = top.parent
+        walk(top)
+        const p = hits[nth || 0]
+        return p ? Math.round(p.x) + "," + Math.round(p.y) + "," + hits.length : "none," + hits.length
+    }
     function run(cmd) {
-        const { addGameDialog, artPicker, autoScroll, colorPicker, confirm, cropEditor, dock, drawer, feedbackDialog, feedbackPrompt, header, headerPicker, inspect, mediaViewer, processPicker, setupWizard, slotPanel, sounds, storePage, storeView, textPrompt, tray, whatsNew } = app.parts
+        const { addGameDialog, artPicker, autoScroll, colorPicker, confirm, cropEditor, dock, drawer, feedbackDialog, feedbackPrompt, header, headerPicker, inspect, mediaViewer, processPicker, firstRun, tour, slotPanel, sounds, storePage, storeView, textPrompt, tray, whatsNew } = app.parts
         const changeArt = (...a) => app.changeArt(...a)
         const changeHeader = (...a) => app.changeHeader(...a)
         const choose = (...a) => app.choose(...a)
@@ -76,6 +96,12 @@ QtObject {
         case "inspectPlay":
             inspect.play()
             break
+        case "launchId":  // {"id": "fake9"} launches a demo game straight away (no flight)
+            Backend.launch(cmd.id)
+            break
+        case "sessionAct":  // {"act": "quit"|"forceQuit"|"eject", "id": "fake9"}
+            Backend.sessions[cmd.act](cmd.id)
+            break
         case "dump": { // print every session's title and state
             const out = []
             for (let i = 0; i < Backend.sessions.count; i++) {
@@ -109,7 +135,7 @@ QtObject {
             break
         case "otherMenu":
             const b = harness.find("inspectOtherButton")
-            harness.find("inspectOtherMenu").popup(b, 0, b.height + 6)
+            harness.find("inspectOtherMenu").openFrom(b)
             break
         case "state":
             console.warn("STATE inspect.open=" + inspect.open + " picker=" + artPicker.opened
@@ -146,6 +172,136 @@ QtObject {
         case "storeFilter":  // {"store": "steam"|"epic"|"all", "genre": tag}
             if (cmd.store !== undefined) storeView.filterStore = cmd.store
             if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
+            console.warn("STOREFILTER", storeView.filterStore, storeView.filterGenre)
+            break
+        case "geometry": { // {"tag": "library"}: one GEO line per visible item (for layout audits)
+            const W = app.width, H = app.height
+            const walk = (item, depth) => {
+                if (!item || !item.visible || item.opacity <= 0.01 || item.width <= 0 || item.height <= 0) return
+                const p = item.mapToItem(null, 0, 0)
+                if (p.x < W && p.y < H && p.x + item.width > 0 && p.y + item.height > 0) {
+                    const t = item.toString()
+                    const rec = { tag: cmd.tag, d: depth, type: t.slice(0, t.indexOf("(")), name: item.objectName || "",
+                                  x: Math.round(p.x), y: Math.round(p.y), w: Math.round(item.width), h: Math.round(item.height),
+                                  click: typeof item.clicked === "function" || typeof item.tapped === "function" }
+                    if (typeof item.text === "string" && item.text !== "") rec.text = item.text.slice(0, 40)
+                    if (item.font && item.font.pixelSize > 0 && typeof item.text === "string") {
+                        rec.px = item.font.pixelSize; rec.fam = item.font.family; rec.wt = item.font.weight
+                        if (typeof item.baselineOffset === "number") rec.base = Math.round(p.y + item.baselineOffset)
+                        if (typeof item.contentWidth === "number") rec.cw = Math.round(item.contentWidth)
+                    }
+                    console.warn("GEO " + JSON.stringify(rec))
+                }
+                for (const c of item.children) walk(c, depth + 1)
+            }
+            walk(app, 0)
+            break
+        }
+        case "fakeAchievements": { // fills the open game's achievements and pins the one at "pin"
+            const sec = harness.find("achievements")
+            const items = []
+            for (let i = 0; i < 18; i++)
+                items.push({ name: i === 2 ? "Lighthouse Keeper" : "Achievement " + (i + 1), description: i === 2 ? "Light every lamp on the coast in one night." : "",
+                             icon: "", unlocked: i < 6, time: 1790000000 - i * 86400, percent: 40 - i * 2 })
+            sec.result = { items: items }
+            Qt.callLater(() => {
+                const grid = sec.children.find(c => c.columns !== undefined)
+                const rep = grid ? grid.children.find(c => c.count !== undefined && c.itemAt) : null
+                const it = rep ? rep.itemAt(cmd.pin || 0) : null
+                if (it) { sec.chosen = cmd.pin || 0; sec.chosenItem = it }
+            })
+            break
+        }
+        case "searchExclude":  // {"tags": [tag]} genres the search leaves out
+            app.parts.searchPage.exGenres = cmd.tags
+            break
+        case "searchMore":
+            console.warn("RESULTS before", app.parts.searchPage.results.length)
+            app.parts.searchPage.loadMore()
+            break
+        case "searchCount":
+            console.warn("RESULTS now", app.parts.searchPage.results.length, "store", app.parts.searchPage.store,
+                         "loadMore", app.parts.searchPage.canLoadMore, "state", app.parts.searchPage.state_,
+                         "term", app.parts.searchPage.term, "price", app.parts.searchPage.price,
+                         "names", app.parts.searchPage.results.slice(0, 6).map(it => it.name).join(" | "))
+            break
+        case "makeList":  // {"name": "Couch", "ids": ["fake1", …]} makes a list with these games
+        {
+            const id = Backend.createList(cmd.name)
+            for (const g of cmd.ids || []) Backend.setInList(id, g, true)
+            if (cmd.open) app.navigate("library:list:" + id)
+            break
+        }
+        case "listPicker":
+            app.addToList(cmd.id, cmd.title || "")
+            break
+        case "state2":  // one line: what's open
+            console.warn("STATE", cmd.label || "", "inspect", app.parts.inspect.open, "modal", app.modalOpen,
+                         "color", app.parts.colorPicker.opened, "inspectLevel", app.parts.inspect.level.toFixed(2), "inspectVisible", app.parts.inspect.visible, "page", app.page,
+                         "otherMenu", !!harness.find("inspectOtherMenu") && harness.find("inspectOtherMenu").opened, "sidebarOpen", app.sidebarOpen)
+            break
+        case "where":  // {"name": objectName} prints that item's window position
+        {
+            const it = harness.find(cmd.name)
+            const p = it ? it.mapToItem(null, 0, 0) : null
+            console.warn("WHERE", cmd.label || "", cmd.name, p ? Math.round(p.x) + "," + Math.round(p.y) + " " + it.width + "x" + it.height + " visible " + it.visible + " opacity " + it.opacity.toFixed(3) : "none")
+            break
+        }
+        case "storeY":
+            console.warn("STOREY", cmd.label || "", harness.find("storeShelves").contentY, harness.find("storeShelves").originY)
+            break
+        case "settingsState":
+            console.warn("SETTINGS", cmd.label || "", "section", app.parts.settingsPage.section, "page", app.page, "sidebarOpen", app.sidebarOpen,
+                         "settingsVisible", app.parts.settingsPage.visible, "enabled", app.parts.settingsPage.enabled, "modal", app.modalOpen)
+            break
+        case "hitTest": // {"x","y"}: the chain of items under that point, top first (overlay included)
+        {
+            const win = app.Window.window
+            const chain = []
+            const dive = (item) => {
+                let p = item.mapFromItem(null, cmd.x, cmd.y)
+                let c = item.childAt(p.x, p.y)
+                while (c) {
+                    chain.push(c.toString().slice(0, 40) + (c.objectName ? "#" + c.objectName : "") + (c.enabled ? "" : "(disabled)"))
+                    p = c.mapFromItem(null, cmd.x, cmd.y)
+                    c = c.childAt(p.x, p.y)
+                }
+            }
+            if (win.overlay) { chain.push("[overlay]"); dive(win.overlay) }
+            chain.push("[content]"); dive(win.contentItem)
+            console.warn("HIT", cmd.x, cmd.y, chain.join(" > "))
+            break
+        }
+        case "perfToggle":  // {"part": "results"|"library"|"chips", "on": bool} hides a part of the search page (profiling)
+        {
+            const sp = app.parts.searchPage
+            const find = (n) => { const out = []; const w = (i) => { if (!i) return; if (i.objectName === n) out.push(i); for (const c of i.children) w(c) }; w(sp); return out[0] }
+            const it = find("search_" + cmd.part)
+            if (it) it.visible = cmd.on
+            console.warn("PERF toggle", cmd.part, !!it)
+            break
+        }
+        case "whoFocus":  // prints what has the keyboard focus
+            console.warn("FOCUS", app.Window.window.activeFocusItem, app.Window.window.activeFocusItem ? app.Window.window.activeFocusItem.objectName : "")
+            break
+        case "toggleSidebar":
+            app.toggleSidebar()
+            break
+        case "sidebar":  // {"collapsed": bool}
+            Backend.settings.sidebarCollapsed = cmd.collapsed
+            break
+        case "navigate":  // {"page": "store:deals"} (the sidebar layout concept)
+            app.navigate(cmd.page)
+            break
+        case "searchPage":  // {"text": "…", "genres": [tag], "sale": bool}
+            if (cmd.text !== undefined) {
+                if (app.parts.searchPage.showField) app.parts.searchPage.text = cmd.text
+                else header.searchField.text = cmd.text
+            }
+            if (cmd.genres !== undefined) app.parts.searchPage.setGenres(cmd.genres)
+            if (cmd.sale !== undefined) app.parts.searchPage.sale = cmd.sale
+            if (cmd.store !== undefined) app.parts.searchPage.store = cmd.store
+            if (cmd.price !== undefined) app.parts.searchPage.price = cmd.price
             break
         case "storeBrowse":
             storeView.showCategories()
@@ -190,17 +346,17 @@ QtObject {
             break
         }
         case "closeAll":  // every dialog, menu, page and the drawer (each on its own, so one can't stop the rest)
-            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, setupWizard, slotPanel, mediaViewer, colorPicker, whatsNew, feedbackDialog])
+            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, slotPanel, mediaViewer, colorPicker, whatsNew, feedbackDialog])
                 try { p.close() } catch (e) { console.warn("closeAll:", e) }
-            for (const f of [() => harness.find("inspectOtherMenu").close(), () => harness.find("cardMenu").close(), () => storePage.close(), () => inspect.close(), () => closeDrawer()])
+            for (const f of [() => harness.find("inspectOtherMenu").close(), () => harness.find("cardMenu").close(), () => storePage.close(), () => inspect.close(), () => closeDrawer(), () => { firstRun.phase = "" }, () => { if (tour.running) tour.end() }])
                 try { f() } catch (e) { console.warn("closeAll:", e) }
             break
         case "addDialog":
             addGameDialog.start()
             break
         case "settingsSection":  // {"id": "look"} opens settings on that section
-            openDrawer()
-            drawer.openSection = cmd.id
+            app.navigate("settings")
+            app.parts.settingsPage.section = cmd.id
             break
         case "feedbackDialog":  // Send Feedback; optional {"text", "answer": true, "email"}
             sendFeedback()
@@ -219,9 +375,15 @@ QtObject {
             showWhatsNew()
             if (cmd.step) whatsNew.step = cmd.step
             break
-        case "setup": // {"step": n} opens the setup wizard on that step
-            setupWizard.start()
-            setupWizard.step = cmd.step || 0
+        case "setup": // {"step": n, "splash": bool} opens the first-run setup (on that step)
+            firstRun.start(cmd.splash === true)
+            firstRun.step = cmd.step || 0
+            break
+        case "setupNext":  // the setup's main button, as if pressed
+            if (firstRun.step >= firstRun.lastStep) firstRun.finish(); else firstRun.step++
+            break
+        case "tour":  // {"next": true} the tour's Next; else starts it
+            if (cmd.next) tour.next(); else tour.begin()
             break
         case "dice":
             rollDice()
@@ -294,6 +456,22 @@ QtObject {
             }
             else tray.contentY = cmd.y
             break
+        case "groundState":  // what the glass ground knows about the pointer
+            { const g = harness.find("ground"); console.warn("STATE ground pIn=" + (g && g.pIn) + " px=" + (g && g.px) + " py=" + (g && g.py)) }
+            break
+        case "glassProbe": { // {"scale": 1}: a live glass pane where the new dock goes (performance check)
+            const body = harness.find("appBody")
+            const comp = Qt.createComponent("../../carthage/qml/GlassPane.qml")
+            if (comp.status !== Component.Ready) { console.warn("GLASS", comp.errorString()); break }
+            const host = dock.parent
+            const pane = comp.createObject(host, { behind: [tray], z: 20, width: 768, height: 64, radius: 22,
+                                                   x: (host.width - 768) / 2, y: cmd.y !== undefined ? cmd.y : host.height - 18 - 64,
+                                                   captureScale: cmd.scale || 1 })
+            let inside = false
+            for (let q = pane ? pane.parent : null; q; q = q.parent) if (q === body) inside = true
+            console.warn("GLASS probe", !!pane, "behind", !!body, "pane inside body:", inside, "body", body.width, body.height)
+            break
+        }
         case "autoscroll": // performance check: scroll the whole tray over `ms`
             autoScroll.duration = cmd.ms
             autoScroll.to = Math.max(0, tray.contentHeight - tray.height)

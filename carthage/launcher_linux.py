@@ -257,6 +257,17 @@ def launch(game):
     return {"kind": "scope", "unit": unit}
 
 
+def steam_signed_in():
+    """(Windows tells whether Steam is waiting for a sign-in; here it isn't checked.)"""
+    return True
+
+
+def missing_program(game):
+    """Windows checks a game's program exists before starting it (launcher_win.py); here a
+    missing one shows up as a game that closed right after starting."""
+    return ""
+
+
 def install(game):
     """Hand an uninstalled game to its launcher's installer."""
     if game.source == "steam":

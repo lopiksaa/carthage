@@ -7,6 +7,17 @@ import Carthage
 QtObject {
     // Open menus (CMenu counts them); input behind is blocked while any is open.
     property int openMenus: 0
+    // The window is being resized (Main.qml covers it meanwhile; the web-drawn ground hides).
+    property bool resizing: false
+    // The page is blocked under an overlay (App.qml's body): its buttons don't look disabled
+    // for that (CButton), the overlay already says the page is out of reach.
+    property bool bodyBlocked: false
+    // What glass panes frost (App sets it): the backdrop and the pages, bottom first.
+    property var glassLayers: []
+    // What the glass ground responds to (App feeds it): the pointer (window coordinates) and
+    // whether it's over the window, the library's scroll, and pulses from what you do.
+    property real groundScroll: 0
+    signal groundPulse(real x, real y)
 
     // Interface fonts, one per kind of text, chosen in Settings → Appearance (all bundled).
     // The codes and labels printed on cartridges keep their own fonts.
@@ -36,6 +47,19 @@ QtObject {
     readonly property int radiusSmall: 8    // thumbnails, menu items, chips inside panels
     readonly property int radiusMedium: 12  // buttons, fields, menus
     readonly property int radiusLarge: 18   // dialogs, panels, banners
+
+    // Motion (× Backend.motion, the desktop's speed; 0 = instant). From NN/g, Material 3 and
+    // Fluent: feedback ~100 ms, small transitions ~200, panels/pages entering ~300; exits a bit
+    // shorter and ease-in, entrances ease-out, nothing linear (learning/ui-rules.md §7).
+    readonly property int motionFast: 100    // press, hover, toggles
+    readonly property int motionMedium: 200  // menus, chips, small moves, exits
+    readonly property int motionSlow: 300    // panels and dialogs entering
+
+    // Card sizes (the tray's zoom): 78 to 312 px wide in steps of 18. Ctrl+= / Ctrl+- and
+    // Settings → Appearance → Card size use the same range.
+    readonly property int cardMin: 78
+    readonly property int cardMax: 312
+    readonly property int cardStep: 18
 
     readonly property int gapXS: 4
     readonly property int gapS: 8

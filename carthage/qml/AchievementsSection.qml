@@ -19,8 +19,20 @@ Column {
     readonly property int iconSize: 44
     readonly property int columns: Math.max(1, Math.floor((width + Ui.gapS) / (iconSize + Ui.gapS)))
     readonly property var current: items[pointed >= 0 ? pointed : chosen] || null
+    // The icon the bubble points at (pointed or focused, else the clicked one).
+    property Item pointedItem: null
+    property Item chosenItem: null
+    readonly property Item bubbleFor: pointedItem || chosenItem
 
-    visible: appid > 0 && (loading || !!result.error || items.length > 0)
+    // "Loading…" only once it's slow: most answers come quickly, and a game without
+    // achievements would otherwise show the heading for a moment and pull the page up after.
+    visible: appid > 0 && ((loading && slowLoad.done) || !!result.error || items.length > 0)
+    Timer {
+        id: slowLoad
+        property bool done: false
+        interval: 600
+        onTriggered: done = true
+    }
     spacing: Ui.gapS
 
     onAppidChanged: {
@@ -28,8 +40,12 @@ Column {
         expanded = false
         chosen = -1
         pointed = -1
+        chosenItem = null
+        pointedItem = null
+        slowLoad.done = false
         if (appid > 0) {
             loading = true
+            slowLoad.restart()
             Backend.achievements.load(appid)
         }
     }
@@ -39,11 +55,12 @@ Column {
             if (id !== sec.appid) return
             sec.result = result
             sec.loading = false
+            slowLoad.stop()
         }
     }
 
     function when(t) {
-        return new Date(t * 1000).toLocaleDateString(Qt.locale(), "d MMM yyyy")
+        return new Date(t * 1000).toLocaleDateString(Qt.locale("en_GB"), "d MMM yyyy")  // English, like the rest
     }
 
     // Title, count and progress bar.
@@ -109,8 +126,17 @@ Column {
                 padding: 0
                 hoverEnabled: true
                 focusPolicy: Qt.StrongFocus
-                onHoveredChanged: sec.pointed = hovered ? index : (sec.pointed === index ? -1 : sec.pointed)
-                onClicked: sec.chosen = index
+                function point(on) {
+                    sec.pointed = on ? index : (sec.pointed === index ? -1 : sec.pointed)
+                    sec.pointedItem = on ? ach : (sec.pointedItem === ach ? null : sec.pointedItem)
+                }
+                onHoveredChanged: point(hovered || activeFocus)
+                onActiveFocusChanged: point(hovered || activeFocus)
+                onClicked: {  // pins its bubble (click again to unpin)
+                    const again = sec.chosen === index
+                    sec.chosen = again ? -1 : index
+                    sec.chosenItem = again ? null : ach
+                }
                 Accessible.role: Accessible.Button
                 Accessible.name: it.name + (it.unlocked ? ", unlocked" : ", locked")
                 background: Rectangle {
@@ -133,38 +159,73 @@ Column {
         }
     }
 
-    // The chosen (or pointed-at) achievement's details.
-    Column {
-        visible: sec.current !== null
-        width: parent.width
-        spacing: 2
-        Text {
-            width: parent.width
-            text: sec.current ? sec.current.name : ""
-            color: Ui.onScrim
-            font.family: Ui.fontText
-            font.weight: Font.Bold
-            font.pixelSize: Ui.textBody
-            wrapMode: Text.Wrap
+    // The pointed-at (or pinned) achievement's details, in a bubble above its icon: it floats
+    // over the page, so nothing below moves.
+    QQC2.Popup {
+        id: bubble
+        parent: sec.bubbleFor
+        visible: sec.bubbleFor !== null && sec.current !== null
+        x: parent ? Math.round((parent.width - width) / 2) : 0
+        y: parent ? -height - 10 : 0
+        width: Math.min(300, Math.max(200, bubbleName.implicitWidth + 2 * padding))
+        margins: 8
+        padding: 12
+        modal: false
+        dim: false
+        focus: false
+        closePolicy: QQC2.Popup.NoAutoClose
+        enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Ui.motionFast * Backend.motion; easing.type: Easing.OutCubic } }
+        exit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 70 * Backend.motion; easing.type: Easing.InCubic } }
+        background: Item {
+            PanelBackground {
+                anchors.fill: parent
+                radius: Ui.radiusMedium
+                shadowOffset: 4
+                shadowBlur: 16
+                shadowOpacity: 0.3
+            }
+            Rectangle {  // the bubble's point, toward the icon
+                x: Math.round(parent.width / 2 - width / 2)
+                y: parent.height - height / 2 - 1
+                width: 12
+                height: 12
+                rotation: 45
+                color: Backend.theme.p.panel
+            }
         }
-        Text {
-            visible: text !== ""
-            width: parent.width
-            text: sec.current ? sec.current.description : ""
-            color: Ui.onScrimDim
-            font.family: Ui.fontText
-            font.pixelSize: Ui.textBody
-            wrapMode: Text.Wrap
-        }
-        Text {
-            width: parent.width
-            text: !sec.current ? ""
-                : sec.current.unlocked ? "Unlocked on " + sec.when(sec.current.time)
-                : "Locked" + (sec.current.percent >= 0 ? " · " + sec.current.percent.toFixed(1) + "% of players have it" : "")
-            color: sec.current && sec.current.unlocked ? Backend.theme.accent.accent : Ui.onScrimDim
-            font.family: Ui.fontText
-            font.weight: Font.DemiBold
-            font.pixelSize: Ui.textCaption
+        contentItem: Column {
+            spacing: 2
+            Text {
+                id: bubbleName
+                width: bubble.availableWidth
+                text: sec.current ? sec.current.name : ""
+                color: Backend.theme.p.panelText
+                font.family: Ui.fontText
+                font.weight: Font.Bold
+                font.pixelSize: Ui.textBody
+                wrapMode: Text.Wrap
+            }
+            Text {
+                visible: text !== ""
+                width: bubble.availableWidth
+                text: sec.current ? sec.current.description : ""
+                color: Backend.theme.p.panelTextDim
+                font.family: Ui.fontText
+                font.pixelSize: Ui.textBody
+                wrapMode: Text.Wrap
+            }
+            Text {
+                width: bubble.availableWidth
+                topPadding: 2
+                text: !sec.current ? ""
+                    : sec.current.unlocked ? "Unlocked on " + sec.when(sec.current.time)
+                    : "Locked" + (sec.current.percent >= 0 ? " · " + sec.current.percent.toFixed(1) + "% of players have it" : "")
+                color: sec.current && sec.current.unlocked ? Backend.theme.accent.accent : Backend.theme.p.panelTextDim
+                font.family: Ui.fontText
+                font.weight: Font.DemiBold
+                font.pixelSize: Ui.textCaption
+                wrapMode: Text.Wrap
+            }
         }
     }
 

@@ -17,16 +17,24 @@ CDialog {
     property var items: []
     property string state_: "loading" // loading | ready | error
     property string error: ""
+    property string currentUrl: ""   // the picture the cartridge uses now (marked in the grid)
 
     function openFor(gid, title) {
         gameId = gid
         gameTitle = title
+        currentUrl = Backend.artPicker ? Backend.artPicker.currentUrl(gid) : ""
         kind = "square"
         results = []
         matchName = ""
         searchField.text = ""
         open()
         load()
+    }
+    function pick(url) {
+        if (url === currentUrl) { close(); return }  // already in use: nothing to download
+        repositionAfter = gameId  // new art: straight on to Reposition
+        Backend.artPicker.choose(gameId, url)
+        close()
     }
     function load() {
         items = []
@@ -46,6 +54,7 @@ CDialog {
             if (gid !== picker.gameId) return
             picker.items = list
             picker.state_ = "ready"
+            grid.currentIndex = Math.max(0, list.findIndex(it => it.url === picker.currentUrl))
         }
         function onSearchResults(term, list) {
             if (term === searchField.text.trim()) picker.results = list
@@ -237,13 +246,33 @@ CDialog {
             cellHeight: Math.round(cellWidth * ratio)
             boundsBehavior: Flickable.StopAtBounds
             QQC2.ScrollBar.vertical: CScrollBar { ink: Backend.theme.p.panelText }
+            // Keyboard: Tab into the grid, arrows to move, Enter to choose.
+            activeFocusOnTab: true
+            keyNavigationEnabled: true
+            Accessible.role: Accessible.List
+            Accessible.name: "Pictures for " + picker.gameTitle
+            Keys.onReturnPressed: if (currentIndex >= 0) picker.pick(picker.items[currentIndex].url)
+            Keys.onEnterPressed: if (currentIndex >= 0) picker.pick(picker.items[currentIndex].url)
 
             delegate: Item {
                 id: cell
                 required property var modelData
+                required property int index
+                readonly property bool inUse: picker.currentUrl !== "" && modelData.url === picker.currentUrl
                 width: grid.cellWidth
                 height: grid.cellHeight
+                Accessible.role: Accessible.ListItem
+                Accessible.name: (inUse ? "In use, " : "") + "picture " + (index + 1)
 
+                Rectangle {  // the keyboard's place in the grid
+                    visible: cell.GridView.isCurrentItem && grid.activeFocus
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: Ui.radiusMedium + 4
+                    color: "transparent"
+                    border.width: 2
+                    border.color: Ui.focusColor
+                }
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 6
@@ -251,8 +280,8 @@ CDialog {
                     color: picker.pal.panelHover
                     clip: true
                     scale: hh.hovered ? 1.04 : 1
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
-                    border.width: hh.hovered ? 3 : 0
+                    Behavior on scale { NumberAnimation { duration: 100 * Backend.motion; easing.type: Easing.OutCubic } }
+                    border.width: hh.hovered || cell.inUse ? 3 : 0
                     border.color: Backend.theme.accent.accent
 
                     Image {
@@ -272,16 +301,30 @@ CDialog {
                         isMask: true
                         color: picker.pal.panelTextDim
                     }
+                    Rectangle {  // "in use": a check, not only the ring's color
+                        visible: cell.inUse
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 8
+                        width: 24
+                        height: 24
+                        radius: 12
+                        color: Backend.theme.accent.accent
+                        CIcon {
+                            anchors.centerIn: parent
+                            width: 14
+                            height: 14
+                            source: "checkmark-symbolic"
+                            isMask: true
+                            color: Backend.theme.accent.accentText
+                        }
+                    }
                     HoverHandler { id: hh; cursorShape: Qt.PointingHandCursor }
                     // A MouseArea (not a TapHandler) so the click is consumed here and never
                     // reaches the cards underneath the picker.
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: {
-                            if (!cell.modelData.square) picker.repositionAfter = picker.gameId
-                            Backend.artPicker.choose(picker.gameId, cell.modelData.url)
-                            picker.close()
-                        }
+                        onClicked: picker.pick(cell.modelData.url)
                     }
                 }
             }

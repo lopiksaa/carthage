@@ -26,9 +26,16 @@ Item {
         repeat: true
         onTriggered: banner.go(banner.index + 1)
     }
-    NumberAnimation { id: fade; target: shot; property: "opacity"; from: 0.25; to: 1; duration: 420; easing.type: Easing.OutCubic }
+    NumberAnimation { id: fade; target: shot; property: "opacity"; from: 0.25; to: 1; duration: 420 * Backend.motion; easing.type: Easing.OutCubic }
 
+    // The frame: a glass pane on glass (like the header and keys), plastic on plastic.
+    GlassSurface {
+        visible: Backend.theme.glassy
+        anchors.fill: parent
+        radius: Ui.radiusLarge
+    }
     Rectangle {
+        visible: !Backend.theme.glassy
         anchors.fill: parent
         radius: Ui.radiusLarge
         gradient: Gradient {
@@ -146,7 +153,7 @@ Item {
                     height: 8
                     radius: 4
                     color: index === banner.index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.45)
-                    Behavior on width { NumberAnimation { duration: 180 } }
+                    Behavior on width { NumberAnimation { duration: 180 * Backend.motion; easing.type: Easing.OutCubic } }
                     TapHandler { onTapped: banner.go(index) }
                 }
             }
@@ -156,10 +163,10 @@ Item {
     HoverHandler {
         id: hh
         cursorShape: Qt.PointingHandCursor
-        enabled: !banner.appRoot.modalOpen
+        enabled: !banner.appRoot.modalOpen && !Ui.bodyBlocked
     }
     TapHandler {
-        enabled: !banner.appRoot.modalOpen
+        enabled: !banner.appRoot.modalOpen && !Ui.bodyBlocked
         gesturePolicy: TapHandler.ReleaseWithinBounds
         onTapped: (ev) => {
             const x = ev.position.x

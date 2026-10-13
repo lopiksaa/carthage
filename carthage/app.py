@@ -47,9 +47,45 @@ def _watch_qml(engine, root):
     return watcher, debounce
 
 
+def _first_instance(app, name):
+    """True if no other Carthage is running. Otherwise the running one is asked to come to the
+    front, and this one should quit. (The packaged app takes a few seconds to appear on Windows;
+    clicking its shortcut again used to open a second and a third Carthage.)"""
+    from PySide6.QtNetwork import QLocalServer, QLocalSocket
+
+    sock = QLocalSocket()
+    sock.connectToServer(name)
+    if sock.waitForConnected(500):
+        if os.name == "nt":
+            import ctypes
+
+            ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY: it may take the front
+        sock.write(b"show\n")
+        sock.waitForBytesWritten(500)
+        sock.disconnectFromServer()
+        return False
+    QLocalServer.removeServer(name)  # a leftover from a crash (Linux keeps a socket file)
+    server = QLocalServer(app)
+    server.listen(name)
+    app._instance_server = server  # kept alive with the app
+    return True
+
+
+def _come_forward(server, root):
+    """Another launch asked for Carthage: show the window that's already open."""
+    while server.hasPendingConnections():
+        server.nextPendingConnection().deleteLater()
+    if root.visibility() == root.Visibility.Minimized:
+        root.showNormal()
+    root.show()
+    root.raise_()
+    root.requestActivate()
+
+
 def start(argv=None, games=None):
-    """Build the app, the backend and the window: (app, engine, root, backend), or None if the
-    window couldn't load. `games`: a library to use instead of the real one (the test harness)."""
+    """Build the app, the backend and the window: (app, engine, root, backend); None if the
+    window couldn't load; False if Carthage was already running (it was brought to the front).
+    `games`: a library to use instead of the real one (the test harness)."""
     argv = list(sys.argv if argv is None else argv)
     from . import log
 
@@ -67,6 +103,11 @@ def start(argv=None, games=None):
         import ctypes
 
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("lopiksa.Carthage")
+    # The glass look's ground is a WebGL page (qml/WebGround.qml); the web engine has to be
+    # set up before the application object exists.
+    from PySide6.QtWebEngineQuick import QtWebEngineQuick
+
+    QtWebEngineQuick.initialize()
     fmt = QSurfaceFormat.defaultFormat()
     fmt.setSamples(4)
     QSurfaceFormat.setDefaultFormat(fmt)
@@ -80,6 +121,12 @@ def start(argv=None, games=None):
     # circles would spill over the cartridge body.
     app.setWindowIcon(QIcon(str(Path(__file__).resolve().parent / "assets" / "icons" / "carthage-512.png")))
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+    # One Carthage at a time (dev mode and test runs may run beside it).
+    if not dev and not os.environ.get("GC_DEMO"):
+        import getpass
+
+        if not _first_instance(app, "carthage-" + getpass.getuser()):
+            return False
 
     backend = Backend(games=games)
     chrome.setup(app)
@@ -100,11 +147,16 @@ def start(argv=None, games=None):
     root = engine.rootObjects()[0]
     if dev:
         app._dev_watch = _watch_qml(engine, root)  # kept alive with the app
+    server = getattr(app, "_instance_server", None)
+    if server is not None:
+        server.newConnection.connect(lambda: _come_forward(server, root))
     return app, engine, root, backend
 
 
 def main(argv=None):
     started = start(argv)
+    if started is False:
+        return 0  # handed over to the Carthage that's already running
     if started is None:
         return 1
     return started[0].exec()

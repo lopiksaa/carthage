@@ -41,7 +41,8 @@ GridView {
 
     FontMetrics {
         id: fontMetrics
-        font: Qt.application.font
+        font.family: Ui.fontText  // as the titles under the cartridges
+        font.pixelSize: Ui.textBody
     }
 
     model: trayModel
@@ -54,7 +55,9 @@ GridView {
     flickableDirection: Flickable.VerticalFlick
     cellWidth: shelf ? mainTray.cellWidth : Math.floor((width - leftMargin - rightMargin) / columns)
     cellHeight: cardW * Backend.theme.ratio + 2 * pad + Ui.spacingLarge * 3 + titleHeight
-    cacheBuffer: cellHeight * 2
+    cacheBuffer: shelf ? 0 : big ? cellHeight * 0.5 : cellHeight * 2  // (a shelf shows all it builds)
+    // A big view (over 300 games) keeps fewer cells ready off screen.
+    readonly property bool big: !shelf && count > 300
     clip: true
     focus: true
     keyNavigationEnabled: true
@@ -67,13 +70,35 @@ GridView {
 
     QQC2.ScrollBar.vertical: CScrollBar { visible: !grid.shelf }
 
+    AutoScroll { flickable: grid.shelf ? null : grid }
+
+    // Back to top: once the library is scrolled more than a screen down.
+    // (A long way up jumps to two screens from the top and glides the rest: in a big grid the
+    // top moves while rows are built, so it ends exactly at the start.)
+    NumberAnimation {
+        id: toTop
+        target: grid
+        property: "contentY"
+        duration: 380 * Backend.motion
+        easing.type: Easing.OutCubic
+        onFinished: grid.positionViewAtBeginning()
+    }
+    function backToTop() {
+        const top = originY - topMargin
+        if (contentY - top > height * 2) contentY = top + height * 2
+        toTop.to = top
+        toTop.restart()
+    }
+    // (the Back to top button is App.qml's: outside the grid, so the glass can frost it)
+    readonly property bool scrolledAway: !shelf && contentY - (originY - topMargin) > height
     WheelAccel {
         enabled: !grid.shelf  // the shelf leaves the wheel to the tray around it
         flickable: grid
         step: grid.cellHeight * 0.34
     }
 
-    header: grid.shelf ? null : shelfHeader
+    property bool showShelves: true  // Favorites and Play Next above the games (not in the sidebar concept)
+    header: grid.shelf || !showShelves ? null : shelfHeader
     Component {
         id: shelfHeader
         LibraryShelves {
@@ -137,14 +162,19 @@ GridView {
             icon.name: "zoom-in-symbolic"
             onTriggered: grid.appRoot.choose(cardMenu.cell)
         }
+        CMenuSeparator {}
         QQC2.Action {
-            readonly property bool fav: cardMenu.cell !== null && Backend.favorites.rowOf(cardMenu.cell.gameId) >= 0
-            objectName: "optional"
-            enabled: Backend.settings.favoritesShelf
+            readonly property bool fav: cardMenu.cell !== null && Backend.favoritesList.rowOf(cardMenu.cell.gameId) >= 0
             text: fav ? "Remove from Favorites" : "Add to Favorites"
             icon.name: "starred-symbolic"
             onTriggered: Backend.setFavorite(cardMenu.cell.gameId, !fav)
         }
+        QQC2.Action {
+            text: "Add to List…"
+            icon.name: "view-list-icons-symbolic"
+            onTriggered: grid.appRoot.addToList(cardMenu.cell.gameId, cardMenu.cell.title)
+        }
+        CMenuSeparator {}
         QQC2.Action {
             text: "Change Art…"
             icon.name: "insert-image-symbolic"
@@ -202,13 +232,26 @@ GridView {
         }
     }
 
-    remove: Transition {
+    // Games coming, going and making room are animated, but not when a whole page changes
+    // (switching lists or launchers: dozens at once could leave a card behind) or when
+    // animations are off.
+    property bool quiet: false
+    function quietFor(ms) { quiet = true; quietEnd.interval = ms; quietEnd.restart() }
+    Timer { id: quietEnd; onTriggered: grid.quiet = false }
+    readonly property bool animateChanges: Backend.motion > 0 && !quiet
+    remove: animateChanges ? removeT : null
+    displaced: animateChanges ? displacedT : null
+    add: animateChanges ? addT : null
+    Transition {
+        id: removeT
         NumberAnimation { property: "opacity"; to: 0; duration: (100 * Backend.motion) }
     }
-    displaced: Transition {
+    Transition {
+        id: displacedT
         NumberAnimation { properties: "x,y"; duration: (200 * Backend.motion); easing.type: Easing.OutCubic }
     }
-    add: Transition {
+    Transition {
+        id: addT
         NumberAnimation { property: "opacity"; from: 0; to: 1; duration: (100 * Backend.motion) }
     }
 }

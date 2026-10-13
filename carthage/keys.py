@@ -9,6 +9,7 @@ All keyring and network calls run in worker threads; results come back via signa
 """
 
 import json
+import os
 import threading
 import urllib.error
 import urllib.request
@@ -177,7 +178,8 @@ class Keys(QObject):
                 try:
                     secretstore.store(service, LABELS[service], key)
                 except Exception:
-                    ok, msg, valid = False, "Couldn't save to your keyring. Is it unlocked?", False
+                    ok, msg, valid = False, ("Couldn't save to Windows Credential Manager." if os.name == "nt"
+                                             else "Couldn't save to your keyring. Is it unlocked?"), False
             self._set_status(service, "ok" if ok else "error", msg, True if valid else None)
 
         self._run(work)

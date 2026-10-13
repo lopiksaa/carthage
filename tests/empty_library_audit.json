@@ -1,0 +1,7 @@
+[
+  {"at": 1300, "shot": "/tmp/carthage-audit-empty-library.png"},
+  {"at": 1500, "do": "toggleSidebar"},
+  {"at": 2500, "do": "state2", "label": "empty-library-drawer"},
+  {"at": 3000, "shot": "/tmp/carthage-audit-empty-drawer.png"},
+  {"at": 3500, "do": "exit"}
+]

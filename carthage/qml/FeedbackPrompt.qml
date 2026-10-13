@@ -101,7 +101,7 @@ Item {
             id: hint
             visible: prompt.hinting
             width: parent.width
-            text: "You can send feedback any time: Menu → System → Send Feedback."
+            text: "You can send feedback any time: Settings → System → Send Feedback."
             color: prompt.pal.panelText
             font.family: Ui.fontText
             font.weight: Font.Bold

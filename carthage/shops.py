@@ -156,6 +156,59 @@ def epic_search(fetch_json, term, cc, money, count=12):
     return [e for e in els if e.get("offerType") in (None, "BASE_GAME", "BUNDLE", "EDITION")]
 
 
+EPIC_CONTENT = "https://store-content-ipv4.ak.epicgames.com/api/en-US/content/products/"
+
+
+def _plain_markdown(md):
+    """Epic's descriptions are Markdown: keep the words."""
+    md = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", md or "")         # images
+    md = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", md)            # links → their text
+    md = re.sub(r"<[^>]+>", "", md)                                 # stray HTML
+    md = re.sub(r"(\*\*|__|\*|_|`|^#+\s*)", "", md, flags=re.M)  # emphasis, headings
+    return re.sub(r"\n{3,}", "\n\n", md).strip()
+
+
+def epic_details(fetch_json, slug, el=None):
+    """An Epic game's page: {description, about, screenshots, screenshotsFull, developer,
+    publisher}. Screenshots come from the catalog element when given (its gallery images),
+    else from the page."""
+    out = {}
+    if el is not None:
+        # Some games list their screenshots as GalleryImage, others as featuredMedia.
+        images = el.get("keyImages") or []
+        shots = [i.get("url") for i in images if i.get("type") == "GalleryImage" and i.get("url")] \
+            or [i.get("url") for i in images if i.get("type") == "featuredMedia" and i.get("url")]
+        shots = shots[:12]
+        if shots:
+            out["screenshots"] = [s + "?h=270&quality=medium&resize=1" for s in shots]
+            out["screenshotsFull"] = shots
+        if el.get("description") and el.get("description") != el.get("title"):
+            out["description"] = el["description"]
+    if not slug:
+        return out
+    try:
+        d = fetch_json(EPIC_CONTENT + slug)
+    except Exception:  # noqa: BLE001 — a missing page just means less detail
+        return out
+    pages = d.get("pages") or []
+    data = (pages[0].get("data") if pages else d.get("data")) or {}
+    about = data.get("about") or {}
+    if about.get("description"):
+        out["about"] = _plain_markdown(about["description"])[:4000]
+    if about.get("shortDescription") and not out.get("description"):
+        out["description"] = _plain_markdown(about["shortDescription"])
+    if about.get("developerAttribution"):
+        out["developer"] = about["developerAttribution"]
+    if about.get("publisherAttribution"):
+        out["publisher"] = about["publisherAttribution"]
+    if not out.get("screenshots"):
+        shots = [g.get("src") for g in (data.get("gallery") or {}).get("galleryImages") or [] if g.get("src")]
+        if shots:
+            out["screenshots"] = [s + "?h=270&quality=medium&resize=1" for s in shots[:12]]
+            out["screenshotsFull"] = shots[:12]
+    return out
+
+
 def epic_offer_for(fetch_json, title, cc, money):
     """Epic's offer for exactly this game (same title once normalized), or None."""
     want = norm_title(title)

@@ -170,6 +170,8 @@ class ArtManager(QObject):
     def _store(self, gid, img, source, crop=None):
         """img is the original (uncropped) image; the cartridge crop is derived from it."""
         entry = {"t": int(time.time()), "source": source}
+        if img is not None and img.info.get("carthage_url"):
+            entry["url"] = img.info["carthage_url"]
         if img is not None:
             orig = img.convert("RGB")
             if max(orig.size) > ORIG_MAX:
@@ -212,6 +214,10 @@ class ArtManager(QObject):
                 return img, "steam-local"
         if g.cover and Path(g.cover).exists():
             return Image.open(g.cover), "local-cover"
+        if g.source == "steam" and not self._prefer_official():
+            img = self._steam_official(g.ext_id)  # (last: Steam's own store art, e.g. a game too new for SteamGridDB)
+            if img:
+                return img, "official"
         return None, "none"
 
     def _get(self, key, path):
@@ -226,7 +232,9 @@ class ArtManager(QObject):
     def _download(self, url):
         req = urllib.request.Request(url, headers={"User-Agent": UA})
         with urllib.request.urlopen(req, timeout=30) as r:
-            return Image.open(io.BytesIO(r.read()))
+            img = Image.open(io.BytesIO(r.read()))
+        img.info["carthage_url"] = url  # (remembered with the art, so Choose Art can mark it)
+        return img
 
     def _search(self, key, title):
         data = self._get(key, "search/autocomplete/" + urllib.parse.quote(title))
@@ -379,7 +387,7 @@ class ArtManager(QObject):
 
         def work():
             if g is None or not key:
-                self.choiceFailed.emit(game_id, "Add your SteamGridDB key in the menu to choose art.")
+                self.choiceFailed.emit(game_id, "Add your SteamGridDB key in Settings → Accounts & Keys to choose art.")
                 return
             ids = self._ids_for(key, g)
             data = self._get(key, f"{endpoint}/{ids[0]}/{ids[1]}?{dims}types=static&nsfw=false&humor=false") if ids else None
@@ -394,6 +402,12 @@ class ArtManager(QObject):
             self.candidatesReady.emit(game_id, items)
 
         threading.Thread(target=work, daemon=True).start()
+
+    @Slot(str, result=str)
+    def currentUrl(self, game_id):
+        """Where the cartridge's art came from (a SteamGridDB address), or "" if it wasn't one
+        image from there (a file, a composite, Steam's own…)."""
+        return (self._index.get(game_id) or {}).get("url", "")
 
     @Slot(str, result="QVariantMap")
     def cropInfo(self, game_id):
@@ -468,7 +482,27 @@ class ArtManager(QObject):
             img = get(name)
             if img:
                 return img
+        # Newer games keep their art in hashed folders (…/apps/<appid>/<hash>/library_capsule.jpg):
+        # the store's item API names them.
+        assets = self._steam_assets(appid)
+        for key in ("library_capsule_2x", "library_capsule", "header"):
+            if assets.get(key):
+                img = get(assets[key])
+                if img:
+                    return img
         return None
+
+    def _steam_assets(self, appid):
+        """The art file paths Steam's store lists for an app ({} if it can't say)."""
+        query = json.dumps({"ids": [{"appid": int(appid)}], "context": {"language": "english", "country_code": "US"},
+                            "data_request": {"include_assets": True}})
+        url = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=" + urllib.parse.quote(query)
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Carthage"}), timeout=10) as r:
+                items = json.load(r).get("response", {}).get("store_items", [])
+            return items[0].get("assets", {}) if items else {}
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            return {}
 
     def _steam_local(self, appid):
         from .sources import steam
