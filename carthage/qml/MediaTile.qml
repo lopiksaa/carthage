@@ -17,6 +17,11 @@ Rectangle {
     color: Qt.rgba(1, 1, 1, 0.06)
     layer.enabled: visible
     layer.effect: RoundedMask { radius: tile.radius }
+    // At the size it's loaded for, not its current size: growing (GameView's zoom), the layer
+    // was made again on every frame; now it's only drawn larger or smaller.
+    layer.textureSize: Qt.size(Math.ceil(Math.max(width, loadWidth) * Screen.devicePixelRatio),
+                               Math.ceil(Math.max(height, loadWidth * height / Math.max(1, width)) * Screen.devicePixelRatio))
+    layer.smooth: true
 
     Image {
         anchors.fill: parent

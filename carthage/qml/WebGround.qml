@@ -24,7 +24,7 @@ Item {
     }
     readonly property bool moving: variant !== 0 && Backend.motion > 0 && tuning.speed > 0
                                    && (Qt.application.state === Qt.ApplicationActive || Backend.testNoFocus)
-                                   && Backend.sessions.count === 0 && !Ui.resizing
+                                   && Backend.sessions.count === 0 && !Ui.resizing && !Ui.groundCovered
     // Background Colors (theme.py GROUNDS, with Advanced's colours): four hues, their strength,
     // a tone and a lift; the mode sets the lightness.
     readonly property var colours: Backend.theme.ground

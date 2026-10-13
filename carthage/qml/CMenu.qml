@@ -66,6 +66,8 @@ QQC2.Menu {
 
         readonly property bool danger: action !== null && action.objectName === "danger"
         readonly property bool hiddenOptional: action !== null && action.objectName === "optional" && !action.enabled
+        // One choice of several (an Action with `property bool radio: true`): a round mark, not a box.
+        readonly property bool radio: action !== null && action.radio === true
         visible: !hiddenOptional
         readonly property color fg: danger ? cmenu.pal.dangerText : cmenu.pal.panelText
 
@@ -106,12 +108,20 @@ QQC2.Menu {
                 anchors.verticalCenter: parent.verticalCenter
                 width: item.checkable ? 18 : 0
                 height: 18
-                radius: Ui.radiusTiny
-                color: item.checked ? Backend.theme.accent.accent : "transparent"
-                border.width: item.checked ? 0 : 1.5
-                border.color: cmenu.pal.panelTextDim
+                radius: item.radio ? 9 : Ui.radiusTiny
+                color: item.checked && !item.radio ? Backend.theme.accent.accent : "transparent"
+                border.width: item.checked && !item.radio ? 0 : 1.5
+                border.color: item.radio && item.checked ? Backend.theme.accent.accent : cmenu.pal.panelTextDim
+                Rectangle {  // the radio's dot
+                    visible: item.radio && item.checked
+                    anchors.centerIn: parent
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: Backend.theme.accent.accent
+                }
                 CIcon {
-                    visible: item.checked
+                    visible: item.checked && !item.radio
                     anchors.centerIn: parent
                     width: 14
                     height: 14

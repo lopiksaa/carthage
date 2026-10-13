@@ -95,6 +95,11 @@ Item {
     function nudge() {
         if (motion > 0) nudgeAnim.restart()
     }
+    // Reused for another game (Tray.qml reuseItems): no leftover press, nudge or intro.
+    GridView.onReused: {
+        pressAnim.stop(); nudgeAnim.stop(); introAnim.stop(); introWait.stop()
+        pressScale = 1; nudgeX = 0; intro = 1
+    }
     // Destroyed mid-drag (the list rebuilt): the carried cartridge must still go home.
     Component.onDestruction: if (pickUp.active) appRoot.cancelCardDrag()
 

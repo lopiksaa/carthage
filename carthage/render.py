@@ -21,13 +21,14 @@ import threading
 from collections import OrderedDict
 from pathlib import Path
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import (
     QBrush,
     QColor,
     QFont,
     QFontMetricsF,
     QImage,
+    QImageReader,
     QLinearGradient,
     QPainter,
     QPainterPath,
@@ -731,6 +732,25 @@ def render_generated_art(w, h, title):
     return img
 
 
+def _load_cover(path, w, h):
+    """An image file filling w×h (cropped to fit), or None. Decoded straight at about the size
+    it's shown at: JPEG decodes at a fraction of its size, several times faster than decoding
+    it whole and shrinking it (this ran for every cartridge scrolling into view)."""
+    reader = QImageReader(str(path))
+    full = reader.size()
+    if full.isValid() and full.width() > 0 and full.height() > 0:
+        s = max(w / full.width(), h / full.height())
+        if s < 1:
+            reader.setScaledSize(QSize(max(w, round(full.width() * s)), max(h, round(full.height() * s))))
+    loaded = reader.read()
+    if loaded.isNull():
+        return None
+    if loaded.width() != w or loaded.height() != h:
+        loaded = loaded.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        loaded = loaded.copy((loaded.width() - w) // 2, (loaded.height() - h) // 2, w, h)
+    return loaded.convertToFormat(QImage.Format_ARGB32_Premultiplied)
+
+
 def not_installed(img):
     """Desaturate and dim art for not-installed cards."""
     gray = img.convertToFormat(QImage.Format_Grayscale8).convertToFormat(QImage.Format_ARGB32_Premultiplied)
@@ -821,11 +841,7 @@ class ImageProvider(QQuickImageProvider):
             img = None
             path = self._art.path_for(parts[1]) if self._art else None
             if path:
-                loaded = QImage(str(path))
-                if not loaded.isNull():
-                    img = loaded.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                    img = img.copy((img.width() - w) // 2, (img.height() - h) // 2, w, h)
-                    img = img.convertToFormat(QImage.Format_ARGB32_Premultiplied)
+                img = _load_cover(path, w, h)
             if img is None:
                 # (_demo: the first-run splash's cartridge, a picture with no title on it)
                 title = "" if parts[1] == "_demo" else self._library.title_for(parts[1]) or parts[1]

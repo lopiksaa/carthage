@@ -16,9 +16,15 @@ Item {
     // The page grid: the library tray's edges and columns, so every page lines up. Shelves
     // for the library's top genres ("Because You Play …", games you don't own).
     property Item tray
+    readonly property Flickable scroller: shelves  // (App.qml's Back to top)
+    // The gap above every section's title, and the room a shelf's cartridges already leave
+    // under their text (so a shelf's gap looks the same as the others).
+    readonly property int sectionGap: 52
+    readonly property int cardSlack: 28
     readonly property real edge: tray.contentLeft
     readonly property real edgeRight: tray.width - tray.contentRight
     signal genre(var category)  // {name, tag}
+    signal openShelf(var shelf)  // {key, title, items}: a section's title, chosen (all of its games)
     property var because: []  // [{key, title, items}]
     readonly property var topGenres: Backend.topGenres.slice(0, 2)
     function loadBecause() {
@@ -104,15 +110,16 @@ Item {
         anchors.fill: parent
         topMargin: 18
         bottomMargin: view.bottomClearance + Ui.gapXXL
-        spacing: Ui.gapXL
+        spacing: view.sectionGap - view.cardSlack
         clip: true
         model: view.shelfModel
+        // Up top: the spotlight, then the categories, then the shelves. Every section is the same
+        // distance from the one before (a shelf's cartridges leave view.cardSlack under their text).
         header: Column {
           width: shelves.width
-          spacing: Ui.gapL
           Item {
             width: shelves.width
-            height: view.spotlight.length ? bannerItem.height + 14 : 0
+            height: view.spotlight.length ? bannerItem.height + view.sectionGap : 0
             StoreBanner {
                 id: bannerItem
                 objectName: "storeBanner"  // for the test harness
@@ -125,24 +132,19 @@ Item {
                 onChosen: (it) => view.chosen(it, null, view.spotlight)
             }
           }
-        }
-        // Categories come last, after the shelves.
-        footer: Column {
-          width: shelves.width
-          topPadding: Ui.gapXL + Ui.gapS
-          spacing: Ui.gapM
-          Item {
+          Item {  // (as tall as its button, which stands taller than the title: no touching the tiles)
             width: parent.width
-            height: browseTitle.height
+            height: Math.max(browseTitle.height, allCats.height) + Ui.gapS
             EngravedLabel {
               id: browseTitle
-              x: 28
+              x: view.edge
+              anchors.verticalCenter: allCats.verticalCenter
               text: "Browse by Category"
             }
             CButton {
+              id: allCats
               anchors.right: parent.right
-              anchors.rightMargin: 24
-              anchors.verticalCenter: browseTitle.verticalCenter
+              anchors.rightMargin: view.edgeRight
               text: "All Categories"
               icon.name: "go-next-symbolic"
               iconAfter: true
@@ -152,7 +154,7 @@ Item {
           ListView {
             id: tileRow
             width: parent.width
-            height: 110
+            height: 110 + view.sectionGap - 6  // (the tiles sit 8 px down, for their hover lift)
             orientation: ListView.Horizontal
             spacing: Ui.gapL
             leftMargin: view.edge
@@ -161,6 +163,8 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             model: Backend.store.categories
             WheelAccel { flickable: tileRow; horizontal: true; step: 200; acceptedModifiers: Qt.ShiftModifier }
+            // (made inside the list's header, it started scrolled by its left margin)
+            Component.onCompleted: Qt.callLater(() => tileRow.contentX = -tileRow.leftMargin)
             delegate: Item {
               required property var modelData
               width: 170
@@ -188,9 +192,29 @@ Item {
             width: shelves.width
             spacing: Ui.gapM
 
-            EngravedLabel {
+            // The title opens the whole section on its own page.
+            Item {
                 x: view.edge
-                text: shelf.modelData.title
+                width: shelfTitle.width + 6 + 14
+                height: shelfTitle.height
+                opacity: titleHover.hovered ? 0.75 : 1
+                Accessible.role: Accessible.Button
+                Accessible.name: shelf.modelData.title + ": see all"
+                EngravedLabel {
+                    id: shelfTitle
+                    text: shelf.modelData.title
+                }
+                CIcon {
+                    anchors.left: shelfTitle.right
+                    anchors.leftMargin: 6
+                    anchors.verticalCenter: shelfTitle.verticalCenter
+                    width: 14
+                    height: 14
+                    source: "go-next-symbolic"
+                    color: Backend.theme.p.trayText
+                }
+                HoverHandler { id: titleHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: view.openShelf(shelf.modelData) }
             }
             // The shelf's cartridges, laid out as chosen in Settings → Store.
             Loader {
@@ -207,8 +231,9 @@ Item {
                     rowSpacing: Ui.gapL
                     Repeater {
                         // Whole rows only: a shelf ending in a half-empty row looks unfinished.
+                        // Two rows at most here (the title shows them all).
                         model: {
-                            const all = shelf.modelData.items
+                            const all = shelf.modelData.items.slice(0, 2 * grid.columns)
                             return all.length > grid.columns ? all.slice(0, all.length - all.length % grid.columns) : all
                         }
                         delegate: Item {
@@ -240,7 +265,7 @@ Item {
                     rightMargin: view.edgeRight
                     spacing: 22
                     boundsBehavior: Flickable.StopAtBounds
-                    model: shelf.modelData.items
+                    model: shelf.modelData.items.slice(0, 14)
                     delegate: StoreCard {
                         required property var modelData
                         item: modelData

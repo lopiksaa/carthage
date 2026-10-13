@@ -241,45 +241,6 @@ Column {
     }
 
     Section {
-        sectionId: "library"
-        sourceComponent: Column {
-            spacing: Ui.gapM
-            CSwitch {
-                width: parent.width
-                text: "Installed games first"
-                checked: Backend.settings.installedFirst
-                onToggled: Backend.settings.installedFirst = checked
-            }
-            CSwitch {
-                width: parent.width
-                text: "Titles under cards"
-                checked: Backend.settings.showTitles
-                onToggled: Backend.settings.showTitles = checked
-            }
-            Row {
-                width: parent.width
-                spacing: Ui.gapS
-                CButton {
-                    width: (parent.width - Ui.gapS) / 2
-                    text: "Add Game…"
-                    icon.name: "list-add-symbolic"
-                    onClicked: sc.appRoot.addGame()
-                }
-                CButton {
-                    width: (parent.width - Ui.gapS) / 2
-                    text: "Re-scan"
-                    icon.name: "view-refresh-symbolic"
-                    enabled: !Backend.fake
-                    onClicked: {
-                        Backend.rescan()
-                        sc.appRoot.notify("Re-scanning your library…")
-                    }
-                }
-            }
-        }
-    }
-
-    Section {
         sectionId: "look"
         sourceComponent: Column {
             id: look
@@ -585,6 +546,12 @@ Column {
                     Choice { label: "Text"; key: "fontText"; choices: Ui.textFonts; current: Ui.fontText }
                 }
             }
+            CSwitch {
+                width: parent.width
+                text: "Titles under cards"
+                checked: Backend.settings.showTitles
+                onToggled: Backend.settings.showTitles = checked
+            }
             // Card size is set on the library itself (App.qml: a bar with − and + over the games).
             FoldHead {
                 title: "Adjust Card Size"
@@ -775,6 +742,16 @@ Column {
                 }
                 CButton {
                     width: parent.width
+                    text: "Re-scan Library"
+                    icon.name: "view-refresh-symbolic"
+                    enabled: !Backend.fake
+                    onClicked: {
+                        Backend.rescan()
+                        sc.appRoot.notify("Re-scanning your library…")
+                    }
+                }
+                CButton {
+                    width: parent.width
                     text: "Retry Missing Art"
                     icon.name: "insert-image-symbolic"
                     enabled: !Backend.fake
@@ -806,7 +783,7 @@ Column {
             CSwitch {
                 width: parent.width
                 text: Backend.updater.automatic ? "Update automatically" : "Check for updates"
-                hint: Backend.updater.automatic ? "Downloads new versions and installs them when Carthage restarts"
+                hint: Backend.updater.automatic ? "Downloads new versions; Restart Now on its notice installs them"
                                                  : "Asks GitHub for the latest Carthage release"
                 checked: Backend.settings.checkUpdates
                 onToggled: {

@@ -8,6 +8,40 @@ user needs to know. Newest version first.
 """
 
 NOTES = {
+    # A version's notes can also be Markdown as written: "## Section" headings with "- " items
+    # (the GitHub release as is; the window shows one step per section).
+    "0.4.0": """## Look
+- Glass is the new default look, with frosted panels, menus, sidebar and dock. Plastic is still available in Appearance.
+- Animated backgrounds: Holographic, Mesh, Underwater, Contours and Still.
+- Colour presets, a blur slider, and an Advanced section to tune every colour.
+- Dark and Light modes no longer change with the colour you pick.
+
+## Library
+- A sidebar. Yep. A sidebar.
+- Custom lists: create your own and add any game with “Add to List…”.
+- Back to top on every page, and middle-click autoscroll.
+- Option to show uninstalled games in colour.
+- Steam Family library support.
+
+## Dock
+- The dock floats.
+
+## Game pages
+- A backdrop with the game’s official art, can also just be a blur on what's behind (Appearance → Game View).
+
+## Store & search
+- Store sections open to show all their games.
+- A Wishlist page with the best price across Steam and Epic.
+- Improved search.
+
+## Fixes
+- Carthage no longer opens multiple windows at launch.
+- Fixed play time for non-Steam games.
+
+## Other
+- Copy Diagnostics in Settings → System.
+- Misc bugs and performance fixes.
+""",
     "0.4.0-beta.1": [
         {"kind": "fixed", "text": "Pre-release of a big redesign, so expect rough edges. It doesn't reach anyone automatically: download it from this page to try it."},
         {"kind": "fixed", "text": "A new look: glass panels, a sidebar, a new dock, and a live preview in Settings → Appearance."},
@@ -69,6 +103,14 @@ def notes_for(version):
     items = NOTES.get(version)
     if not items:
         return None
+    if isinstance(items, str):  # Markdown: one step per section, its items as lines
+        slides = []
+        for part in items.split("## ")[1:]:
+            title, _, body = part.partition("\n")
+            lines = [ln[2:].strip() for ln in body.splitlines() if ln.startswith("- ")]
+            slides.append({"kind": "new", "icon": "starred", "title": title.strip(),
+                           "text": "\n".join("• " + ln for ln in lines)})
+        return {"version": version, "slides": slides, "fixed": []}
     return {"version": version,
             "slides": [dict(i) for i in items if i["kind"] != "fixed"],
             "fixed": [i["text"] for i in items if i["kind"] == "fixed"]}
@@ -77,6 +119,8 @@ def notes_for(version):
 def markdown(version):
     """The release notes for GitHub: the same changes, as a list per kind."""
     items = NOTES.get(version) or []
+    if isinstance(items, str):
+        return items.strip() + "\n"
     out = []
     several = len({i["kind"] for i in items}) > 1
     for kind, heading in KINDS:

@@ -89,6 +89,9 @@ Item {
             value: Backend.games.sortMode
             options: bar.sortOptions
             onPicked: (v) => Backend.games.sortMode = v
+            toggleText: "Installed games first"
+            toggleChecked: Backend.settings.installedFirst
+            onSwitched: (on) => Backend.settings.installedFirst = on
         }
         DiceButton {
             objectName: "tourDice"  // (the first-run tour points at it)

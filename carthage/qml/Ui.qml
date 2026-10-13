@@ -17,6 +17,9 @@ QtObject {
     // What the glass ground responds to (App feeds it): the pointer (window coordinates) and
     // whether it's over the window, the library's scroll, and pulses from what you do.
     property real groundScroll: 0
+    // A game view covers the whole window: the glass ground behind it pauses (each of its frames
+    // made the view redraw too, and its animations stuttered).
+    property bool groundCovered: false
     signal groundPulse(real x, real y)
 
     // Interface fonts, one per kind of text, chosen in Settings → Appearance (all bundled).

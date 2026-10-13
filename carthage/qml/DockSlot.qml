@@ -136,14 +136,16 @@ Item {
     // The mouth: a slit cut into the shell, flush with it: a dark recess with a soft shadow at its
     // top and the shell's own lit edge below; it widens a little as a cartridge goes in. (No
     // raised flaps or seam: they stood out over the glass.)
+    // On glass it stays the same thin, see-through slit with a cartridge in it (opening up, it
+    // turned into a black bar that cut the glass and its rim).
     Rectangle {
-        readonly property real h: 5 + 3 * slot.open_
+        readonly property real h: 5 + (slot.glassy ? 0 : 3 * slot.open_)
         x: slot.mouthX
         y: slot.mouthY + (8 - h) / 2
         width: 76
         height: h
         radius: h / 2
-        color: slot.glassy ? Qt.alpha(slot.g.mouth, 0.42 + 0.3 * slot.open_) : Qt.alpha("#0a0a0c", 0.7 + 0.3 * slot.open_)
+        color: slot.glassy ? Qt.alpha(slot.g.mouth, 0.42) : Qt.alpha("#0a0a0c", 0.7 + 0.3 * slot.open_)
         Rectangle {  // the inner shadow at its top
             anchors.fill: parent
             radius: parent.radius
@@ -195,9 +197,24 @@ Item {
         }
     }
 
-    // The front lip over the cartridge's lower edge: a lit line, then shade.
+    // The front lip over the cartridge's lower edge: a lit line, then shade (on glass only the
+    // lit edge, fading out at its ends like the rim's light).
     Rectangle {
-        visible: !slot.empty && slot.seated
+        visible: !slot.empty && slot.seated && slot.glassy
+        x: slot.mouthX
+        y: slot.slotLine - 1
+        width: 76
+        height: 1
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: Qt.alpha(slot.g.edge, 0) }
+            GradientStop { position: 0.2; color: slot.g.edge }
+            GradientStop { position: 0.8; color: slot.g.edge }
+            GradientStop { position: 1.0; color: Qt.alpha(slot.g.edge, 0) }
+        }
+    }
+    Rectangle {
+        visible: !slot.empty && slot.seated && !slot.glassy
         x: Math.round((slot.width - 70) / 2)
         y: slot.slotLine - 1
         width: 70

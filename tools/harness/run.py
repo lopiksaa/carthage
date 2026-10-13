@@ -175,6 +175,17 @@ def main():
             iv = state.pop("intervals", None) or []
             print(f"[harness] FRAMES {step.get('label', '')}: {len(iv)} frames, intervals {iv[:40]}", flush=True)
             if iv: print("[harness] FRAMESTATS", step.get("label", ""), "n", len(iv), "median", sorted(iv)[len(iv)//2], "p95", sorted(iv)[int(len(iv)*.95)], "max", max(iv[1:] or iv), flush=True)
+        elif step.get("do") == "pyprof_start":  # Python time on the UI thread until pyprof_stop
+            import cProfile
+            state["prof"] = cProfile.Profile()
+            state["prof"].enable()
+        elif step.get("do") == "pyprof_stop":
+            import io
+            import pstats
+            state["prof"].disable()
+            out = io.StringIO()
+            pstats.Stats(state.pop("prof"), stream=out).sort_stats("cumulative").print_stats(step.get("filter", ""), 30)
+            print("[harness] PYPROF " + out.getvalue(), flush=True)
         elif step.get("do") == "fps_start":
             state["frames"] = 0
             state["worst"] = 0.0
@@ -188,6 +199,10 @@ def main():
             print("[harness] shot", step["shot"], flush=True)
         elif step.get("do") == "size":  # {"w": 1900, "h": 1020}: the window's size
             root.resize(step["w"], step["h"])
+        elif step.get("do") == "fakeUpdate":  # {"file": path}: an update "ready" to install (Windows)
+            u = backend._updater
+            u._kind, u._state, u._file, u._latest = "windows", "ready", step["file"], "9.9.9"
+            print("[harness] fake update ready:", step["file"], flush=True)
         elif step.get("do") == "exit":
             stop_recording()
             app.quit()

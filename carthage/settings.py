@@ -20,11 +20,11 @@ class Settings(QObject):
     changed = Signal()
 
     DEFAULTS = {
-        "tiltEnabled": True, "soundsEnabled": True, "showTitles": True, "cardWidth": 150,
-        "soundVolume": 0.3, "hardware": "black", "preferOfficialArt": False,
+        "tiltEnabled": True, "soundsEnabled": True, "showTitles": True, "cardWidth": 204,
+        "soundVolume": 0.3, "hardware": "black", "preferOfficialArt": True,
         "look": "glass",  # glass (default) or plastic
         "themeMode": "",  # "dark" / "light"; "" = the hardware colour's own (never chosen)
-        "background": "mesh",  # the glass ground: mesh, rays (underwater), iris (holographic), topo, still
+        "background": "iris",  # the glass ground: iris (holographic, the default), mesh, rays (underwater), topo, still
         "groundColors": "nebula",  # the glass ground's colours (theme.GROUNDS)
         "groundTuning": {},  # Settings → Appearance → Advanced (theme.GROUND_TUNING, hue1–hue4)
         "groundBlur": 0.5,  # the glass ground's blur, 0–1
@@ -71,10 +71,9 @@ class Settings(QObject):
             for key, value in saved.items():
                 if key in self.DEFAULTS and _same_kind(self.DEFAULTS[key], value):
                     self._values[key] = value
-            # Updating from before the glass backgrounds: keep the look they had, on Plastic
-            # (new installs start on Glass).
+            # Updating from before the glass backgrounds: Glass too (the "Welcome back" setup
+            # shows it off; Plastic is a click away), with the cartridge colour they had.
             if "groundColors" not in saved:
-                self._values["look"] = "plastic"
                 if "cardColor" not in saved:
                     self._values["cardColor"] = "same"  # (their old default)
         except (OSError, ValueError):

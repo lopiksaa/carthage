@@ -12,6 +12,8 @@ Item {
     property real cardW: 150
     property Item appRoot
     signal chosen(var item, Item cart)
+    readonly property string libraryId: item.owned === true && (item.store || "steam") === "steam" && item.appid
+                                        ? Backend.libraryIdForApp(item.appid) : ""
 
     readonly property var pal: Backend.theme.p
     readonly property string store: item.store || "steam"
@@ -66,7 +68,9 @@ Item {
         sourceName: card.storeName.toUpperCase()
         sourceIcon: card.store
         installed: true
-        artUrl: card.item.capsule || ""
+        // A game you own wears your library's art (the same picture as on your shelf).
+        gameId: card.libraryId
+        artUrl: card.libraryId ? "" : card.item.capsule || ""
         title: card.item.name || ""
         artFallback: card.item.header || ""
         labelOverride: card.item.price ? card.item.price.toUpperCase() : card.storeName.toUpperCase()

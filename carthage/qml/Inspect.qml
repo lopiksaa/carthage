@@ -1,37 +1,45 @@
-// The closer look: a card lifted out of the tray next to its details. It's also the
-// confirmation step, so a stray click never launches a game.
+// The closer look at a library game (GameView): the card lifted out of the tray next to its
+// details. It's also the confirmation step, so a stray click never launches a game.
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
-import QtQuick.Effects
 
-FocusScope {
+GameView {
     id: inspect
 
-    property Item appRoot
-    property Item stage // what gets blurred behind the view
-
-    property bool open: false
     property var game: ({})
-    readonly property var pal: Backend.theme.p
-    readonly property real motion: appRoot ? appRoot.motion : 1
-    readonly property real ratio: Backend.theme.ratio
-    readonly property real openDuration: 480 * motion
-
-    property real level: 0
-    property real panelLevel: 0
-    // Which side the details slide from: +1 the right.
-    property int panelDir: 1
-
-    property var info: ({})
     property var extras: ({})
+    readonly property var pal: Backend.theme.p
+    readonly property int appid: game.source === "steam" ? (parseInt(game.extId) || 0) : 0
+
+    warmUp: true
+    showDice: true
+    detailsObjectName: "inspectDetails"  // for the test harness
+    cardGame: game
+    eyebrow: game.sourceName || ""
+    title: game.title || ""
+    credits: {
+        const g = game
+        const year = g.released ? new Date(g.released * 1000).getFullYear().toString() : ""
+        return g.source === "steam" ? Ui.creditsLine(g.developer, g.publisher, year)
+             : [g.developer || "", g.publisher && g.publisher !== g.developer ? g.publisher : "", year]
+               .filter(x => x).join("  ·  ")
+    }
+    gallerySubtitle: [game.developer || "", game.released ? new Date(game.released * 1000).getFullYear().toString() : ""]
+                     .filter(x => x).join("  ·  ")
+    mainButton: playButton
+    backdropUrl: info.background || ""
+    detailsPending: appid > 0 && Object.keys(info).length === 0
+
+    onCloseRequested: close()
+    onStepRequested: (dir) => step(dir)
+    onRollRequested: appRoot.rollDice()
+
     function loadFacts() {
         info = {}
         extras = {}
-        factsLate = false
-        factsTimer.restart()
+        detailsLoading()
         if (Backend.fake || !game.gameId || game.source === "carthage") return
-        const appid = game.source === "steam" ? parseInt(game.extId) || 0 : 0
         if (appid) Backend.store.loadDetailsQuiet(appid)
         Backend.store.loadExtras(game.gameId, appid, game.title || "")
         preloadNeighbours()
@@ -73,63 +81,13 @@ FocusScope {
     Connections {
         target: Backend.store
         function onDetailsReady(appid, data) {
-            if (inspect.game.source === "steam" && appid === (parseInt(inspect.game.extId) || -1)) inspect.info = data
+            if (appid === inspect.appid && appid > 0) inspect.info = data
             else if (inspect.neighbourAppids.indexOf(appid) >= 0 && data.background)
                 inspect.preloadUrls = inspect.preloadUrls.filter(u => u !== data.background).concat([data.background]).slice(-4)
         }
         function onExtrasReady(key, data) {
             if (key === inspect.game.gameId) inspect.extras = data
         }
-    }
-
-    // Wide: the cartridge at the top left, the details using the rest of the width (up to a
-    // readable 860), both from the top. Narrow: the cartridge above the details.
-    readonly property real gap: 56
-    readonly property real sideM: 76  // room for the ← → keys
-    readonly property bool wide: width >= 300 + gap + Ui.detailsWidth + 96
-    // Wide, the cartridge gives way first: the details always get their full width.
-    readonly property real heroH: wide ? Math.min(height * 0.56, 470, (width - 2 * sideM - gap - Ui.detailsWidth) * ratio)
-                                       : Math.min(height * 0.42, 360)
-    readonly property real heroW: Math.round(heroH / ratio)
-    // The cartridge and the details as one group, centered on a wide screen.
-    readonly property real heroX: wide ? Math.max(sideM, Math.round((width - (heroW + gap + panelW)) / 2))
-                                       : Math.round((width - heroW) / 2)
-    // Near the top (Sam: "put the title up"): the source label starts 72 px down and the
-    // title's capitals line up with the cartridge's top; never lower than centred.
-    // Wide: the cartridge is centred; the title keeps its own height near the top (Sam).
-    readonly property real heroY: wide ? Math.round((height - heroH) / 2) : 28
-    readonly property real titleY: wide ? Math.round(Math.min((height - heroH) / 2, 72 + detailsPanel.titleLift)) : 28
-    // Once the cartridge has arrived, it follows its place when the place moves (the window is
-    // resized, the details arrive and the group re-centers).
-    readonly property bool settled: open && !openAnim.running && !closeAnim.running && !stepAnim.running
-                                    && !settleAnim.running && !flipAnim.running
-    onHeroXChanged: if (settled) follow.restart()
-    onHeroYChanged: if (settled) follow.restart()
-    ParallelAnimation {
-        id: follow
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
-        NumberAnimation { target: hero; property: "y"; to: inspect.heroY; duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
-    }
-    readonly property real panelW: wide ? Math.min(720, width - 2 * sideM - heroW - gap)
-                                        : Math.min(Ui.detailsWidth, width - 64)
-
-    visible: level > 0.001 || open || closeAnim.running || warming
-
-    // The 3D card's first frame takes ~160 ms to set up (renderer, textures). Do it once,
-    // invisibly, shortly after startup, so the first real opening doesn't hitch.
-    property bool warming: false
-    Timer {
-        running: true
-        interval: 1200
-        onTriggered: {
-            inspect.warming = true
-            warmEnd.start()
-        }
-    }
-    Timer {
-        id: warmEnd
-        interval: 600
-        onTriggered: inspect.warming = false
     }
 
     function lastPlayedText(ts) {
@@ -141,7 +99,6 @@ FocusScope {
         const months = Math.floor(days / 30)
         return "Played " + months + (months === 1 ? " month ago" : " months ago")
     }
-
     function playtimeText(minutes) {
         if (!minutes) return ""
         if (minutes < 60) return minutes + (minutes === 1 ? " minute played" : " minutes played")
@@ -165,12 +122,8 @@ FocusScope {
         function onDataChanged() { inspect.refreshInstalled() }
     }
 
-    // The second click of a double-click lands on the backdrop of the view the first one just
-    // opened: it mustn't close it again.
-    property double openedAt: 0
     function openFor(cell) {
         if (open) return
-        openedAt = Date.now()
         // Build the whole object before assigning it: bindings only see a new `game`, not
         // later changes to its fields.
         const g = appRoot.cardData(cell)
@@ -185,47 +138,21 @@ FocusScope {
         game = g
         backdrop.clear()  // (not the last game's art fading out as this one opens)
         loadFacts()
-
         const s0 = 1 + 0.05 * cell.lift
         const base = cell.mapToItem(inspect, cell.cardX, cell.cardY - cell.cardW * 0.035 * cell.lift)
-        hero.x = base.x + cell.cardW * (1 - s0) / 2
-        hero.y = base.y + cell.cardH * (1 - s0) / 2
-        hero.scale = s0 * cell.cardW / heroW
-        hero.opacity = 1
-        hero.spin = 0
-        hero.visible = true
         appRoot.setHidden(game.gameId, true)
-        open = true
         appRoot.sound("pick")
-        playButton.forceActiveFocus()
-
-        closeAnim.stop()
-        panelDir = 1
-        if (motion <= 0) {
-            hero.x = heroX; hero.y = heroY; hero.scale = 1; level = 1; panelLevel = 1
-            return
-        }
-        openAnim.restart()
+        flyIn(base.x + cell.cardW * (1 - s0) / 2, base.y + cell.cardH * (1 - s0) / 2, s0 * cell.cardW / heroW)
     }
 
     // The tray scrolls along, so closing still flies the card back into the right pocket.
     function step(dir) {
-        if (!open || openAnim.running || closeAnim.running || stepAnim.running || rolling) return
+        if (!open || animating || rolling) return
         const gid = neighbourId(dir)
-        if (!gid) {
-            if (motion > 0) edgeNudge.restart()
-            return
-        }
+        if (!gid) return nudge()
         otherMenu.close()
-        settleAnim.stop()
-        flipAnim.stop()
-        hero.dragTilt = 0
-        appRoot.sound("hover")
-        stepAnim.dir = dir
-        stepAnim.next = Backend.gameInfo(gid)
-        panelDir = -dir
-        if (motion <= 0) { swapTo(stepAnim.next); return }
-        stepAnim.restart()
+        const next = Backend.gameInfo(gid)
+        stepTo(dir, () => swapTo(next))
     }
     function swapTo(data) {
         appRoot.setHidden(game.gameId, false)
@@ -233,33 +160,10 @@ FocusScope {
         appRoot.setHidden(game.gameId, true)
         appRoot.revealInTray(game.gameId)
         loadFacts()
-        hero.spin = 0
-        resetGallery()
-        detailsFlick.contentY = 0
+        afterSwap()
     }
-    SequentialAnimation {
-        id: stepAnim
-        property int dir: 1
-        property var next: ({})
-        readonly property real shift: inspect.heroW * 0.35
-        ParallelAnimation {
-            NumberAnimation { target: hero; property: "x"; to: inspect.heroX - stepAnim.dir * stepAnim.shift; duration: 150 * inspect.motion; easing.type: Easing.InQuad }
-            NumberAnimation { target: hero; property: "opacity"; to: 0; duration: 150 * inspect.motion; easing.type: Easing.InQuad }
-            NumberAnimation { target: inspect; property: "panelLevel"; to: 0; duration: 120 * inspect.motion; easing.type: Easing.InQuad }
-        }
-        ScriptAction {
-            script: {
-                inspect.swapTo(stepAnim.next)
-                hero.x = inspect.heroX + stepAnim.dir * stepAnim.shift
-                inspect.panelDir = stepAnim.dir
-            }
-        }
-        ParallelAnimation {
-            NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 220 * inspect.motion; easing.type: Easing.OutCubic }
-            NumberAnimation { target: hero; property: "opacity"; to: 1; duration: 180 * inspect.motion; easing.type: Easing.OutQuad }
-            NumberAnimation { target: inspect; property: "panelLevel"; to: 1; duration: 220 * inspect.motion; easing.type: Easing.OutCubic }
-        }
-    }
+
+    // The dice: the card turns through a few games and lands on the one picked.
     property bool rolling: false
     property var rollFaces: []
     // Rolling while scrolled down (looking at screenshots): back to the top first, then roll.
@@ -271,7 +175,7 @@ FocusScope {
         onTriggered: inspect.rollTo(gid, pool)
     }
     function rollTo(gid, pool) {
-        if (!open || openAnim.running || closeAnim.running || stepAnim.running || rolling) return
+        if (!open || animating || rolling) return
         if (detailsFlick.contentY > 1 && motion > 0) {
             detailsWheel.glideTo(0, 220 * motion)
             rollAfterReset.gid = gid
@@ -280,9 +184,7 @@ FocusScope {
             return
         }
         otherMenu.close()
-        settleAnim.stop()
-        flipAnim.stop()
-        hero.dragTilt = 0
+        stopTurning()
         panelDir = 1
         if (motion <= 0) {
             swapTo(Backend.gameInfo(gid))
@@ -319,7 +221,7 @@ FocusScope {
         property string next
         property bool last: false
         property real q: 60
-        NumberAnimation { target: hero; property: "spin"; from: 0; to: 90; duration: turnAnim.q * inspect.motion; easing.type: Easing.InQuad }
+        NumberAnimation { target: inspect.hero; property: "spin"; from: 0; to: 90; duration: turnAnim.q * inspect.motion; easing.type: Easing.InQuad }
         ScriptAction {
             script: {
                 const g = Backend.gameInfo(turnAnim.next)
@@ -329,7 +231,7 @@ FocusScope {
             }
         }
         NumberAnimation {
-            target: hero; property: "spin"; from: -90; to: 0
+            target: inspect.hero; property: "spin"; from: -90; to: 0
             duration: turnAnim.q * (turnAnim.last ? 2.4 : 1) * inspect.motion
             easing.type: turnAnim.last ? Easing.OutBack : Easing.OutQuad
         }
@@ -350,94 +252,36 @@ FocusScope {
         duration: 220 * inspect.motion; easing.type: Easing.OutCubic
     }
 
-    SequentialAnimation {
-        id: edgeNudge
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX - 6; duration: 50 * inspect.motion; easing.type: Easing.OutQuad }
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX + 6; duration: 70 * inspect.motion; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: 50 * inspect.motion; easing.type: Easing.InQuad }
-    }
-
-    function resetGallery() { morph.reset() }  // no animation: closing or showing another game
-
     function close() {
         if (!open) return
-        stepAnim.complete()
         if (rolling) {
             rolling = false
             rollOut.stop()
             turnAnim.stop()
         }
-        resetGallery()
-        panelDir = 1
         otherMenu.close()
-        settleAnim.stop()
-        hero.dragTilt = 0
-        open = false
-        openAnim.stop()
         const cell = appRoot.cellFor(game.gameId)
-        const visibleCell = cell && appRoot.isCellVisible(cell)
-        if (visibleCell) {
-            const t = cell.mapToItem(inspect, cell.cardX, cell.cardY)
-            closeAnim.toX = t.x
-            closeAnim.toY = t.y
-            closeAnim.toScale = cell.cardW / heroW
-            closeAnim.toOpacity = 1
-            closeAnim.toSpin = Math.round(hero.spin / 360) * 360
+        const spot = cell && appRoot.isCellVisible(cell) ? cell.mapToItem(inspect, cell.cardX, cell.cardY) : null
+        const done = () => {
+            appRoot.setHidden(game.gameId, false)
+            appRoot.focusTray()
+        }
+        if (spot) {
+            flyOut(spot.x, spot.y, cell.cardW / heroW, 1, done)
         } else {
-            // Its slot isn't on screen: the card slides away toward it (up if the slot is above
-            // the visible tray, otherwise down).
+            // Its pocket isn't on screen: the card slides away toward it (up if it's above the
+            // visible tray, otherwise down).
             const row = Backend.games.rowOf(game.gameId)
             const top = appRoot.firstVisibleRow()
             const up = row >= 0 && top >= 0 && row < top
-            closeAnim.toSpin = Math.round(hero.spin / 360) * 360
-            closeAnim.toX = hero.x
-            closeAnim.toY = up ? -heroH * 1.4 : inspect.height + 40
-            closeAnim.toScale = hero.scale
-            closeAnim.toOpacity = 1
+            flyOut(hero.x, up ? -heroH * 1.4 : inspect.height + 40, hero.scale, 1, done)
         }
-        if (motion <= 0) {
-            finishClose()
-            return
-        }
-        closeAnim.restart()
-    }
-
-    function finishClose() {
-        hero.visible = false
-        level = 0
-        panelLevel = 0
-        appRoot.setHidden(game.gameId, false)
-        appRoot.focusTray()
-    }
-
-    function settle(velocityX) {
-        const coast = hero.spin + Math.max(-540, Math.min(540, velocityX * 0.25))
-        settleAnim.spinTo = Math.round(coast / 180) * 180
-        if (motion <= 0) {
-            hero.spin = settleAnim.spinTo
-            hero.dragTilt = 0
-            return
-        }
-        settleAnim.restart()
-        if (Math.abs(settleAnim.spinTo - hero.spin) >= 90) appRoot.sound("hover")
-    }
-
-
-    function flip() {
-        if (!open) return
-        const target = Math.round(hero.spin / 180) * 180 + 180
-        if (motion <= 0) { hero.spin = target % 360; return }
-        flipAnim.to = target
-        flipAnim.restart()
-        appRoot.sound("hover")
     }
 
     function play() {
         if (!open) return
-        settleAnim.stop()
-        hero.dragTilt = 0
-        if (hero.showingBack || flipAnim.running) {
-            flipAnim.stop()
+        stopTurning()
+        if (hero.showingBack || turning) {
             frontThenPlay.restart()
             return
         }
@@ -445,509 +289,163 @@ FocusScope {
             x: hero.x, y: hero.y, scale: hero.scale, cardWidth: heroW, lift: 1,
         }, function () { heroPress.restart() })
         if (result === "slot") {
-            open = false
-            openAnim.stop()
-            hero.visible = false
+            dismiss()
             appRoot.focusTray()
-            if (motion <= 0) { level = 0; panelLevel = 0 } else dismissAnim.restart()
         } else if (result === "noslot" || result === "running") {
             close()
         }
     }
-
-    Keys.onEscapePressed: close()
-    Keys.onPressed: (event) => {
-        if (event.key === Qt.Key_F && open) {
-            flip()
-            event.accepted = true
-        } else if ((event.key === Qt.Key_Left || event.key === Qt.Key_Right) && open) {
-            step(event.key === Qt.Key_Left ? -1 : 1)
-            event.accepted = true
-        }
-    }
-
-    ShaderEffectSource {
-        id: stageSource
-        sourceItem: inspect.stage
-        sourceRect: Qt.rect(inspect.x, inspect.y, inspect.width, inspect.height)  // the part behind
-        // Frozen while the view is open (cartridges going in and out of the tray while rolling
-        // would show through); live while it opens and closes.
-        live: inspect.visible && (!inspect.open || openAnim.running || closeAnim.running)
-        visible: false
-    }
-    // Settings → Appearance → Game View: the library blurred behind, or the game's art (on a
-    // plain dark ground, never mixed with the blur); a game without art gets the blur.
-    readonly property bool artBehind: Backend.settings.gameBackground === "backdrop" && (inspect.info.background || "") !== ""
-    // A Steam game's art is on its way (its details, then the picture): a plain dark ground
-    // meanwhile, never the blur first. The blur only for a game with no art (its details came
-    // without any, or nothing came within a few seconds).
-    property bool factsLate: false
-    Timer { id: factsTimer; interval: 2500; onTriggered: inspect.factsLate = true }
-    readonly property bool artExpected: Backend.settings.gameBackground === "backdrop" && !Backend.fake
-        && (inspect.artBehind || (inspect.game.source === "steam" && (parseInt(inspect.game.extId) || 0) > 0
-                                  && Object.keys(inspect.info).length === 0 && !inspect.factsLate))
-    MultiEffect {
-        anchors.fill: parent
-        source: stageSource
-        visible: inspect.level > 0.001 && !inspect.artExpected
-        opacity: inspect.level
-        blurEnabled: true
-        blur: 1.0
-        blurMax: 48
-        autoPaddingEnabled: false
-    }
-    Rectangle {
-        anchors.fill: parent
-        visible: inspect.artExpected
-        color: "#0b0b0e"
-        opacity: inspect.level
-    }
-    // The game's art under the scrim (at most 55%: white text stays ≥4.5:1 over any art).
-    GameBackdrop {
-        id: backdrop
-        anchors.fill: parent
-        level: inspect.level * 0.55 * (1 - inspect.galleryLevel)  // (the backdrop cross-fades its own art)
-        source: inspect.artBehind ? inspect.info.background : ""
-    }
-    // Dark enough for the white text in both editions (≥4.5:1).
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(0.04, 0.04, 0.05, Backend.theme.dark ? 0.72 : 0.64)
-        opacity: inspect.level
-    }
-    MouseArea {
-        anchors.fill: parent
-        enabled: inspect.open
-        hoverEnabled: true
-        acceptedButtons: Qt.AllButtons
-        onClicked: if (Date.now() - inspect.openedAt > 450) inspect.close()
-        onWheel: (wheel) => wheel.accepted = true
-    }
-
-    HeroCard {
-        id: hero
-        visible: false || inspect.warming
-        opacity: inspect.warming && !inspect.open ? 0.004 : 1
-        // Warming up, it's an invisible card in the window's top-left corner: it mustn't take
-        // the clicks meant for what's under it (≡ didn't respond for half a second after launch).
-        enabled: !inspect.warming || inspect.open
-        width: inspect.heroW
-        height: inspect.heroW * inspect.ratio
-        transformOrigin: Item.TopLeft
-        transform: Translate { x: -inspect.galleryLevel * (inspect.heroX + inspect.heroW - inspect.peekW) }
-        game: inspect.game
-        motion: inspect.motion
-        holding: inspect.open
-        busy: openAnim.running || flipAnim.running || settleAnim.running
-        selfSettling: false
-        onReleased: (vx) => inspect.settle(vx)
-        onTapped: inspect.galleryMode ? inspect.exitGallery() : inspect.flip()
-        onDraggingChanged: if (dragging) { flipAnim.stop(); settleAnim.stop() }
-    }
-
-    ParallelAnimation {
-        id: settleAnim
-        property real spinTo: 0
-        NumberAnimation {
-            target: hero
-            property: "spin"
-            to: settleAnim.spinTo
-            duration: Math.min(900, 260 + Math.abs(settleAnim.spinTo - hero.spin) * 1.1) * inspect.motion
-            easing.type: Easing.OutBack
-            easing.overshoot: 0.7
-        }
-        NumberAnimation { target: hero; property: "dragTilt"; to: 0; duration: 380 * inspect.motion; easing.type: Easing.OutBack }
-        onFinished: hero.spin = ((hero.spin % 360) + 360) % 360
-    }
-
-    NumberAnimation {
-        id: flipAnim
-        target: hero
-        property: "spin"
-        duration: 460 * inspect.motion
-        easing.type: Easing.OutBack
-        easing.overshoot: 0.8
-        onFinished: hero.spin = hero.spin % 360
-    }
     SequentialAnimation {
         id: frontThenPlay
         NumberAnimation {
-            target: hero
+            target: inspect.hero
             property: "spin"
-            to: Math.ceil(hero.spin / 360) * 360
+            to: Math.ceil(inspect.hero.spin / 360) * 360
             duration: 260 * inspect.motion
             easing.type: Easing.InOutCubic
         }
         ScriptAction {
             script: {
-                hero.spin = 0
+                inspect.hero.spin = 0
                 inspect.play()
             }
         }
     }
-
     SequentialAnimation {
         id: heroPress
-        NumberAnimation { target: hero; property: "press"; to: 0.97; duration: 80 * inspect.motion; easing.type: Easing.OutQuad }
-        NumberAnimation { target: hero; property: "press"; to: 1; duration: 140 * inspect.motion; easing.type: Easing.OutBack }
+        NumberAnimation { target: inspect.hero; property: "press"; to: 0.97; duration: 80 * inspect.motion; easing.type: Easing.OutQuad }
+        NumberAnimation { target: inspect.hero; property: "press"; to: 1; duration: 140 * inspect.motion; easing.type: Easing.OutBack }
     }
 
-    ParallelAnimation {
-        id: openAnim
-        // Flight and spin share one duration and easing, so the card finishes its turn as it
-        // arrives.
-        NumberAnimation { target: hero; property: "x"; to: inspect.heroX; duration: inspect.openDuration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: hero; property: "y"; to: inspect.heroY; duration: inspect.openDuration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: hero; property: "scale"; to: 1; duration: inspect.openDuration; easing.type: Easing.OutCubic }
-        SequentialAnimation {
-            NumberAnimation { target: hero; property: "spin"; from: 0; to: 360; duration: inspect.openDuration; easing.type: Easing.OutCubic }
-            ScriptAction { script: hero.spin = 0 }
+    // Beside where it's from: a game lent by the Steam Family says so.
+    eyebrowExtra: Row {
+        visible: inspect.game.family === true
+        spacing: 6
+        Accessible.role: Accessible.StaticText
+        Accessible.name: "Shared by your Steam Family"
+        CIcon {
+            width: 16
+            height: 16
+            anchors.verticalCenter: parent.verticalCenter
+            source: "group-symbolic"
+            color: Ui.onScrimDim
         }
-        NumberAnimation { target: inspect; property: "level"; to: 1; duration: 220 * inspect.motion; easing.type: Easing.OutQuad }
-        SequentialAnimation {
-            // The details wait until the flying card has crossed their side (at 40 % of its
-            // flight, eased, it's ~80 % of the way): earlier, its back passed over the title.
-            PauseAnimation { duration: inspect.openDuration * 0.4 }
-            NumberAnimation { target: inspect; property: "panelLevel"; to: 1; duration: 240 * inspect.motion; easing.type: Easing.OutCubic }
+        Text {
+            text: "FAMILY"
+            color: Ui.onScrimDim
+            font.family: Ui.fontLabels
+            font.weight: Font.Black
+            font.pixelSize: Ui.textBody
+            font.letterSpacing: 2.5
         }
     }
 
-    SequentialAnimation {
-        id: closeAnim
-        property real toX
-        property real toY
-        property real toScale
-        property real toOpacity: 1
-        property real toSpin: 0
-        ParallelAnimation {
-            // The "place" sound's thump is ~125 ms in.
-            SequentialAnimation {
-                PauseAnimation { duration: Math.max(0, 300 * inspect.motion - 125) }
-                ScriptAction { script: if (closeAnim.toOpacity > 0) inspect.appRoot.sound("place") }
-            }
-            NumberAnimation { target: hero; property: "spin"; to: closeAnim.toSpin; duration: 300 * inspect.motion; easing.type: Easing.InOutCubic }
-            NumberAnimation { target: hero; property: "x"; to: closeAnim.toX; duration: 300 * inspect.motion; easing.type: Easing.InOutCubic }
-            NumberAnimation { target: hero; property: "y"; to: closeAnim.toY; duration: 300 * inspect.motion; easing.type: Easing.InOutCubic }
-            NumberAnimation { target: hero; property: "scale"; to: closeAnim.toScale; duration: 300 * inspect.motion; easing.type: Easing.InOutCubic }
-            NumberAnimation { target: hero; property: "opacity"; to: closeAnim.toOpacity; duration: 300 * inspect.motion }
-            NumberAnimation { target: inspect; property: "level"; to: 0; duration: 240 * inspect.motion; easing.type: Easing.InQuad }
-            NumberAnimation { target: inspect; property: "panelLevel"; to: 0; duration: 120 * inspect.motion; easing.type: Easing.InQuad }
+    // Play, then Play Next and More as small keys beside it.
+    actions: [
+        CButton {
+            id: playButton
+            opacity: inspect.standIn ? 0 : 1
+            width: parent.width - 2 * (height + Ui.gapM)
+            big: true
+            kind: "primary"
+            readonly property real progress: !inspect.game.installed && Backend.installs
+                                             && Backend.installs.progress[inspect.game.gameId] !== undefined
+                                             ? Backend.installs.progress[inspect.game.gameId] : -1
+            enabled: progress < 0
+            text: inspect.game.installed ? "Play"
+                : progress >= 0 ? "Installing… " + Math.round(progress * 100) + "%" : "Install"
+            icon.name: inspect.game.installed ? "media-playback-start-symbolic" : "download-symbolic"
+            onClicked: inspect.play()
+            Keys.onReturnPressed: inspect.play()
+            Keys.onEnterPressed: inspect.play()
+        },
+        CButton {
+            // Mentioning playNextStore re-checks it whenever Play Next changes.
+            readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
+            objectName: "tourBookmark"  // (the first-run tour points at it)
+            kind: "scrim"
+            width: playButton.height
+            height: playButton.height
+            icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+            Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
+            QQC2.ToolTip.visible: tipWanted
+            QQC2.ToolTip.text: Accessible.name
+            QQC2.ToolTip.delay: 300
+            onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
+        },
+        CButton {
+            id: otherButton
+            objectName: "inspectOtherButton"  // for the test harness
+            kind: "scrim"
+            width: playButton.height
+            height: playButton.height
+            icon.name: "overflow-menu-symbolic"
+            Accessible.name: "More for this game"
+            QQC2.ToolTip.visible: tipWanted
+            QQC2.ToolTip.text: "More"
+            QQC2.ToolTip.delay: 300
+            onClicked: otherMenu.openFrom(otherButton)
         }
-        ScriptAction { script: inspect.finishClose() }
-    }
+    ]
 
-    ParallelAnimation {
-        id: dismissAnim
-        NumberAnimation { target: inspect; property: "level"; to: 0; duration: 260 * inspect.motion; easing.type: Easing.InQuad }
-        NumberAnimation { target: inspect; property: "panelLevel"; to: 0; duration: 140 * inspect.motion; easing.type: Easing.InQuad }
-    }
-
-    // Scrolling down through the screenshots turns the view into its gallery (GalleryMorph).
-    readonly property real peekW: 64
-    readonly property real panelBaseX: inspect.wide ? inspect.heroX + inspect.heroW + inspect.gap : Math.round((inspect.width - inspect.panelW) / 2)
-    readonly property real panelGalleryX: peekW + inspect.gap
-    readonly property bool galleryMode: morph.galleryMode
-    readonly property real galleryLevel: morph.level
-    function exitGallery() {
-        morph.exit()
-        playButton.forceActiveFocus()
-    }
-
-    GalleryView {
-        id: galleryView
-        x: inspect.panelGalleryX + (1 - inspect.galleryLevel) * 40
-        y: Ui.gapXL
-        width: inspect.width - inspect.panelGalleryX - 72
-        height: inspect.height - 2 * Ui.gapXL
-        opacity: inspect.panelLevel * morph.galleryOpacity
-        visible: opacity > 0.01 || morph.morphing
-        enabled: inspect.galleryMode
-        morphing: morph.morphing
-        info: inspect.info
-        appRoot: inspect.appRoot
-        title: inspect.game.title || ""
-        subtitle: [inspect.game.developer || "",
-                   inspect.game.released ? new Date(inspect.game.released * 1000).getFullYear().toString() : ""]
-                  .filter(x => x).join("  ·  ")
-        actionText: playButton.text
-        actionIcon: playButton.icon.name
-        actionEnabled: playButton.enabled
-        onAction: {
-            inspect.resetGallery()
-            inspect.play()
-        }
-        onBack: inspect.exitGallery()
-    }
-
-    Item {
-        id: detailsPanel
-        readonly property real avail: inspect.wide ? inspect.height - inspect.titleY - Ui.gapXL
-                                                   : inspect.height - (inspect.heroY + inspect.heroH + 28) - 20
-        x: inspect.panelBaseX - inspect.galleryLevel * 40
-        // Level with the cartridge's top, and it stays there: the details arrive in stages, and
-        // a panel that re-centered would move Play out from under the pointer.
-        // The title's capitals line up with the cartridge's top edge; the source label hangs above.
-        readonly property real titleLift: Math.round(sourceRow.height + Ui.gapS + titleText.y0)
-        y: inspect.wide ? inspect.titleY - titleLift : inspect.heroY + inspect.heroH + 28
-        Behavior on y {
-            enabled: inspect.settled
-            NumberAnimation { duration: 200 * inspect.motion; easing.type: Easing.OutCubic }
-        }
-        width: detailsFlick.width
-        height: pinned.height + Ui.gapXL + detailsFlick.height
-        opacity: inspect.panelLevel * morph.detailsOpacity
-        enabled: !inspect.galleryMode
-        visible: opacity > 0.01 || morph.morphing
-        transform: Translate { x: (1 - inspect.panelLevel) * 28 * inspect.panelDir }
-        Accessible.role: Accessible.Dialog
-        Accessible.name: inspect.game.title || ""
-
-        Column {
-            id: pinned
-            width: inspect.panelW
+    details: [
+        Flow {  // the facts, side by side
+            width: parent.width
             spacing: Ui.gapXL
-            Column {
-                width: parent.width
-                spacing: Ui.gapS
-                Row {  // where it's from; a game lent by the Steam Family says so
-                    id: sourceRow
+            Repeater {
+                model: [
+                    { icon: "view-calendar-symbolic", text: inspect.lastPlayedText(inspect.game.lastPlayed) },
+                    { icon: "chronometer-symbolic", text: inspect.playtimeText(inspect.game.playtime) },
+                    { icon: inspect.game.installed ? "checkmark-symbolic" : "download-symbolic",
+                      text: inspect.game.installed ? "Installed" : "Not installed" },
+                    { icon: "system-run-symbolic", text: inspect.game.noSlot ? "Launches without a slot" : "" },
+                ]
+                delegate: Row {
+                    required property var modelData
+                    visible: modelData.text !== ""
                     spacing: Ui.gapM
-                    Text {
-                        id: sourceEyebrow
-                        text: (inspect.game.sourceName || "").toUpperCase()
+                    CIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 18
+                        height: 18
+                        source: modelData.icon
+                        isMask: true
                         color: Ui.onScrimDim
-                        font.family: Ui.fontLabels
-                        font.weight: Font.Black
-                        font.pixelSize: Ui.textBody
-                        font.letterSpacing: 2.5
                     }
-                    Row {
-                        visible: inspect.game.family === true
-                        spacing: 6
-                        anchors.verticalCenter: sourceEyebrow.verticalCenter
-                        Accessible.role: Accessible.StaticText
-                        Accessible.name: "Shared by your Steam Family"
-                        CIcon {
-                            width: 16
-                            height: 16
-                            anchors.verticalCenter: parent.verticalCenter
-                            source: "group-symbolic"
-                            color: Ui.onScrimDim
-                        }
-                        Text {
-                            text: "FAMILY"
-                            color: Ui.onScrimDim
-                            font.family: Ui.fontLabels
-                            font.weight: Font.Black
-                            font.pixelSize: Ui.textBody
-                            font.letterSpacing: 2.5
-                        }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.text
+                        color: Ui.onScrim
+                        font.family: Ui.fontText
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Ui.textLead
                     }
                 }
-                Text {
-                    id: titleText
-                    // From the top of the text box to the top of the capitals (an H's real outline:
-                    // the font's declared cap height was 3 px off).
-                    readonly property real y0: Math.max(0, titleText.baselineOffset + titleFm.tightBoundingRect("H").y)
-                    FontMetrics { id: titleFm; font: titleText.font }
-                    width: parent.width
-                    text: inspect.game.title || ""
-                    color: Ui.onScrim
-                    font.family: Ui.fontTitles
-                    font.weight: Font.Black
-                    font.pixelSize: Ui.textDisplay
-                    lineHeight: 0.95
-                    wrapMode: Text.Wrap
-                    maximumLineCount: 3
-                    elide: Text.ElideRight
-                }
-                Text {
-                    readonly property var g: inspect.game
-                    readonly property string year: g.released ? new Date(g.released * 1000).getFullYear().toString() : ""
-                    visible: text !== ""
-                    width: parent.width
-                    topPadding: 2
-                    textFormat: g.source === "steam" ? Text.StyledText : Text.PlainText
-                    text: g.source === "steam" ? Ui.creditsLine(g.developer, g.publisher, year)
-                        : [g.developer || "", g.publisher && g.publisher !== g.developer ? g.publisher : "", year]
-                          .filter(x => x).join("  ·  ")
-                    linkColor: Ui.onScrimDim
-                    onLinkActivated: (url) => Backend.openUrl(url)
-                    HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
-                    color: Ui.onScrimDim
-                    font.family: Ui.fontText
-                    font.weight: Font.Bold
-                    font.pixelSize: Ui.textLead
-                    wrapMode: Text.Wrap
-                    maximumLineCount: 2
-                    elide: Text.ElideRight
-                }
             }
-
-            // One row of actions: Play, then Play Next and More as small keys beside it.
-            Row {
-              width: parent.width
-              spacing: Ui.gapM
-            CButton {
-                id: playButton
-                width: parent.width - 2 * (height + Ui.gapM)
-                big: true
-                kind: "primary"
-                opacity: morph.morphing ? 0 : 1
-                readonly property real progress: !inspect.game.installed && Backend.installs
-                                                 && Backend.installs.progress[inspect.game.gameId] !== undefined
-                                                 ? Backend.installs.progress[inspect.game.gameId] : -1
-                enabled: progress < 0
-                text: inspect.game.installed ? "Play"
-                    : progress >= 0 ? "Installing… " + Math.round(progress * 100) + "%" : "Install"
-                icon.name: inspect.game.installed ? "media-playback-start-symbolic" : "download-symbolic"
-                onClicked: inspect.play()
-                Keys.onReturnPressed: inspect.play()
-                Keys.onEnterPressed: inspect.play()
-            }
-
-            CButton {
-                // Mentioning playNextStore re-checks it whenever Play Next changes.
-                readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
-                objectName: "tourBookmark"  // (the first-run tour points at it)
-                kind: "scrim"
-                width: playButton.height
-                height: playButton.height
-                icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
-                Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
-                QQC2.ToolTip.visible: tipWanted
-                QQC2.ToolTip.text: Accessible.name
-                QQC2.ToolTip.delay: 300
-                onClicked: Backend.setPlayNext(inspect.game.gameId, !next)
-            }
-            CButton {
-                id: otherButton
-                objectName: "inspectOtherButton"  // for the test harness
-                kind: "scrim"
-                width: playButton.height
-                height: playButton.height
-                icon.name: "overflow-menu-symbolic"
-                Accessible.name: "More for this game"
-                QQC2.ToolTip.visible: tipWanted
-                QQC2.ToolTip.text: "More"
-                QQC2.ToolTip.delay: 300
-                onClicked: otherMenu.openFrom(otherButton)
-            }
-            }
-
+        },
+        ReviewBadges {
+            width: parent.width
+            info: inspect.info
+            extraChips: inspect.extras.players ? [{ text: inspect.extras.players + " playing now", live: true }] : []
+        },
+        AchievementsSection {
+            objectName: "achievements"  // for the test harness
+            width: parent.width
+            appid: inspect.appid
+        },
+        FoldSection {
+            width: parent.width
+            title: "About This Game"
+            text: inspect.info.about || inspect.info.description || ""
+        },
+        GameLinks {
+            width: parent.width
+            appid: inspect.appid
+            title: inspect.game.title || ""
+            website: inspect.info.website || ""
+            metacriticUrl: inspect.info.metacriticUrl || ""
         }
-
-        Flickable {
-            id: detailsFlick
-            objectName: "inspectDetails"  // for the test harness
-            y: pinned.height + Ui.gapXL
-            width: inspect.panelW + (contentHeight > height ? Ui.gapL : 0)
-            height: Math.max(0, Math.min(details.height, detailsPanel.avail - pinned.height - Ui.gapXL))
-            contentHeight: Math.max(details.height, morph.neededContentHeight)
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            WheelAccel { id: detailsWheel; flickable: detailsFlick; step: 90 }
-            AutoScroll { flickable: detailsFlick }
-            onVisibleChanged: if (visible) contentY = 0
-            QQC2.ScrollBar.vertical: CScrollBar { onDark: true }
-
-            Column {
-                id: details
-                width: inspect.panelW
-                spacing: Ui.gapXL
-                Flow {  // the facts, side by side
-                    width: parent.width
-                    spacing: Ui.gapXL
-                    Repeater {
-                        model: [
-                            { icon: "view-calendar-symbolic", text: inspect.lastPlayedText(inspect.game.lastPlayed) },
-                            { icon: "chronometer-symbolic", text: inspect.playtimeText(inspect.game.playtime) },
-                            { icon: inspect.game.installed ? "checkmark-symbolic" : "download-symbolic",
-                              text: inspect.game.installed ? "Installed" : "Not installed" },
-                            { icon: "system-run-symbolic", text: inspect.game.noSlot ? "Launches without a slot" : "" },
-                        ]
-                        delegate: Row {
-                            required property var modelData
-                            visible: modelData.text !== ""
-                            spacing: Ui.gapM
-                            CIcon {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 18
-                                height: 18
-                                source: modelData.icon
-                                isMask: true
-                                color: Ui.onScrimDim
-                            }
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: modelData.text
-                                color: Ui.onScrim
-                                font.family: Ui.fontText
-                                font.weight: Font.DemiBold
-                                font.pixelSize: Ui.textLead
-                            }
-                        }
-                    }
-                }
-
-                ReviewBadges {
-                    width: parent.width
-                    info: inspect.info
-                    extraChips: inspect.extras.players ? [{ text: inspect.extras.players + " playing now", live: true }] : []
-                }
-                AchievementsSection {
-                    objectName: "achievements"  // for the test harness
-                    width: parent.width
-                    appid: inspect.game.source === "steam" ? (parseInt(inspect.game.extId) || 0) : 0
-                }
-                FoldSection {
-                    width: parent.width
-                    title: "About This Game"
-                    text: inspect.info.about || inspect.info.description || ""
-                }
-                GameLinks {
-                    width: parent.width
-                    appid: inspect.game.source === "steam" ? (parseInt(inspect.game.extId) || 0) : 0
-                    title: inspect.game.title || ""
-                    website: inspect.info.website || ""
-                    metacriticUrl: inspect.info.metacriticUrl || ""
-                }
-                MediaGallery {
-                    id: mediaGallery
-                    width: inspect.panelW
-                    info: inspect.info
-                    appRoot: inspect.appRoot
-                    hideFirst: morph.morphing
-                }
-            }
-        }
-    }
-
-    GalleryMorph {
-        id: morph
-        anchors.fill: parent
-        flick: detailsFlick
-        wheel: detailsWheel
-        gallery: mediaGallery
-        view: galleryView
-        button: playButton
-        active: false  // full view only when a screenshot is clicked (scrolling just scrolls)
-        motion: inspect.motion
-        onEntered: galleryView.forceActiveFocus()
-    }
-
-    PageControls {
-        arrowY: inspect.wide ? hero.y + hero.height * hero.scale / 2 : -1
-        anchors.fill: parent
-        z: 1
-        shown: inspect.open
-        arrows: inspect.wide
-        dice: true
-        opacity: inspect.level  // (not the panel's: they stay put while stepping and rolling)
-        onStep: (dir) => inspect.step(dir)
-        onClose: inspect.close()
-        onRoll: inspect.appRoot.rollDice()
-    }
+    ]
 
     CMenu {
         id: otherMenu

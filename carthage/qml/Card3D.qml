@@ -32,7 +32,8 @@ View3D {
     // small card's text and edges shimmer and stair-step when the texture is shrunk.
     readonly property real faceW: Math.max(240, Math.min(720, Math.round(cardHeight / Backend.theme.ratio * Screen.devicePixelRatio * 2)))
     // The back's engraved code: the same as the front's label (Cartridge.qml), in full.
-    readonly property string backLabel: (view.game.label
+    // (A store game's front shows its price: its back still has the code, given as backLabel.)
+    readonly property string backLabel: (view.game.backLabel || view.game.label
         || [view.game.sourceName || "", view.game.extId || "", view.game.code || ""].filter(x => x).join(" - "))
         .replace(/[?&#]/g, "")
     readonly property real fov: 20

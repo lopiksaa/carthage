@@ -4,7 +4,6 @@
 // rolling the dice) the last picture fades out instead of vanishing. The views keep their dark
 // scrim on top, so the text stays readable.
 import QtQuick
-import QtQuick.Effects
 import Carthage
 
 Item {
@@ -51,18 +50,6 @@ Item {
         onTriggered: if (bd.source === "") { layerA.shown = false; layerB.shown = false }
     }
 
-    Rectangle {
-        id: fade
-        anchors.fill: parent
-        visible: false
-        layer.enabled: true
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "white" }
-            GradientStop { position: 0.35; color: "white" }
-            GradientStop { position: 0.9; color: "transparent" }
-        }
-    }
-
     component ArtLayer: Item {
         id: art
         property string src
@@ -97,17 +84,20 @@ Item {
             asynchronous: true
             cache: true
             sourceSize.width: 1600
-            visible: false
+            visible: art.ready
             onStatusChanged: if (status === Image.Ready && art.src === bd.source) art.takeOver()
         }
-        MultiEffect {
+        // Fading into the dark ground under it (GameView's) toward the bottom: a gradient over
+        // the art, not a mask (a full-window masking effect cost every frame its share: the
+        // view stuttered while anything moved).
+        Rectangle {
             anchors.fill: parent
-            source: img
             visible: art.ready
-            maskEnabled: true
-            maskSource: fade
-            maskThresholdMin: 0.0
-            maskSpreadAtMin: 1.0
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(0.043, 0.043, 0.055, 0) }
+                GradientStop { position: 0.35; color: Qt.rgba(0.043, 0.043, 0.055, 0) }
+                GradientStop { position: 0.9; color: Qt.rgba(0.043, 0.043, 0.055, 1) }
+            }
         }
     }
     ArtLayer { id: layerA }

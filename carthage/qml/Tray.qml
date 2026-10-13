@@ -53,15 +53,15 @@ GridView {
     flickableDirection: Flickable.VerticalFlick
     cellWidth: shelf ? mainTray.cellWidth : Math.floor((width - leftMargin - rightMargin) / columns)
     cellHeight: cardW * Backend.theme.ratio + 2 * pad + Ui.spacingLarge * 3 + titleHeight
-    cacheBuffer: shelf ? 0 : big ? cellHeight * 0.5 : cellHeight * 2  // (a shelf shows all it builds)
-    // A big view (over 300 games) keeps fewer cells ready off screen.
-    readonly property bool big: !shelf && count > 300
+    cacheBuffer: shelf ? 0 : cellHeight * 2  // (a shelf shows all it builds)
     clip: true
     focus: true
     keyNavigationEnabled: true
     boundsBehavior: Flickable.StopAtBounds
     highlightFollowsCurrentItem: false
-    reuseItems: false
+    // Cells scrolling out are kept and given to the games scrolling in: building a cartridge is
+    // what made big libraries stall while scrolling (measured: ~200 ms freezes, none with reuse).
+    reuseItems: !shelf
     activeFocusOnTab: true
     Accessible.role: Accessible.List
     Accessible.name: "Games"
@@ -87,8 +87,6 @@ GridView {
         toTop.to = top
         toTop.restart()
     }
-    // (the Back to top button is App.qml's: outside the grid, so the glass can frost it)
-    readonly property bool scrolledAway: !shelf && contentY - (originY - topMargin) > height
     WheelAccel {
         enabled: !grid.shelf  // the shelf leaves the wheel to the tray around it
         flickable: grid

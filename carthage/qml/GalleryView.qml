@@ -20,6 +20,7 @@ Item {
     signal back()
 
     function toTop() { flick.contentY = 0 }
+    readonly property bool scrolled: flick.contentY > 4  // (GalleryMorph: no fly-back from off screen)
 
     Accessible.role: Accessible.Pane
     Accessible.name: title + ", screenshots"

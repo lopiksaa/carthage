@@ -40,10 +40,36 @@ Item {
     property string page: "library:all"
     property var pageHistory: []
     readonly property bool libraryGrid: page === "library:all" || page.startsWith("library:source:")
+    // The page's own scrolling list, for Back to top (null: a page that doesn't scroll).
+    readonly property Flickable scroller: libraryGrid ? tray
+        : page === "library:playnext" ? playNextPage
+        : page === "library:favorites" ? favoritesPage
+        : customListShown ? customListPage
+        : page === "store:discover" ? storeView.scroller
+        : page === "store:deals" ? dealsPage
+        : page === "store:free" ? freePage
+        : page === "store:wishlist" ? wishlistPage
+        : page === "store:shelf" ? shelfPage
+        : page === "search" ? searchPage
+        : null
+    // Back to the top of the page, quickly however far down (the tray's own does the same).
+    function backToTop() {
+        const f = scroller
+        if (!f) return
+        if (f === tray) return tray.backToTop()
+        const top = f.originY - f.topMargin
+        if (f.contentY - top > f.height * 2) f.contentY = top + f.height * 2
+        toTopAnim.target = f
+        toTopAnim.to = top
+        toTopAnim.restart()
+    }
+    NumberAnimation { id: toTopAnim; property: "contentY"; duration: 380 * Backend.motion; easing.type: Easing.OutCubic }
     readonly property bool listPageShown: page === "library:playnext" || page === "library:favorites" || customListShown
     readonly property bool customListShown: page.startsWith("library:list:")
     readonly property string customListId: customListShown ? page.slice(13) : ""
+    property var shelf: ({ title: "", items: [] })  // the store section open on its own page (store:shelf)
     readonly property string pageTitle: {
+        if (page === "store:shelf") return shelf.title
         if (page.startsWith("library:list:")) {
             const l = Backend.lists.find(x => "library:list:" + x.id === page)
             return l ? l.name : "List"
@@ -109,6 +135,12 @@ Item {
         wishlistError = ""
         Backend.store.loadWishlist(sid)
     }
+    // Which games are on your Steam wishlist, once a little after start (store pages say so).
+    Timer {
+        interval: 4000
+        running: !Backend.fake
+        onTriggered: { const sid = Backend.steamId(); if (sid) Backend.store.loadWishlistIds(sid) }
+    }
     property int dealsPageNo: 1
     property bool dealsLoadingMore: false
     Connections {
@@ -147,7 +179,7 @@ Item {
     }
     // True while any window/panel sits on top of the tray and dock: they then ignore input,
     // because Qt's tap handlers can still see clicks underneath a modal popup.
-    readonly property bool modalOpen: dialogOpen || storePage.open || inspect.open
+    readonly property bool modalOpen: dialogOpen || storePage.open || inspect.open || firstRun.visible  // (the setup covers everything: nothing behind it reacts)
     // Dialogs, panels and menus: these block the sidebar too (a game's view doesn't).
     readonly property bool dialogOpen: artPicker.opened || cropEditor.opened || confirm.opened
                                        || headerPicker.opened || textPrompt.opened || processPicker.opened
@@ -601,8 +633,9 @@ Item {
             if (Backend.updater.automatic && Backend.updater.state !== "failed") {
                 if (Backend.updater.state !== "ready") return
                 told = true
-                app.notify("Carthage " + Backend.updater.latest + " is ready. It installs when Carthage restarts.",
-                           "Restart Now", function () { Backend.updater.restartNow() })
+                // It installs on Restart Now: the toast waits for it (or its ✕).
+                Window.window.showPassiveNotification("Carthage " + Backend.updater.latest + " is ready. Restart to install it.",
+                                                      "sticky", "Restart Now", function () { Backend.updater.restartNow() })
             } else {
                 told = true
                 app.notify("Carthage " + Backend.updater.latest + " is out.", "Download",
@@ -661,6 +694,7 @@ Item {
 
             // The glass look's ground, behind the header and the pages (Plastic draws its own).
             Binding { target: Ui; property: "groundScroll"; value: app.libraryGrid ? tray.contentY / Math.max(1, app.height) : 0 }
+            Binding { target: Ui; property: "groundCovered"; value: (inspect.open && inspect.level > 0.99) || (storePage.open && storePage.level > 0.99) }
             WebGround {
                 id: ground
                 objectName: "ground"
@@ -770,15 +804,53 @@ Item {
                         anchors.top: parent.top
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        height: visible ? 52 : 0
+                        // A store section opened from Discover (a shelf's title, All Categories)
+                        // has a small Back above its title.
+                        readonly property bool canGoBack: app.page === "store:shelf"
+                                                          || (app.page === "store:discover" && storeView.browsing)
+                        height: visible ? (canGoBack ? 74 : 52) : 0
+                        Row {
+                            id: backLink
+                            visible: pageBar.canGoBack
+                            x: tray.contentLeft - 4
+                            y: 8
+                            spacing: 2
+                            opacity: backHover.hovered ? 1 : 0.7
+                            Accessible.role: Accessible.Button
+                            Accessible.name: "Back"
+                            CIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 16
+                                height: 16
+                                source: "go-previous-symbolic"
+                                color: Backend.theme.p.trayText
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Back"
+                                color: Backend.theme.p.trayText
+                                font.family: Ui.fontButtons
+                                font.weight: Font.Bold
+                                font.pixelSize: Ui.textCaption
+                            }
+                            HoverHandler { id: backHover; cursorShape: Qt.PointingHandCursor }
+                            TapHandler {
+                                onTapped: {
+                                    app.sound("key")
+                                    if (app.page === "store:shelf") app.navigateBack()
+                                    else storeView.browsing = false
+                                }
+                            }
+                        }
                         Row {
                             // The page grid's left edge; on Settings, the centred panel's.
                             x: app.page === "settings" ? settingsPage.x : tray.contentLeft
-                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 14
                             spacing: Ui.gapM
                             EngravedLabel {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: app.pageTitle
+                                text: storeView.browsing && app.page === "store:discover" ? "All Categories" : app.pageTitle
                             }
                         }
                     }
@@ -852,6 +924,7 @@ Item {
                         visible: app.page === "store:discover" || app.page === "store:genres"
                         tray: tray
                         onGenre: (c) => app.searchGenre(c.tag)
+                        onOpenShelf: (sh) => { app.shelf = sh; app.navigate("store:shelf") }
                         anchors.top: pageBar.bottom
                         anchors.left: parent.left
                         anchors.right: parent.right
@@ -899,6 +972,19 @@ Item {
                         tray: tray
                         items: app.wishlist
                         emptyText: app.wishlistError || (app.wishlistLoaded ? "Your Steam wishlist is empty" : "Getting your wishlist…")
+                        onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
+                    }
+                    StoreListPage {
+                        id: shelfPage
+                        visible: app.page === "store:shelf"
+                        anchors.top: pageBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        appRoot: app
+                        tray: tray
+                        items: app.shelf.items
+                        emptyText: "Nothing here right now"
                         onChosen: (it, cart, siblings) => storePage.openFor(it, siblings)
                     }
                     SearchPage {
@@ -985,9 +1071,11 @@ Item {
                 // like the dock on glass.
                 Item {
                     id: topButton
-                    readonly property bool shown: app.libraryGrid && tray.scrolledAway
-                    readonly property point at: tray.width + tray.height + app.width >= 0
-                        ? tray.mapToItem(parent, (tray.width - width) / 2, 12) : Qt.point(0, 0)
+                    readonly property Flickable f: app.scroller
+                    readonly property bool shown: !!f && f.visible && !app.modalOpen && !(f === tray && tray.shelf)
+                                                  && f.contentY - (f.originY - f.topMargin) > f.height
+                    readonly property point at: f && f.width + f.height + app.width >= 0
+                        ? f.mapToItem(parent, (f.width - topBtn.width) / 2, 12) : Qt.point(0, 0)
                     x: at.x
                     y: at.y + (shown ? 0 : -12)
                     z: 5
@@ -1010,7 +1098,7 @@ Item {
                         id: topBtn
                         text: "Back to top"
                         icon.name: "go-up-symbolic"
-                        onClicked: { tray.backToTop(); app.sound("key") }
+                        onClicked: { app.backToTop(); app.sound("key") }
                     }
                 }
 
@@ -1212,6 +1300,7 @@ Item {
         ground: ground
         onFinished: tourDelay.restart()
         Component.onCompleted: if (Backend.firstRun) start(true)
+                               else if (Backend.updateIntro) start(true, true)
     }
     Timer { id: tourDelay; interval: 1300; onTriggered: tour.begin() }
     Tour { id: tour; appRoot: app }

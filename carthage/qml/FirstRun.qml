@@ -16,6 +16,47 @@ Item {
     property int step: 0
     property int shownStep: 0      // the step on screen (follows step after the change animates)
     readonly property int lastStep: 5
+    // Updating from before 0.4.0 (Backend.updateIntro): Welcome back, what's new, the look and
+    // the card colour, then the tour (no key steps: they're set up already).
+    property bool updating: false
+    property bool moreNews: false  // the long list of what's new, instead of the highlights
+    // "And more!": the long list rolls out like a receipt from a printer, overshoots and bounces.
+    property real unroll: 1
+    function showMore() {
+        moreNews = true
+        if (Backend.motion <= 0) return
+        appRoot.sound("insert")
+        unrollAnim.restart()
+    }
+    SequentialAnimation {
+        id: unrollAnim
+        NumberAnimation { target: fr; property: "unroll"; from: 0.12; to: 0.12; duration: 1 }
+        NumberAnimation { target: fr; property: "unroll"; to: 1; duration: 1100 * Backend.motion; easing.type: Easing.OutBounce }
+    }
+    readonly property string highlights:
+        "• <b>New theme: Glass</b> — note! Adds a lot of transparency effects. This (shouldn't, but) might feel heavier on your system. If performance takes a real hit, let me know through the feedback form.<br>"
+        + "• Animated backgrounds<br>"
+        + "• Proper Light/Dark modes<br>"
+        + "• A floating dock!<br>"
+        + "• A sidebar? For a launcher? Groundbreaking.<br>"
+        + "• Custom lists<br>"
+        + "• The Carthage logo now brings you back to your Library<br>"
+        + "• Middle-click autoscroll<br>"
+        + "• Steam Family library support<br><br>"
+        + "<a href=\"more\">And more! Click here to check!</a>"
+    readonly property string allNews:
+        "<b>the look</b><br>• glass is the default now, for everyone. miss plastic? it’s one click away in Appearance<br>• animated backgrounds: mesh, underwater, holographic, contours, and still, for sad people<br>• colour presets, a blur slider, and an Advanced section where you can mess with every hue. go wild<br>• dark and light mode arent random anymore based on the colour you choose. too hard to explain, just nod<br>"
+        + "<br><b>the library</b><br>• a sidebar, yes i know<br>• your own lists to hoard and categorise all the games you'll never play<br>• Back to top on every page, middle-click autoscroll<br>• uninstalled games can be in colour, if grey makes you sad<br>• Steam Family Library support<br>"
+        + "<br><b>the dock</b><br>• it floats. yup<br>"
+        + "<br><b>game pages</b><br>• now shows a backdrop with official game art. there's also an option to just have a blur instead in settings<br>"
+        + "<br><b>store & search</b><br>• you can now expand specific sections<br>• your Wishlist page, with the best price across Steam and Epic<br>• search is better. no i wont get into specifics<br>"
+        + "<br><b>windows stuff</b><br>• made carthage stop opening multiple windows at launch<br>• fixed play time of non-steam games<br>"
+        + "<br><b>other</b><br>• Copy Diagnostics in System, for when I ask “what were you doing, tho”<br>• a pile of fixes i will not be listing<br>"
+        + "<br>* i also added a bunch of bugs i cannot wait for you to find"
+    readonly property var order: updating ? [0, 1, 2, 5] : [0, 1, 2, 3, 4, 5]
+    readonly property int pos: order.indexOf(step)
+    function nextStep() { if (pos < order.length - 1) step = order[pos + 1] }
+    function prevStep() { if (pos > 0) step = order[pos - 1] }
     property var found: []
     readonly property var pal: Backend.theme.p
     readonly property string os: Qt.platform.os === "windows" ? "Windows Credential Manager"
@@ -25,7 +66,9 @@ Item {
     readonly property var demoGame: ({ gameId: "_demo", title: "", source: "carthage", sourceName: "CARTHAGE",
                                        sourceIcon: "carthage", label: "CRTHG - 8008135 - LPKS", installed: true })
 
-    function start(withSplash) {
+    function start(withSplash, isUpdate) {
+        updating = isUpdate === true
+        moreNews = false
         found = Backend.launcherSummary()
         step = 0
         shownStep = 0
@@ -58,6 +101,12 @@ Item {
             const s = demoDock.slotFor("_demo")
             if (s) s.arriving = true
         })
+    }
+    // The splash's Run Setup: the cartridge docks, then the setup.
+    function runSetup() {
+        phase = "docking"
+        appRoot.sound("key")
+        docking.restart()
     }
     function finish() {
         Backend.setupFinished()
@@ -175,7 +224,7 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 220 * Backend.motion } }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Welcome to Carthage!"
+                text: fr.updating ? "Welcome back! Let's get started" : "Welcome to Carthage!"
                 color: fr.pal.trayText
                 font.family: Ui.fontText
                 font.weight: Font.Black
@@ -211,7 +260,7 @@ Item {
             opacity: fr.phase === "splash" ? 1 : 0
             enabled: fr.phase === "splash"
             Behavior on opacity { NumberAnimation { duration: 220 * Backend.motion } }
-            onClicked: { fr.phase = "docking"; fr.appRoot.sound("key"); docking.restart() }
+            onClicked: fr.runSetup()
         }
 
         // The real dock (bare: just its slot) rises, the cartridge flies into it as a game does
@@ -250,10 +299,12 @@ Item {
     Item {
         id: panel
         visible: fr.phase === "setup" || fr.phase === "leaving"
-        width: Math.min(760, fr.width - 48)
+        // The last step shrinks to a small window in the middle.
+        width: Math.min(fr.shownStep === fr.lastStep ? 400 : 760, fr.width - 48)
+        Behavior on width { NumberAnimation { duration: 220 * Backend.motion; easing.type: Easing.InOutCubic } }
         height: body.implicitHeight + 2 * 28
         // (it grows or shrinks to each step evenly, top and bottom, while the content slides sideways)
-        Behavior on height { NumberAnimation { duration: 220 * Backend.motion; easing.type: Easing.InOutCubic } }
+        Behavior on height { enabled: !unrollAnim.running; NumberAnimation { duration: 220 * Backend.motion; easing.type: Easing.InOutCubic } }
         anchors.centerIn: parent
         anchors.horizontalCenterOffset: shift
         // Arriving: it slides in from the right as it fades in (sideways only, like the steps).
@@ -306,21 +357,49 @@ Item {
             Row {  // where you are
                 spacing: 6
                 Repeater {
-                    model: fr.lastStep + 1
+                    model: fr.order.length
                     delegate: Rectangle {
                         required property int index
-                        width: index === fr.step ? 18 : 6
+                        width: index === fr.pos ? 18 : 6
                         height: 6
                         radius: 3
-                        color: index <= fr.step ? Backend.theme.accent.accent : Qt.alpha(fr.pal.panelText, 0.28)
+                        color: index <= fr.pos ? Backend.theme.accent.accent : Qt.alpha(fr.pal.panelText, 0.28)
                         Behavior on width { NumberAnimation { duration: 140 * Backend.motion; easing.type: Easing.OutCubic } }
+                    }
+                }
+            }
+
+            // 0 (updating): what's new, the highlights or, behind "And more!", everything
+            Column {
+                visible: fr.shownStep === 0 && fr.updating
+                width: parent.width
+                spacing: Ui.gapM
+                Title_ { text: fr.moreNews ? "Okay, here goes:" : "What's new in 0.4.0"; color: fr.pal.panelText }
+                Flickable {
+                    id: newsFlick
+                    width: parent.width
+                    height: Math.min(newsText.implicitHeight, fr.height * 0.5) * (fr.moreNews ? fr.unroll : 1)
+                    contentHeight: newsText.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    WheelAccel { flickable: newsFlick; step: 90 }
+                    QQC2.ScrollBar.vertical: CScrollBar {}
+                    Body_ {
+                        id: newsText
+                        width: parent.width - Ui.gapL
+                        textFormat: Text.StyledText
+                        lineHeight: 1.3
+                        linkColor: Backend.theme.accent.accent
+                        onLinkActivated: fr.showMore()
+                        HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                        text: fr.moreNews ? fr.allNews : fr.highlights
                     }
                 }
             }
 
             // 0: what it found
             Column {
-                visible: fr.shownStep === 0
+                visible: fr.shownStep === 0 && !fr.updating
                 width: parent.width
                 spacing: Ui.gapM
                 Title_ { text: "Welcome to Carthage"; color: fr.pal.panelText }
@@ -431,6 +510,33 @@ Item {
                         }
                     }
                 }
+                Line {
+                    visible: Backend.theme.glassy
+                    label: "Blur"
+                    Row {
+                        spacing: Ui.gapS
+                        Text {
+                            width: 36
+                            anchors.verticalCenter: parent.verticalCenter
+                            horizontalAlignment: Text.AlignRight
+                            text: Math.round(Backend.settings.groundBlur * 100) + "%"
+                            color: fr.pal.panelTextDim
+                            font.family: Ui.fontText
+                            font.pixelSize: Ui.textCaption
+                        }
+                        CSlider {
+                            width: 200
+                            height: 30
+                            from: 0
+                            to: 1
+                            stepSize: 0.01
+                            snapMode: QQC2.Slider.SnapAlways
+                            value: Backend.settings.groundBlur
+                            Accessible.name: "Background blur"
+                            onMoved: Backend.settings.groundBlur = Math.round(value * 100) / 100
+                        }
+                    }
+                }
             }
 
             // 2: the cartridges' colour, on a cartridge that jumps when it changes
@@ -449,6 +555,7 @@ Item {
                         width: 150
                         x: 40
                         anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: 10  // (a little clear of the title)
                     }
                     Column {
                         x: 260
@@ -691,7 +798,7 @@ Item {
                 visible: fr.shownStep === 5
                 width: parent.width
                 spacing: Ui.gapM
-                Title_ { text: "You're all set!"; color: fr.pal.panelText }
+                Title_ { text: "It's done. Let's dive in."; color: fr.pal.panelText; horizontalAlignment: Text.AlignHCenter }
             }
 
             Row {
@@ -699,9 +806,14 @@ Item {
                 spacing: Ui.gapM
                 topPadding: 6
                 CButton {
-                    visible: fr.shownStep > 0
+                    // (on the full list of what's new: back to the highlights)
+                    visible: fr.shownStep > 0 || (fr.updating && fr.moreNews)
                     text: "Back"
-                    onClicked: if (!stepSwap.running) fr.step--
+                    onClicked: {
+                        if (stepSwap.running) return
+                        if (fr.shownStep === 0) fr.moreNews = false
+                        else fr.prevStep()
+                    }
                 }
                 CButton {
                     kind: "primary"
@@ -711,7 +823,7 @@ Item {
                         if (stepSwap.running) return
                         fr.appRoot.sound("key")
                         if (fr.step >= fr.lastStep) fr.finish()
-                        else fr.step++
+                        else fr.nextStep()
                     }
                 }
             }

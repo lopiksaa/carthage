@@ -114,7 +114,9 @@ Item {
         HoverHandler { id: brandHover; cursorShape: Qt.PointingHandCursor }
         TapHandler {
             onTapped: {
-                header.appRoot.navigate("library:all")
+                // Already there: back to the top instead.
+                if (header.appRoot.page === "library:all" && !header.appRoot.modalOpen) header.appRoot.backToTop()
+                else header.appRoot.navigate("library:all")
                 header.appRoot.sound("key")
             }
         }
@@ -162,6 +164,8 @@ Item {
         Accessible.name: "Search your games and the stores"
         placeholderText: "Search your games and the stores"
         onTextChanged: header.appRoot.search(text)
+        // Clicking in opens the search page straight away (it browses with no text too).
+        onPressed: if (header.appRoot.page !== "search") header.appRoot.navigate("search")
         Keys.onEscapePressed: {
             if (text) text = ""
             else if (header.appRoot.page === "search") header.appRoot.navigateBack()

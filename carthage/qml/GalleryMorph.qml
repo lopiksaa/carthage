@@ -24,7 +24,9 @@ Item {
     readonly property bool usable: active && !!flick && !!shot && !!view
 
     readonly property real shotTop: shot ? gallery.y + shot.y : 0
-    readonly property real startY: usable && shot ? Math.max(0, shotTop - Math.max(flick.height - shot.height, flick.height * 0.3)) : 0
+    // It starts only once the first screenshot has come up near the top of the details (the
+    // text above it scrolled away), and completes as it reaches the top.
+    readonly property real startY: usable && shot ? Math.max(0, shotTop - shot.height * 0.35) : 0
     readonly property real endY: Math.max(startY + 1, shotTop)
     // The details must be able to scroll that far, however short they are.
     readonly property real neededContentHeight: usable ? endY + flick.height : 0
@@ -36,8 +38,14 @@ Item {
     readonly property real detailsOpacity: 1 - Math.max(0, Math.min(1, (level - 0.1) / 0.35))
     readonly property real galleryOpacity: Math.max(0, Math.min(1, (level - 0.55) / 0.45))
 
+    // Leaving a gallery scrolled down: its first screenshot is off screen, so nothing flies
+    // back from there; the gallery just fades back into the details.
+    property bool plainExit: false
+    readonly property bool standIn: morphing && !plainExit
+    onLevelChanged: if (level <= 0) plainExit = false
     function exit() {
         if (!galleryMode) return
+        plainExit = !!view && view.scrolled
         galleryMode = false
         glide(startY, 520)
     }
@@ -100,7 +108,7 @@ Item {
     readonly property var media: gallery && gallery.media && gallery.media.length ? gallery.media[0] : null
 
     MediaTile {
-        visible: m.morphing && !!m.media
+        visible: m.standIn && !!m.media
         x: m.lerp(m.shotFrom.x, m.shotTo.x, m.level)
         y: m.lerp(m.shotFrom.y, m.shotTo.y, m.level)
         width: m.lerp(m.shotFrom.width, m.shotTo.width, m.level)
@@ -110,7 +118,7 @@ Item {
     }
 
     Rectangle {
-        visible: m.morphing && !!m.button && m.button.visible
+        visible: m.standIn && !!m.button && m.button.visible
         x: m.lerp(m.buttonFrom.x, m.buttonTo.x, m.level)
         y: m.lerp(m.buttonFrom.y, m.buttonTo.y, m.level)
         width: m.lerp(m.buttonFrom.width, m.buttonTo.width, m.level)

@@ -17,7 +17,11 @@ CButton {
     property int chipColumns: 0 // 0: a menu; more: a panel of chips in this many columns
     property bool compact: false // just the value (a narrow bar); the label stays in Accessible.name
     property string compactIcon     // shown instead of the label when compact, so two "All"s differ
+    // An optional switch under the choices, with its own square checkbox (Sort: "Installed games first").
+    property string toggleText
+    property bool toggleChecked: false
     signal picked(var value)
+    signal switched(bool on)
 
     readonly property string currentText: (options.find(o => o.value === value) || options[0] || {}).text || ""
 
@@ -170,6 +174,7 @@ CButton {
             model: dd.options
             delegate: QQC2.Action {
                 required property var modelData
+                readonly property bool radio: true
                 text: modelData.text
                 checkable: true
                 checked: dd.value === modelData.value
@@ -177,6 +182,18 @@ CButton {
             }
             onObjectAdded: (i, a) => menu.insertAction(i, a)
             onObjectRemoved: (i, a) => menu.removeAction(a)
+        }
+        CMenuSeparator {
+            visible: dd.toggleText !== ""
+            height: visible ? implicitHeight : 0
+        }
+        QQC2.Action {
+            objectName: "optional"  // (hidden when there's no switch)
+            enabled: dd.toggleText !== ""
+            text: dd.toggleText
+            checkable: true
+            checked: dd.toggleChecked
+            onTriggered: dd.switched(checked)
         }
     }
 }

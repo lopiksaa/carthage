@@ -8,12 +8,11 @@ FocusScope {
     id: page
 
     property Item appRoot
-    property string section: "library"
+    property string section: "look"
     signal closeRequested()
 
     readonly property var pal: Backend.theme.p
     readonly property var sections: [
-        { id: "library", title: "Library", icon: "view-grid-symbolic", blurb: "The tray and your games" },
         { id: "look", title: "Appearance", icon: "brush-symbolic", blurb: "Colors, fonts, card size" },
         { id: "sound", title: "Sound", icon: "audio-volume-high-symbolic", blurb: "Clicks and clunks" },
         { id: "store", title: "Store", icon: "internet-services-symbolic", blurb: "Steam and Epic, other stores" },

@@ -538,12 +538,34 @@ PLASTIC_TEXTURE = "Plastic012A"
 TEXTURE_QUERY = f"?tex={PLASTIC_TEXTURE}&size=coarse&s=0.6"
 
 
+def _cached(fn):
+    """A Theme value worked out once per change: every themed item reads these, and a colour
+    change had them all recomputed thousands of times (a 400 ms hitch)."""
+    name = fn.__name__
+
+    def get(self):
+        memo = self._memo
+        if name not in memo:
+            memo[name] = fn(self)
+        return memo[name]
+
+    get.__name__ = name
+    return get
+
+
 class Theme(QObject):
     changed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._hardware = "black"
+        self._memo = {}
+
+    def _announce(self):
+        """Fresh values, then the news: the cache is cleared before anything bound to the theme
+        reads it again (a connection to `changed` ran too late: each switch showed the last one)."""
+        self._memo.clear()
+        self.changed.emit()
 
     def _get_hardware(self):
         return self._hardware
@@ -551,7 +573,7 @@ class Theme(QObject):
     def _set_hardware(self, value):
         if edition_of(value) and value != self._hardware:
             self._hardware = value
-            self.changed.emit()
+            self._announce()
 
     hardware = Property(str, _get_hardware, _set_hardware, notify=changed)
 
@@ -563,13 +585,14 @@ class Theme(QObject):
     def _set_card(self, value):
         if value != self._card and (value in ("same", "auto") or edition_of(value)):
             self._card = value
-            self.changed.emit()
+            self._announce()
 
     # "same" (the theme colour), "auto" (Pick for me: the suggested colour for the theme
     # colour, or in Glass for the ground's, following it when it changes), or a colour.
     cardColor = Property(str, _get_card, _set_card, notify=changed)
 
     @Property(str, notify=changed)
+    @_cached
     def cardValue(self):
         """The cartridge colour in use, as a colour value ("same" and "auto" worked out)."""
         if self._card == "same":
@@ -582,6 +605,7 @@ class Theme(QObject):
         return self._card
 
     @Property(str, notify=changed)
+    @_cached
     def cardEdition(self):
         """The cartridges' plastic (their own colour, not the mode's)."""
         return edition_of(self.cardValue)
@@ -600,11 +624,13 @@ class Theme(QObject):
             return EDITIONS[self.cardEdition]
 
     @Property("QVariantMap", notify=changed)
+    @_cached
     def cp(self):
         """Palette for cartridge surfaces (shell, sticker, labels)."""
         return EDITIONS[self.cardEdition]
 
     @Property(bool, notify=changed)
+    @_cached
     def dark(self):
         """Dark mode (Settings → Appearance → Mode; any colour works in either)."""
         return EDITIONS[self.edition]["isDark"]
@@ -618,7 +644,7 @@ class Theme(QObject):
         value = value if value in ("dark", "light") else ""
         if value != self._mode:
             self._mode = value
-            self.changed.emit()
+            self._announce()
 
     mode = Property(str, _get_mode, _set_mode, notify=changed)
 
@@ -650,6 +676,7 @@ class Theme(QObject):
         return TEXTURE_QUERY
 
     @Property(str, notify=changed)
+    @_cached
     def edition(self):
         """The look's colour in the chosen mode: the theme colour (Plastic), or for Glass a
         tint of the ground's first colour (clear over a grey ground)."""
@@ -671,7 +698,7 @@ class Theme(QObject):
         value = value if any(k == value for k, _n, _s in GROUNDS) else GROUNDS[0][0]
         if value != self._ground:
             self._ground = value
-            self.changed.emit()
+            self._announce()
 
     groundColors = Property(str, _get_ground, _set_ground, notify=changed)
 
@@ -684,14 +711,16 @@ class Theme(QObject):
         before = {k: self._tuning.get(k) for k in _COLOUR_KEYS}
         self._tuning = value
         if before != {k: value.get(k) for k in _COLOUR_KEYS}:
-            self.changed.emit()
+            self._announce()
 
     @Property("QVariantMap", notify=changed)
+    @_cached
     def ground(self):
         """The glass ground's colours, for ground.html (WebGround.qml)."""
         return ground_for(self._ground, self._tuning)
 
     @Property("QVariantList", notify=changed)
+    @_cached
     def groundOptions(self):
         """The background colour presets: [{value, text, colors}], each as it looks now (in
         the mode, with Advanced's intensity and brightness; the preset's own hues)."""
@@ -700,16 +729,19 @@ class Theme(QObject):
                 for k, n, _s in GROUNDS]
 
     @Property(bool, notify=changed)
+    @_cached
     def groundCustom(self):
         """Advanced has changed a colour of the preset."""
         return any(k in self._tuning for k in HUE_KEYS)
 
     @Property("QVariantList", notify=changed)
+    @_cached
     def groundNow(self):
         """The ground's four colours as they are now."""
         return ground_colours(ground_for(self._ground, self._tuning), self.dark)
 
     @Property("QVariantList", notify=changed)
+    @_cached
     def groundHueTracks(self):
         """For each colour, that colour every 30° round the wheel, as the ground draws it
         (Advanced's hue sliders)."""
@@ -722,6 +754,7 @@ class Theme(QObject):
                 for k, n, lo, hi, d, u, s in GROUND_TUNING]
 
     @Property("QVariantMap", notify=changed)
+    @_cached
     def p(self):
         pal = EDITIONS[self.edition]
         if self._look != "glass":
@@ -750,19 +783,22 @@ class Theme(QObject):
         value = "plastic" if value == "plastic" else "glass"
         if value != self._look:
             self._look = value
-            self.changed.emit()
+            self._announce()
 
     look = Property(str, _get_look, _set_look, notify=changed)
 
     @Property(bool, notify=changed)
+    @_cached
     def glassy(self):
         return self._look == "glass"
 
     @Property("QVariantMap", notify=changed)
+    @_cached
     def glass(self):
         return glass_for(self.edition, self.dark)
 
     @Property("QVariantMap", notify=changed)
+    @_cached
     def accent(self):
         return accent_for(self.edition)
 

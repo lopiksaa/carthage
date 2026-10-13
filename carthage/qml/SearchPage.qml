@@ -13,8 +13,15 @@ Flickable {
     signal chosen(var item, Item cart, var siblings)
 
     readonly property var pal: Backend.theme.p
+    // Every pill's resting look (chips and segments alike).
+    readonly property color trackColor: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.22 : 0.08)
+    readonly property color trackBorder: Qt.alpha(pal.trayText, 0.10)
     property string text: ""
     property var genres: []       // Steam tags, all required
+    property bool allGenres: false  // Show more: every genre, not just the popular ones
+    // The twelve most used of the store's genres, by Steam's own tag ranking
+    // (store.steampowered.com/tagdata/populartags: Indie, Action, Adventure, Casual, …).
+    readonly property var topTags: [492, 19, 21, 597, 599, 122, 9, 113, 1742, 1684, 1664, 1773]
     property var exGenres: []     // Steam tags to leave out
     property string price: ""     // "", "free", "10", "20"
     property bool sale: false
@@ -141,10 +148,10 @@ Flickable {
             if (t === page.term && page.store !== "epic") page.state_ = "error"
         }
     }
-    // The store filter for a text search (Steam's search doesn't take it), and owned games left
-    // out of the store results (they're above, in the library).
+    // The store filter for a text search (Steam's search doesn't take it). Games you own stay in
+    // the store results too (their page says where you own them).
     function shown(list) {
-        return list.filter(it => !it.owned && (store === "all" || (it.store || "steam") === store))
+        return list.filter(it => store === "all" || (it.store || "steam") === store)
     }
 
     contentHeight: col.height + 140
@@ -174,11 +181,12 @@ Flickable {
         background: Rectangle {
             radius: height / 2
             readonly property bool lit: chip.on || chip.excluded
+            // Off, the same quiet track as the Price / Store / Order segments (one look for every pill).
             color: lit ? Qt.alpha(chip.tint, chip.hovered ? 0.34 : 0.24)
-                 : chip.hovered ? Qt.alpha(page.pal.trayText, 0.08) : "transparent"
+                 : chip.hovered ? Qt.alpha(page.pal.trayText, 0.1) : page.trackColor
             border.width: chip.visualFocus ? 2 : 1
             border.color: chip.visualFocus ? Ui.focusColor
-                        : lit ? Qt.alpha(chip.tint, 0.9) : Qt.alpha(page.pal.trayText, 0.16)
+                        : lit ? Qt.alpha(chip.tint, 0.9) : page.trackBorder
         }
         contentItem: Item {
             implicitWidth: chipRow.implicitWidth
@@ -217,9 +225,9 @@ Flickable {
         width: segRow.implicitWidth + 6
         height: 30
         radius: height / 2
-        color: Qt.rgba(0, 0, 0, Backend.theme.dark ? 0.22 : 0.08)
+        color: page.trackColor
         border.width: 1
-        border.color: Qt.alpha(page.pal.trayText, 0.10)
+        border.color: page.trackBorder
         Accessible.role: Accessible.PageTabList
         Rectangle {  // the chosen one
             readonly property Item at: segRepeater.itemAt(Math.max(0, segs.current))
@@ -306,7 +314,11 @@ Flickable {
                 width: parent.width - 76 - Ui.gapS
                 spacing: 6
                 Repeater {
-                    model: Backend.store.categories
+                    // Folded: the most popular dozen (and any you've picked); Show more opens the rest.
+                    model: page.allGenres ? Backend.store.categories
+                         : page.topTags.map(t => Backend.store.categories.find(c => c.tag === t)).filter(c => c)
+                             .concat(Backend.store.categories.filter(c => page.topTags.indexOf(c.tag) < 0
+                                     && (page.genres.indexOf(c.tag) >= 0 || page.exGenres.indexOf(c.tag) >= 0)))
                     delegate: Chip {
                         required property var modelData
                         text: modelData.name
@@ -314,6 +326,11 @@ Flickable {
                         excluded: page.exGenres.indexOf(modelData.tag) >= 0
                         onClicked: page.toggleGenre(modelData.tag)
                     }
+                }
+                Chip {
+                    text: page.allGenres ? "Show less" : "Show more"
+                    iconName: page.allGenres ? "go-up-symbolic" : "go-down-symbolic"
+                    onClicked: page.allGenres = !page.allGenres
                 }
             }
         }

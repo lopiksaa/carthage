@@ -10,6 +10,9 @@ Column {
     property Item appRoot
     property bool showTitle: true
     property bool hideFirst: false
+    // The width the pictures are decoded at: the widest they'll be shown (GameView's zoom), so
+    // growing to it doesn't decode them again on every frame.
+    property real loadWidth: width
     readonly property Item firstShot: shots.count > 0 ? shots.itemAt(0) : null
 
     readonly property var media: {
@@ -46,6 +49,7 @@ Column {
             width: gallery.width
             height: Math.round(width * 9 / 16)
             media: modelData
+            loadWidth: gallery.loadWidth  // (fixed: never decoded again while it grows)
             opacity: gallery.hideFirst && index === 0 ? 0 : 1
             zoomed: shotHover.hovered
             Accessible.role: Accessible.Button

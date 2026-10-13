@@ -606,6 +606,39 @@ class Backend(QObject):
         gid = f"steam_{appid}"
         return gid if self._library.game(gid) else ""
 
+    @Slot(str, result=str)
+    def titleCode(self, title):
+        """A title's cartridge code (library.title_code), for a store game's card back."""
+        from .library import title_code
+
+        return title_code(title or "")
+
+    @Slot(int, str, result="QStringList")
+    def ownedStores(self, appid, name):
+        """The stores (shops.STORES keys) you own a store game on, from your library: Steam by
+        its app id, the others by its name (Epic, GOG and Battle.net games carry no Steam id)."""
+        import re
+
+        def norm(t):
+            return re.sub(r"[^a-z0-9]", "", (t or "").lower())
+
+        want = norm(name)
+        found = []
+        for g in self._library._games:
+            if g.sim:
+                continue
+            if g.source == "steam":
+                key = "steam" if appid and g.ext_id == str(appid) else ""
+            else:
+                key = ({"epic": "epic", "legendary": "epic", "battlenet": "battlenet"}.get(g.source)
+                       or (g.game_id.split("_")[1] if g.source == "heroic" and g.game_id.count("_") >= 2 else ""))
+                key = {"legendary": "epic", "nile": "", "sideload": ""}.get(key, key)
+                if not want or norm(g.title) != want:
+                    key = ""
+            if key and key not in found:
+                found.append(key)
+        return found
+
     @Property(QObject, constant=True)
     def installs(self):
         return self._install
@@ -724,6 +757,18 @@ class Backend(QObject):
         """Show the setup wizard: Carthage has never run on this PC (not for the demo library)."""
         return not self._fake and self._settings.first_run and not self._settings.get("setupDone")
 
+    @Property(bool, constant=True)
+    def updateIntro(self):
+        """Updating from before 0.4.0: the setup runs once more as "Welcome back" (what's new,
+        the look, the tour) instead of the What's new window."""
+        if self._fake or self._test_run or self._settings.first_run or not self._settings.get("setupDone"):
+            return False
+        try:
+            last = tuple(int(x) for x in (self._settings.get("lastVersion") or "0").split("-")[0].split(".")[:2])
+        except ValueError:
+            return False
+        return last < (0, 4)
+
     @Slot()
     def setupFinished(self):
         self._settings.set("setupDone", True)
@@ -737,7 +782,7 @@ class Backend(QObject):
 
         if self._fake or self._test_run or self._settings.first_run or not self._settings.get("setupDone"):
             return {}
-        if self._settings.get("lastVersion") == VERSION:
+        if self._settings.get("lastVersion") == VERSION or self.updateIntro:
             return {}
         notes = notes_for(VERSION)
         return notes if notes and notes["slides"] else {}

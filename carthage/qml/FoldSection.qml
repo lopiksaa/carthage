@@ -1,4 +1,5 @@
-// Text folded to a few lines until opened.
+// A section folded to its title until opened: folded, none of its text shows (a cut-off
+// preview read as broken); its title and arrow open it.
 import QtQuick
 import Carthage
 
@@ -7,7 +8,6 @@ Column {
 
     property string title
     property string text
-    property int foldedLines: 4
     property bool expanded: false
 
     visible: text !== ""
@@ -25,7 +25,6 @@ Column {
             font.pixelSize: Ui.textLead
         }
         CIcon {
-            visible: body.truncated || sec.expanded
             anchors.verticalCenter: parent.verticalCenter
             width: 14
             height: 14
@@ -38,6 +37,7 @@ Column {
     }
     Text {
         id: body
+        visible: sec.expanded
         width: Math.min(parent.width, 720)  // readable lines on a wide view
         text: sec.text
         color: Ui.onScrimDim
@@ -45,8 +45,5 @@ Column {
         font.pixelSize: Ui.textLead
         lineHeight: 1.3
         wrapMode: Text.Wrap
-        maximumLineCount: sec.expanded ? 400 : sec.foldedLines
-        elide: Text.ElideRight
-        TapHandler { onTapped: sec.expanded = !sec.expanded }
     }
 }

@@ -155,8 +155,11 @@ QQC2.ApplicationWindow {
         toast.message = message
         toast.actionText = actionText || ""
         toast.callback = callback || null
+        // "sticky": it stays until its button or its ✕ (an update waiting for Restart Now)
+        toast.sticky = timeout === "sticky"
         toastTimer.interval = timeout === "long" ? 7000 : 3500
-        toastTimer.restart()
+        if (toast.sticky) toastTimer.stop()
+        else toastTimer.restart()
         toast.shown = true
     }
     Timer {
@@ -169,6 +172,7 @@ QQC2.ApplicationWindow {
         property string actionText
         property var callback: null
         property bool shown: false
+        property bool sticky: false
         z: 1000
         anchors.horizontalCenter: parent.horizontalCenter
         y: parent.height - 150 - height + (shown ? 0 : 16)
@@ -187,7 +191,7 @@ QQC2.ApplicationWindow {
             spacing: Ui.gapM
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(implicitWidth, root.width - 220)
+                width: Math.min(implicitWidth, root.width - (toast.sticky ? 264 : 220))
                 text: toast.message
                 color: Backend.theme.p.panelText
                 font.family: Ui.fontText
@@ -204,6 +208,14 @@ QQC2.ApplicationWindow {
                     toast.shown = false
                     if (toast.callback) toast.callback()
                 }
+            }
+            CButton {
+                visible: toast.sticky
+                anchors.verticalCenter: parent.verticalCenter
+                kind: "plain"
+                icon.name: "window-close-symbolic"
+                Accessible.name: "Dismiss"
+                onClicked: toast.shown = false
             }
         }
     }

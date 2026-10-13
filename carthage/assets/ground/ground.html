@@ -297,6 +297,9 @@ function palette(){
 let t = 40, last = performance.now();
 function frame(now){
   requestAnimationFrame(frame);
+  // Blurred, it drifts too softly for more than 30 frames a second to show: every frame costs
+  // the browser's blur and a copy into the window, so it draws half as often.
+  if (blurPx > 0 && now - last < 1000 / 31) return;
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (!S.moving) return;
   t += dt * S.speed;

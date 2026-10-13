@@ -56,7 +56,6 @@ ADULT_TAGS = {12095, 6650, 24904, 9130}
 
 
 _country = {"cc": None}
-HARDWARE = re.compile(r"^Steam (Deck|Frame|Machine|Controller|Link|Index)\b", re.I)
 # Soundtracks and artbooks Steam lists like games ("Morimens OST | …", "… Soundtrack").
 NOT_A_GAME = re.compile(r"\b(OST|Soundtrack|Original Score|Artbook|Art Book)\b", re.I)
 
@@ -371,6 +370,8 @@ class Store(QObject):
         self._cat_art = self._load_category_art()
         # Category art found by a worker is remembered on the UI thread (categoryArt reads the
         # same dict there).
+        self._wish_ids = set()  # your Steam wishlist's app ids, once known
+        self._wishIdsFound.connect(self._set_wish_ids)
         self._categoryArtFound.connect(self._remember_category_art)
         self._categoryArtDone.connect(self._category_art_done)
         from .itad import Itad
@@ -424,9 +425,9 @@ class Store(QObject):
             for key, title in SECTIONS:
                 seen, items = set(), []
                 for it in (d.get(key) or {}).get("items", []):
-                    if it.get("id") in seen or it.get("type", 0) != 0 or HARDWARE.match(it.get("name", "")) \
+                    if it.get("id") in seen or it.get("type", 0) != 0 \
                             or NOT_A_GAME.search(it.get("name", "")):
-                        continue  # skip duplicates, bundles and Valve hardware
+                        continue  # skip duplicates, bundles and soundtracks
                     seen.add(it["id"])
                     items.append(_item(it["id"], it.get("name", ""), it.get("final_price"),
                                        it.get("original_price"), it.get("discount_percent"),
@@ -454,7 +455,7 @@ class Store(QObject):
             raw = (d.get("large_capsules") or []) + (d.get("featured_win") or [])
             seen, items = set(), []
             for it in raw:
-                if it.get("id") in seen or HARDWARE.match(it.get("name", "")):
+                if it.get("id") in seen:
                     continue
                 seen.add(it["id"])
                 i = _item(it["id"], it.get("name", ""), it.get("final_price"), it.get("original_price"),
@@ -482,7 +483,7 @@ class Store(QObject):
             items = []
             for r in ranks:
                 i = info.get(r["appid"])
-                if not i or HARDWARE.match(i["name"]):
+                if not i:
                     continue
                 i = dict(i, rank=r["rank"], players=_compact(r.get("concurrent_in_game", 0)),
                          peak=_compact(r.get("peak_in_game", 0)))
@@ -592,8 +593,16 @@ class Store(QObject):
         ("Puzzle", 1664), ("Platformer", 1625), ("Roguelike", 1716), ("Metroidvania", 1628),
         ("Horror", 1667), ("Survival", 1662), ("Open World", 1695), ("Shooter", 1774),
         ("Racing", 699), ("Sports", 701), ("Fighting", 1743), ("Co-op", 1685), ("Cozy", 97376),
-        ("Farming Sim", 87918), ("Visual Novel", 3799), ("JRPG", 4434), ("Indie", 492),
-        ("Casual", 597), ("Free to Play", 113),
+        ("Farming Sim", 87918), ("Visual Novel", 3799), ("JRPG", 4434),
+        # (Steam tag ids, checked against store.steampowered.com/tagdata/populartags)
+        ("Souls-like", 29482), ("Hack and Slash", 1646), ("Stealth", 1687), ("Battle Royale", 176981),
+        ("MMORPG", 1754), ("Sandbox", 3810), ("City Builder", 4328), ("Colony Sim", 220585),
+        ("Automation", 255534), ("Turn-Based Strategy", 1741), ("Turn-Based Tactics", 14139),
+        ("Tower Defense", 1645), ("Card Game", 1666), ("Deckbuilding", 32322), ("Point & Click", 1698),
+        ("Story Rich", 1742), ("Mystery", 5716), ("Psychological Horror", 1721), ("Life Sim", 10235),
+        ("Rhythm", 1752), ("Party Game", 7178), ("Arcade", 1773), ("Bullet Hell", 4885),
+        ("Sci-fi", 3942), ("Fantasy", 1684), ("Cyberpunk", 4115), ("Post-apocalyptic", 3835), ("Zombies", 1659),
+        ("Indie", 492), ("Casual", 597), ("Free to Play", 113),
     ]
 
     @Property("QVariantMap", constant=True)
@@ -683,7 +692,7 @@ class Store(QObject):
         ids = []
         for it in raw:
             m = re.search(r"/apps/(\d+)/", it.get("logo", ""))
-            if m and not HARDWARE.match(it.get("name", "")):
+            if m:
                 ids.append(int(m.group(1)))
         info = _batch(ids)
         return [info[i] for i in ids if i in info]
@@ -724,7 +733,7 @@ class Store(QObject):
         except FETCH_ERRORS:
             return None
         ids = [int(m.group(1)) for it in raw
-               if (m := re.search(r"/apps/(\d+)/", it.get("logo", ""))) and not HARDWARE.match(it.get("name", ""))]
+               if (m := re.search(r"/apps/(\d+)/", it.get("logo", "")))]
         info = _batch(ids)
         return [info[i] for i in ids if i in info]
 
@@ -794,6 +803,35 @@ class Store(QObject):
                         discount=o["discount"], dealUrl=o["url"], alsoOn="Steam")
         return dict(it, alsoOn="Epic" if o else "")
 
+    wishlistIdsChanged = Signal()
+    _wishIdsFound = Signal(list)  # worker → UI thread
+
+    def _set_wish_ids(self, ids):
+        self._wish_ids = set(ids)
+        self.wishlistIdsChanged.emit()
+
+    @Property("QVariantList", notify=wishlistIdsChanged)
+    def wishlistIds(self):
+        return sorted(self._wish_ids)
+
+    @Slot(int, result=bool)
+    def isWishlisted(self, appid):
+        return appid in self._wish_ids
+
+    @Slot(str)
+    def loadWishlistIds(self, steam_id):
+        """Just which games are on your Steam wishlist (one small public request), so a store
+        page can say a game is wishlisted already."""
+        def work():
+            try:
+                raw = _fetch_json("https://api.steampowered.com/IWishlistService/GetWishlist/v1/",
+                                  {"steamid": steam_id}).get("response", {}).get("items") or []
+            except FETCH_ERRORS:
+                return
+            self._wishIdsFound.emit([int(w["appid"]) for w in raw if w.get("appid")])
+
+        threading.Thread(target=work, daemon=True).start()
+
     @Slot(str)
     def loadWishlist(self, steam_id):
         """Your Steam wishlist (public, no key needed): games on sale first (biggest discount
@@ -806,6 +844,7 @@ class Store(QObject):
                 self.wishlistFailed.emit("Steam didn't answer. Check the connection and try again.")
                 return
             added = {int(w["appid"]): int(w.get("date_added") or 0) for w in raw if w.get("appid")}
+            self._wishIdsFound.emit(list(added))
             info = _batch(list(added))
             items = [info[a] for a in added if a in info]
             items = _in_parallel(self._cheapest, items)
@@ -871,7 +910,7 @@ class Store(QObject):
                 steam_failed = True
             items = []
             for it in d.get("items", []):
-                if it.get("type") != "app" or HARDWARE.match(it.get("name", "")) or NOT_A_GAME.search(it.get("name", "")):
+                if it.get("type") != "app" or NOT_A_GAME.search(it.get("name", "")):
                     continue
                 p = it.get("price") or {}
                 items.append(_item(it["id"], it.get("name", ""), p.get("final"), p.get("initial"),

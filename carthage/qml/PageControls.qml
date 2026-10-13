@@ -9,6 +9,7 @@ Item {
     property bool shown: false
     property bool arrows: true
     property bool dice: false
+    property real diceLevel: 1  // fades with the page's own changes (gone in the full gallery)
     property real arrowY: -1  // the center line for ‹ › (the cartridge's); -1: the middle
     signal step(int dir)
     signal close()
@@ -35,7 +36,9 @@ Item {
         kind: "ghost"
         tint: "#ffffff"
         focusPolicy: Qt.NoFocus
-        visible: pc.shown && pc.dice
+        visible: pc.shown && pc.dice && opacity > 0.01
+        opacity: pc.diceLevel
+        enabled: pc.diceLevel > 0.5
         onRolled: pc.roll()
     }
     CButton {

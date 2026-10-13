@@ -12,7 +12,7 @@ Item {
     readonly property var cur: items.length ? items[Math.min(index, items.length - 1)] : ({})
     signal chosen(var item)
 
-    implicitHeight: Math.round(width * 0.36)
+    implicitHeight: Math.round(width * 0.31)  // (a tad shorter: the shelves come up sooner)
 
     function go(i) {
         if (!items.length) return

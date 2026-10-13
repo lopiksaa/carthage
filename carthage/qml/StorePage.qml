@@ -1,18 +1,13 @@
-// A store game up close: its cartridge, price, details and a button into the store, where
-// buying happens.
+// A store game up close (GameView): its cartridge, price, where you own it, details and a
+// button into the store, where buying happens.
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
-import QtQuick.Effects
 
-FocusScope {
+GameView {
     id: page
 
-    property Item appRoot
-    property Item stage
-    property bool open: false
     property var item: ({})
-    property var info: ({})
     // Every store selling this game. The cartridge shows one at a time; the wheel, the store
     // chips or ↑ ↓ turn it.
     property var offers: []
@@ -21,93 +16,63 @@ FocusScope {
     readonly property string store: offer ? offer.store : (item.store || "steam")
     readonly property string storeName: Backend.store.storeNames[store] || "Store"
     readonly property bool steamShown: store === "steam"
+    // The stores you own it on (from your library), and whether that's the one showing.
+    readonly property var ownedOn: Backend.games.count, Backend.ownedStores(item.appid || 0, item.name || info.name || "")
+    readonly property bool ownedHere: ownedOn.indexOf(store) >= 0
+    readonly property string libraryId: steamShown && item.appid ? Backend.libraryIdForApp(item.appid) : ""
     readonly property var shown: steamShown || !offer ? info : offer
+    property bool detailsIn: false   // the store's details for this game have arrived
     function keyOf(it) { return it.key || ("steam:" + it.appid) }
-    property real level: 0
-    property real spin: 0
-    property real cardScale: 1
-
-    readonly property bool tilting: cardHover.hovered && !spinDrag.active && open && motion > 0
-                                    && Backend.settings.tiltEnabled
-    property real tiltX: tilting ? -(cardHover.point.position.y / cardZone.height - 0.5) * 14 : 0
-    property real tiltY: tilting ? (cardHover.point.position.x / cardZone.width - 0.5) * 14 : 0
-    Behavior on tiltX { SpringAnimation { spring: 4; damping: 0.55; epsilon: 0.05 } }
-    Behavior on tiltY { SpringAnimation { spring: 4; damping: 0.55; epsilon: 0.05 } }
-    property real dragTilt: 0
-    IdleDrift {
-        id: drift
-        active: page.open && !openAnim.running && !settleAnim.running && !spinDrag.active && !cardHover.hovered
-        motion: page.motion
-    }
-
-    function settle(velocityX) {
-        const coast = spin + Math.max(-540, Math.min(540, velocityX * 0.25))
-        settleAnim.spinTo = Math.round(coast / 180) * 180
-        if (motion <= 0) { spin = settleAnim.spinTo; dragTilt = 0; return }
-        settleAnim.restart()
-        if (Math.abs(settleAnim.spinTo - spin) >= 90) appRoot.sound("hover")
-    }
-    function flip() {
-        settleAnim.spinTo = Math.round(spin / 180) * 180 + 180
-        if (motion <= 0) { spin = settleAnim.spinTo; return }
-        settleAnim.restart()
-        appRoot.sound("hover")
-    }
-    ParallelAnimation {
-        id: settleAnim
-        property real spinTo: 0
-        NumberAnimation {
-            target: page
-            property: "spin"
-            to: settleAnim.spinTo
-            duration: Math.min(900, 260 + Math.abs(settleAnim.spinTo - page.spin) * 1.1) * page.motion
-            easing.type: Easing.OutBack
-            easing.overshoot: 0.7
-        }
-        NumberAnimation { target: page; property: "dragTilt"; to: 0; duration: 380 * page.motion; easing.type: Easing.OutBack }
-        onFinished: page.spin = ((page.spin % 360) + 360) % 360
-    }
-    readonly property real motion: appRoot ? appRoot.motion : 1
+    function steamUrl() { return "steam://store/" + item.appid }
+    readonly property var media: mediaGallery.media
     readonly property var pal: Backend.theme.p
 
-    // Wide: the cartridge at the top left, the details using the rest of the width (up to a
-    // readable 860), both from the top (like the closer look). Narrow: the cartridge above.
-    readonly property real sideM: 76  // room for the ← → keys
-    readonly property bool wide: width >= 300 + 56 + Ui.detailsWidth + 96
-    // Wide, the cartridge gives way first: the details always get their full width.
-    readonly property real heroH: wide ? Math.min(height * 0.56, 470, (width - 2 * sideM - 56 - Ui.detailsWidth) * Backend.theme.ratio)
-                                       : Math.min(height * 0.38, 330)
-    readonly property real heroW: Math.round(heroH / Backend.theme.ratio)
-    // The cartridge sits in the middle of the window's height; the details center on it (and
-    // stay inside the window when they're long and scroll).
-    readonly property real heroTop: Math.round((height - heroH) / 2)
-    readonly property real panelW: wide ? Math.min(720, width - sideM - heroW - 56 - sideM)
-                                        : Math.min(Ui.detailsWidth, width - 64)
-    // The cartridge and the details as one group, centered on a wide screen.
-    readonly property real heroLeft: Math.max(sideM, Math.round((width - (heroW + 56 + panelW)) / 2))
+    detailsObjectName: "storePageDetails"  // for the test harness
+    showArrows: siblings.length > 1
+    cardWheelEnabled: offers.length > 1
+    eyebrow: storeName
+    title: info.name || item.name || ""
+    credits: Ui.creditsLine(info.developer, info.publisher, info.released)
+    gallerySubtitle: [shown.price || item.price || "", info.reviews || ""].filter(x => x).join("  ·  ")
+    mainButton: buyButton
+    backdropUrl: info.background || item.hero || ""
+    detailsPending: (item.appid || 0) > 0 && !detailsIn
+    cardGame: ({
+        // A game you own wears your library's art (the same as on your shelf).
+        gameId: page.libraryId, title: page.item.name || "", source: page.store, sourceName: page.storeName.toUpperCase(),
+        sourceIcon: page.store, extId: String(page.item.appid || ""), code: "", installed: true,
+        artUrl: page.libraryId ? "" : page.item.capsuleLarge || page.item.capsule || "", artFallback: page.item.header || "",
+        // The back: what an installed game's label says (STEAM - 570 - DOTA2).
+        backLabel: [page.storeName.toUpperCase(), String(page.item.appid || ""), Backend.titleCode(page.item.name || "")]
+                   .filter(x => x).join(" - "),
+        label: (page.offer && !page.steamShown ? (page.offer.until || page.offer.price)
+                : (page.info.price || page.item.price || page.storeName)).toUpperCase(),
+    })
 
-    visible: level > 0.001 || open
+    onCloseRequested: close()
+    onStepRequested: (dir) => step(dir)
+    onCardWheel: (dir) => shuffle(dir)
+    Keys.onUpPressed: shuffle(-1)
+    Keys.onDownPressed: shuffle(1)
 
     // The list this game was chosen from: ← → step through it.
     property var siblings: []
-    property real swapFade: 1 // dips while stepping to the next game
-    property int swapDir: 1   // which way the details move meanwhile (with the card's turn)
 
-    property double openedAt: 0
     function openFor(it, list) {
-        openedAt = Date.now()
         siblings = list || []
         show(it)
-        open = true
+        backdrop.clear()
         appRoot.sound("pick")
-        forceActiveFocus()
-        if (motion <= 0) { level = 1; spin = 0; cardScale = 1; return }
-        openAnim.restart()
+        // It grows into place from the middle of where it will be.
+        const s = 0.55
+        flyIn(heroX + heroW * (1 - s) / 2, heroY + heroH * (1 - s) / 2, s)
     }
     function show(it) {
         item = it
         info = { name: it.name, price: it.price, original: it.original, discount: it.discount, owned: it.owned,
                  description: it.description || "" }
+        detailsIn = false
+        detailsLoading()
         offers = it.offers || []
         offerIndex = 0
         if (it.appid) Backend.store.loadDetails(it.appid)
@@ -122,63 +87,33 @@ FocusScope {
         }
         Backend.store.loadOffers(keyOf(it), it.appid || 0, it.name || "",
                                  { price: it.price || "", original: it.original || "", discount: it.discount || 0 })
-        resetGallery()
-        details.contentY = 0
     }
     function step(dir) {
-        if (!open || openAnim.running || closeAnim.running || stepAnim.running) return
+        if (!open || animating) return
         const list = siblings || []
         let i = -1
         for (let k = 0; k < list.length; k++) if (keyOf(list[k]) === keyOf(item)) { i = k; break }
         const next = i < 0 ? null : list[i + dir]
-        if (!next) {
-            if (motion > 0) edgeNudge.restart()
-            return
-        }
-        appRoot.sound("hover")
-        stepAnim.dir = dir
-        stepAnim.next = next
-        swapDir = -dir
-        if (motion <= 0) { show(next); return }
-        stepAnim.restart()
+        if (!next) return nudge()
+        stepTo(dir, () => show(next))
     }
-    SequentialAnimation {
-        id: stepAnim
-        property int dir: 1
-        property var next: ({})
-        ParallelAnimation {
-            NumberAnimation { target: page; property: "spin"; to: page.spin + stepAnim.dir * 90; duration: 150 * page.motion; easing.type: Easing.InQuad }
-            NumberAnimation { target: page; property: "cardScale"; to: 0.9; duration: 150 * page.motion; easing.type: Easing.InQuad }
-            NumberAnimation { target: page; property: "swapFade"; to: 0; duration: 120 * page.motion }
-        }
-        ScriptAction {
-            script: {
-                page.show(stepAnim.next)
-                page.spin = -stepAnim.dir * 90
-                page.swapDir = stepAnim.dir
-            }
-        }
-        ParallelAnimation {
-            NumberAnimation { target: page; property: "spin"; to: 0; duration: 240 * page.motion; easing.type: Easing.OutCubic }
-            NumberAnimation { target: page; property: "cardScale"; to: 1; duration: 240 * page.motion; easing.type: Easing.OutCubic }
-            NumberAnimation { target: page; property: "swapFade"; to: 1; duration: 200 * page.motion }
-        }
-    }
-    SequentialAnimation {
-        id: edgeNudge
-        NumberAnimation { target: page; property: "spin"; to: 8; duration: 60 * page.motion; easing.type: Easing.OutQuad }
-        NumberAnimation { target: page; property: "spin"; to: -8; duration: 90 * page.motion; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: page; property: "spin"; to: 0; duration: 60 * page.motion; easing.type: Easing.InQuad }
+    function close() {
+        if (!open) return
+        // It shrinks back into the middle as it fades.
+        const s = 0.85
+        flyOut(heroX + heroW * (1 - s) / 2, heroY + heroH * (1 - s) / 2, s, 0, null)
     }
 
+    // Turning the cartridge to another store's offer.
     function shuffle(dir) {
-        if (offers.length < 2 || stepAnim.running || shuffleAnim.running) return
+        if (offers.length < 2 || animating || shuffleAnim.running) return
         appRoot.sound("hover")
         const next = (offerIndex + dir + offers.length) % offers.length
         if (motion <= 0) { offerIndex = next; return }
         shuffleAnim.dir = dir
         shuffleAnim.next = next
-        shuffleAnim.base = Math.round(spin / 360) * 360
+        shuffleAnim.base = Math.round(hero.spin / 360) * 360
+        stopTurning()
         shuffleAnim.restart()
     }
     function pickOffer(i) {
@@ -187,7 +122,8 @@ FocusScope {
         appRoot.sound("hover")
         shuffleAnim.dir = i > offerIndex ? 1 : -1
         shuffleAnim.next = i
-        shuffleAnim.base = Math.round(spin / 360) * 360
+        shuffleAnim.base = Math.round(hero.spin / 360) * 360
+        stopTurning()
         shuffleAnim.restart()
     }
     SequentialAnimation {
@@ -195,36 +131,20 @@ FocusScope {
         property int dir: 1
         property int next: 0
         property real base: 0  // the front face's angle
-        NumberAnimation { target: page; property: "spin"; to: shuffleAnim.base + shuffleAnim.dir * 90; duration: 110 * page.motion; easing.type: Easing.InQuad }
+        NumberAnimation { target: page.hero; property: "spin"; to: shuffleAnim.base + shuffleAnim.dir * 90; duration: 110 * page.motion; easing.type: Easing.InQuad }
         ScriptAction {
             script: {
                 page.offerIndex = shuffleAnim.next
-                page.spin = shuffleAnim.base - shuffleAnim.dir * 90
+                page.hero.spin = shuffleAnim.base - shuffleAnim.dir * 90
             }
         }
-        NumberAnimation { target: page; property: "spin"; to: shuffleAnim.base; duration: 180 * page.motion; easing.type: Easing.OutCubic }
+        NumberAnimation { target: page.hero; property: "spin"; to: shuffleAnim.base; duration: 180 * page.motion; easing.type: Easing.OutCubic }
     }
-
-    function close() {
-        if (!open) return
-        resetGallery()
-        open = false
-        if (motion <= 0) { level = 0; return }
-        closeAnim.restart()
-    }
-    function steamUrl() { return "steam://store/" + item.appid }
-    readonly property var media: mediaGallery.media
-
-    Keys.onEscapePressed: close()
-    Keys.onLeftPressed: step(-1)
-    Keys.onRightPressed: step(1)
-    Keys.onUpPressed: shuffle(-1)
-    Keys.onDownPressed: shuffle(1)
 
     Connections {
         target: Backend.store
         function onDetailsReady(appid, d) {
-            if (appid === page.item.appid) page.info = d
+            if (appid === page.item.appid) { page.info = d; page.detailsIn = true }
         }
         function onEpicDetailsReady(key, d) {
             if (key === page.keyOf(page.item)) page.info = Object.assign({}, page.info, d)
@@ -244,497 +164,263 @@ FocusScope {
         }
     }
 
-    ParallelAnimation {
-        id: openAnim
-        NumberAnimation { target: page; property: "level"; from: 0; to: 1; duration: 220 * page.motion; easing.type: Easing.OutQuad }
-        NumberAnimation { target: page; property: "cardScale"; from: 0.55; to: 1; duration: 480 * page.motion; easing.type: Easing.OutCubic }
-        NumberAnimation { target: page; property: "spin"; from: 0; to: 360; duration: 480 * page.motion; easing.type: Easing.OutCubic }
-    }
-    ParallelAnimation {
-        id: closeAnim
-        NumberAnimation { target: page; property: "level"; to: 0; duration: 200 * page.motion; easing.type: Easing.InQuad }
-        NumberAnimation { target: page; property: "cardScale"; to: 0.85; duration: 200 * page.motion; easing.type: Easing.InQuad }
-    }
-
-    ShaderEffectSource {
-        id: src
-        sourceItem: page.stage
-        sourceRect: Qt.rect(page.x, page.y, page.width, page.height)  // the part behind
-        live: page.visible
-        visible: false
-    }
-    MultiEffect {
-        anchors.fill: parent
-        source: src
-        opacity: page.level
-        blurEnabled: true
-        blur: 1.0
-        blurMax: 48
-        autoPaddingEnabled: false
-    }
-    // The game's art under the scrim (at most 55%: white text stays readable over any art).
-    GameBackdrop {
-        anchors.fill: parent
-        level: page.level * 0.55 * (1 - page.galleryLevel)
-        source: page.info.background || page.item.hero || ""
-    }
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(0.04, 0.04, 0.05, Backend.theme.dark ? 0.72 : 0.64)
-        opacity: page.level
-    }
-    MouseArea {
-        anchors.fill: parent
-        enabled: page.open
-        hoverEnabled: true
-        acceptedButtons: Qt.AllButtons
-        onClicked: if (Date.now() - page.openedAt > 450) page.close()  // (not the double-click's second click)
-        onWheel: (w) => w.accepted = true
-    }
-
-    Card3D {
-        id: card
-        x: page.wide ? page.heroLeft - (width - page.heroW) / 2 : Math.round((page.width - width) / 2)
-        y: page.wide ? page.heroTop - (height - page.heroH) / 2 : 20 - (height - page.heroH) / 2 + page.heroH * 0.1
-        Behavior on y {  // re-centering when the details arrive
-            enabled: page.open
-            NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }
-        }
-        width: page.heroW * 2.1
-        height: page.heroH * 1.35
-        cardHeight: page.heroH
-        opacity: page.level
-        scale: page.cardScale
-        spin: page.spin + drift.turn
-        tiltX: page.tiltX + page.dragTilt + drift.tip
-        tiltY: page.tiltY
-        transform: [
-            Translate { y: drift.float },
-            Translate { x: -page.galleryLevel * (page.cardLeft + page.heroW - page.peekW) }
-        ]
-        game: ({
-            gameId: "", title: page.item.name || "", source: page.store, sourceName: page.storeName.toUpperCase(),
-            sourceIcon: page.store, extId: String(page.item.appid || ""), code: "", installed: true,
-            artUrl: page.item.capsuleLarge || page.item.capsule || "", artFallback: page.item.header || "",
-            label: (page.offer && !page.steamShown ? (page.offer.until || page.offer.price)
-                    : (page.info.price || page.item.price || page.storeName)).toUpperCase(),
-        })
-    }
-
-    // The 3D view is larger than the card.
-    Item {
-        id: cardZone
-        anchors.centerIn: card
+    // Under the cartridge: every store selling it (and ITAD's credit, which its terms ask for).
+    under: Column {
         width: page.heroW
-        height: page.heroH
-        enabled: page.open
-        transform: Translate { x: -page.galleryLevel * (page.cardLeft + page.heroW - page.peekW) }
-        HoverHandler {
-            id: cardHover
-            cursorShape: spinDrag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-        }
-        DragHandler {
-            id: spinDrag
-            target: null
-            property real startSpin: 0
-            onActiveChanged: {
-                if (active) { settleAnim.stop(); openAnim.stop(); page.cardScale = 1; startSpin = page.spin }
-                else page.settle(centroid.velocity.x)
-            }
-            onTranslationChanged: {
-                if (!active) return
-                page.spin = startSpin + translation.x * 0.55
-                page.dragTilt = Math.max(-30, Math.min(30, -translation.y * 0.25))
-            }
-        }
-        TapHandler {
-            gesturePolicy: TapHandler.ReleaseWithinBounds
-            onTapped: page.galleryMode ? page.exitGallery() : page.flip()
-        }
-        WheelHandler {
-            enabled: page.offers.length > 1 && !page.galleryMode
-            property real acc: 0
-            onWheel: (ev) => {
-                acc += ev.angleDelta.y || ev.angleDelta.x
-                if (Math.abs(acc) >= 120) {
-                    page.shuffle(acc < 0 ? 1 : -1)
-                    acc = 0
+        spacing: Ui.gapS
+        Row {
+            id: storeChips
+            visible: page.offers.length > 1
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Ui.gapS
+            Repeater {
+                model: page.offers
+                delegate: Rectangle {
+                    id: chip
+                    required property var modelData
+                    required property int index
+                    readonly property bool current: index === page.offerIndex
+                    height: 30
+                    width: chipRow.implicitWidth + 2 * Ui.gapM
+                    radius: height / 2
+                    color: current ? Ui.onScrim : (chipHover.hovered ? Ui.scrimControlHover : Ui.scrimControl)
+                    border.width: activeFocus ? 2 : 0
+                    border.color: Ui.focusColor
+                    activeFocusOnTab: true
+                    Accessible.role: Accessible.RadioButton
+                    Accessible.name: modelData.storeName + ", " + modelData.price
+                    Accessible.checked: current
+                    Keys.onReturnPressed: page.pickOffer(index)
+                    Keys.onSpacePressed: page.pickOffer(index)
+                    Row {
+                        id: chipRow
+                        anchors.centerIn: parent
+                        spacing: Ui.gapS
+                        Text {
+                            text: chip.modelData.storeName
+                            color: chip.current ? "#141417" : Ui.onScrim
+                            font.family: Ui.fontText
+                            font.weight: Font.Black
+                            font.pixelSize: Ui.textCaption
+                        }
+                        CIcon {
+                            visible: page.ownedOn.indexOf(chip.modelData.store) >= 0
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 13
+                            height: 13
+                            source: "checkmark-symbolic"
+                            isMask: true
+                            color: chip.current ? "#141417" : Backend.theme.led.green
+                        }
+                        Text {
+                            text: chip.modelData.price
+                            color: chip.current ? "#141417" : Ui.onScrimDim
+                            font.family: Ui.fontText
+                            font.weight: Font.Bold
+                            font.pixelSize: Ui.textCaption
+                        }
+                    }
+                    HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: page.pickOffer(chip.index) }
                 }
             }
         }
+        Text {
+            visible: storeChips.visible && page.offers.some(o => o.via === "IsThereAnyDeal")
+            anchors.horizontalCenter: parent.horizontalCenter
+            textFormat: Text.StyledText
+            text: "Prices from <a href=\"https://isthereanydeal.com\">IsThereAnyDeal</a>"
+            color: Ui.onScrimDim
+            linkColor: Ui.onScrimDim
+            font.family: Ui.fontText
+            font.pixelSize: Ui.textCaption
+            onLinkActivated: (url) => Backend.openUrl(url)
+            HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
+        }
     }
 
-    // ITAD's terms ask for a mention.
-    Text {
-        visible: storeChips.visible && page.offers.some(o => o.via === "IsThereAnyDeal")
-        anchors.horizontalCenter: storeChips.horizontalCenter
-        y: storeChips.y + storeChips.height + Ui.gapS
-        opacity: storeChips.opacity
-        textFormat: Text.StyledText
-        text: "Prices from <a href=\"https://isthereanydeal.com\">IsThereAnyDeal</a>"
-        color: Ui.onScrimDim
-        linkColor: Ui.onScrimDim
-        font.family: Ui.fontText
-        font.pixelSize: Ui.textCaption
-        onLinkActivated: (url) => Backend.openUrl(url)
-        HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
-    }
-
-    Row {
-        id: storeChips
-        visible: page.offers.length > 1 && page.wide
-        anchors.horizontalCenter: cardZone.horizontalCenter
-        y: cardZone.y + cardZone.height + Ui.gapL
-        spacing: Ui.gapS
-        opacity: page.level * (1 - page.galleryLevel)
-        enabled: page.open && !page.galleryMode
-        Repeater {
-            model: page.offers
-            delegate: Rectangle {
-                id: chip
-                required property var modelData
-                required property int index
-                readonly property bool current: index === page.offerIndex
+    // The price, and where you own it.
+    pinnedExtra: [
+        Row {
+            spacing: Ui.gapM
+            Rectangle {
+                visible: (page.shown.discount || 0) > 0 && !page.ownedHere
+                anchors.verticalCenter: parent.verticalCenter
+                width: dtext.implicitWidth + 16
                 height: 30
-                width: chipRow.implicitWidth + 2 * Ui.gapM
-                radius: height / 2
-                color: current ? Ui.onScrim : (chipHover.hovered ? Ui.scrimControlHover : Ui.scrimControl)
-                border.width: activeFocus ? 2 : 0
-                border.color: Ui.focusColor
-                activeFocusOnTab: true
-                Accessible.role: Accessible.RadioButton
-                Accessible.name: modelData.storeName + ", " + modelData.price
-                Accessible.checked: current
-                Keys.onReturnPressed: page.pickOffer(index)
-                Keys.onSpacePressed: page.pickOffer(index)
-                Row {
-                    id: chipRow
+                radius: Ui.radiusSmall
+                color: "#4c9a1a"
+                Text {
+                    id: dtext
                     anchors.centerIn: parent
-                    spacing: Ui.gapS
-                    Text {
-                        text: chip.modelData.storeName
-                        color: chip.current ? "#141417" : Ui.onScrim
-                        font.family: Ui.fontText
-                        font.weight: Font.Black
-                        font.pixelSize: Ui.textCaption
+                    text: "-" + (page.shown.discount || 0) + "%"
+                    color: Ui.onScrim
+                    font.family: Ui.fontText
+                    font.weight: Font.Black
+                    font.pixelSize: Ui.textLead
+                }
+            }
+            Text {
+                visible: (page.shown.original || "") !== "" && !page.ownedHere
+                anchors.verticalCenter: parent.verticalCenter
+                text: page.shown.original || ""
+                color: Ui.onScrimFaint
+                font.family: Ui.fontText
+                font.weight: Font.Bold
+                font.pixelSize: Ui.textLead
+                font.strikeout: true
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: page.ownedHere ? "Already owned"
+                    : page.steamShown && page.info.comingSoon ? "Coming soon"
+                    : (page.shown.until || page.shown.price || "")
+                color: Ui.onScrim
+                font.family: Ui.fontText
+                font.weight: Font.Black
+                font.pixelSize: Ui.textTitle
+            }
+            CIcon {
+                visible: page.info.linux === true && Qt.platform.os === "linux"
+                anchors.verticalCenter: parent.verticalCenter
+                width: 18
+                height: 18
+                source: "computer-symbolic"
+                isMask: true
+                color: Ui.onScrimDim
+                QQC2.ToolTip.visible: tuxHover.hovered
+                QQC2.ToolTip.text: "Runs natively on Linux"
+                HoverHandler { id: tuxHover }
+            }
+        },
+        // A check by each store you own it on (you might own it on more than one).
+        Row {
+            visible: page.ownedOn.length > 0
+            spacing: Ui.gapM
+            Repeater {
+                model: page.ownedOn
+                delegate: Row {
+                    required property string modelData
+                    spacing: 6
+                    CIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 16
+                        height: 16
+                        source: "checkmark-symbolic"
+                        isMask: true
+                        color: Backend.theme.led.green
                     }
                     Text {
-                        text: chip.modelData.price
-                        color: chip.current ? "#141417" : Ui.onScrimDim
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Owned on " + (Backend.store.storeNames[modelData] || modelData)
+                        color: Ui.onScrimDim
                         font.family: Ui.fontText
                         font.weight: Font.Bold
-                        font.pixelSize: Ui.textCaption
+                        font.pixelSize: Ui.textBody
                     }
                 }
-                HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: page.pickOffer(chip.index) }
             }
         }
-    }
+    ]
 
-    // Scrolling down through the screenshots turns the page into its gallery (GalleryMorph).
-    readonly property real peekW: 64
-    readonly property real cardLeft: card.x + (card.width - page.heroW) / 2
-    readonly property real panelBaseX: page.wide ? card.x + (card.width + page.heroW) / 2 + 56 : Math.round((page.width - page.panelW) / 2)
-    readonly property real panelGalleryX: peekW + 56
-    readonly property bool galleryMode: morph.galleryMode
-    readonly property real galleryLevel: morph.level
-    function resetGallery() { morph.reset() }  // no animation: closing or showing another game
-    function exitGallery() {
-        morph.exit()
-        page.forceActiveFocus()
-    }
-
-    GalleryView {
-        id: galleryView
-        x: page.panelGalleryX + (1 - page.galleryLevel) * 40
-        y: Ui.gapXL
-        width: page.width - page.panelGalleryX - 72
-        height: page.height - 2 * Ui.gapXL
-        opacity: page.level * morph.galleryOpacity
-        visible: opacity > 0.01 || morph.morphing
-        enabled: page.galleryMode
-        morphing: morph.morphing
-        info: page.info
-        appRoot: page.appRoot
-        title: page.info.name || page.item.name || ""
-        subtitle: [page.shown.price || page.item.price || "", page.info.reviews || ""].filter(x => x).join("  ·  ")
-        actionText: buyButton.text
-        actionIcon: buyButton.icon.name
-        onAction: buyButton.clicked()
-        onBack: page.exitGallery()
-    }
-
-    Item {
-        id: detailsPanel
-        readonly property real avail: page.wide ? page.height - page.heroTop - 40 : page.height - (20 + page.heroH + 24) - 20
-        x: page.panelBaseX - page.galleryLevel * 40
-        // Level with the cartridge's top, and it stays there while the details arrive.
-        y: page.wide ? page.heroTop : 20 + page.heroH + 24
-        Behavior on y {
-            enabled: page.open
-            NumberAnimation { duration: 200 * page.motion; easing.type: Easing.OutCubic }
+    // Buy (or Show in My Library), then Play Next as a small key beside it.
+    actions: [
+        CButton {
+            id: buyButton
+            opacity: page.standIn ? 0 : 1
+            width: parent.width - nextKey.width - Ui.gapM
+            big: true
+            kind: "primary"
+            readonly property string gid: page.steamShown && page.info.owned ? Backend.libraryIdForApp(page.item.appid || 0) : ""
+            readonly property bool isFree: page.steamShown ? page.info.free === true
+                                         : page.offer !== null && page.offer.free === true
+            // On your Steam wishlist already (Carthage reads it): said so, not offered again.
+            readonly property bool wished: Backend.store.wishlistIds, Backend.store.isWishlisted(page.item.appid || 0)
+            text: gid ? "Show in My Library"
+                : page.steamShown && page.info.comingSoon ? (wished ? "Wishlisted on Steam" : "Wishlist in Steam")
+                : (isFree ? "Get on " : "Buy on ") + page.storeName
+            icon.name: gid ? "view-grid-symbolic"
+                     : page.steamShown && page.info.comingSoon && wished ? "checkmark-symbolic" : "internet-services-symbolic"
+            onClicked: {
+                if (gid) {
+                    page.close()
+                    page.appRoot.showOwned(gid)
+                } else Backend.openUrl(page.steamShown || !page.offer ? page.steamUrl() : page.offer.url)
+            }
+        },
+        CButton {
+            id: nextKey
+            // Mentioning playNextStore re-checks it whenever Play Next changes.
+            readonly property bool next: Backend.playNextStore, Backend.isPlayNextStore(page.keyOf(page.item), page.item.appid || 0)
+            kind: "scrim"
+            width: buyButton.height
+            height: buyButton.height
+            icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
+            Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
+            QQC2.ToolTip.visible: tipWanted
+            QQC2.ToolTip.text: Accessible.name
+            QQC2.ToolTip.delay: 300
+            // Remembers the store on show (Steam, Epic…) with its offer and price.
+            onClicked: Backend.setPlayNextStore(Object.assign({}, page.item, {
+                key: page.keyOf(page.item),
+                store: page.store,
+                name: page.item.name || page.info.name || "",
+                price: page.shown.price || page.item.price || "",
+                original: page.shown.original || "",
+                discount: page.shown.discount || 0,
+                offers: page.offer ? [page.offer].concat(page.offers.filter(o => o !== page.offer)) : (page.item.offers || []),
+            }), !next)
         }
-        width: details.width
-        height: pinned.height + Ui.gapL + details.height
-        opacity: page.level * page.swapFade * morph.detailsOpacity
-        enabled: !page.galleryMode
-        visible: opacity > 0.01 || morph.morphing
-        transform: Translate { x: (1 - page.level) * 28 + (1 - page.swapFade) * 28 * page.swapDir }
+    ]
 
-        Column {
-            id: pinned
-            width: page.panelW
-            spacing: Ui.gapL
-            Column {
-                width: parent.width
-                spacing: Ui.gapS
-                Text {
-                    text: page.storeName.toUpperCase()
-                    color: Ui.onScrimDim
-                    font.family: Ui.fontLabels
-                    font.weight: Font.Black
-                    font.pixelSize: Ui.textCaption
-                    font.letterSpacing: 2
-                    width: parent.width
-                    elide: Text.ElideRight
-                }
-                Text {
-                    width: parent.width
-                    text: page.info.name || page.item.name || ""
-                    color: Ui.onScrim
-                    font.family: Ui.fontTitles
-                    font.weight: Font.Black
-                    font.pixelSize: Ui.textDisplay
-                    lineHeight: 0.95
-                    wrapMode: Text.Wrap
-                    maximumLineCount: 3
-                    elide: Text.ElideRight
-                }
-                Text {
-                    visible: text !== ""
-                    width: parent.width
-                    textFormat: Text.StyledText
-                    text: Ui.creditsLine(page.info.developer, page.info.publisher, page.info.released)
-                    color: Ui.onScrimDim
-                    linkColor: Ui.onScrimDim
-                    font.family: Ui.fontText
-                    font.weight: Font.Bold
-                    font.pixelSize: Ui.textLead
-                    wrapMode: Text.Wrap
-                    onLinkActivated: (url) => Backend.openUrl(url)
-                    HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
-                }
-            }
-
-            Row {
-                spacing: Ui.gapM
-                Rectangle {
-                    visible: (page.shown.discount || 0) > 0
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: dtext.implicitWidth + 16
-                    height: 30
-                    radius: Ui.radiusSmall
-                    color: "#4c9a1a"
-                    Text {
-                        id: dtext
-                        anchors.centerIn: parent
-                        text: "-" + (page.shown.discount || 0) + "%"
-                        color: Ui.onScrim
-                        font.family: Ui.fontText
-                        font.weight: Font.Black
-                        font.pixelSize: Ui.textLead
-                    }
-                }
-                Text {
-                    visible: (page.shown.original || "") !== ""
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: page.shown.original || ""
-                    color: Ui.onScrimFaint
-                    font.family: Ui.fontText
-                    font.weight: Font.Bold
-                    font.pixelSize: Ui.textLead
-                    font.strikeout: true
-                }
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: page.steamShown && page.info.owned ? "In your library"
-                        : page.steamShown && page.info.comingSoon ? "Coming soon"
-                        : (page.shown.until || page.shown.price || "")
-                    color: Ui.onScrim
-                    font.family: Ui.fontText
-                    font.weight: Font.Black
-                    font.pixelSize: Ui.textTitle
-                }
-                CIcon {
-                    visible: page.info.linux === true && Qt.platform.os === "linux"
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 18
-                    height: 18
-                    source: "computer-symbolic"
-                    isMask: true
-                    color: Ui.onScrimDim
-                    QQC2.ToolTip.visible: tuxHover.hovered
-                    QQC2.ToolTip.text: "Runs natively on Linux"
-                    HoverHandler { id: tuxHover }
-                }
-            }
-
-            // One row of actions: Buy, then Play Next as a small key beside it.
-            Row {
-              width: parent.width
-              spacing: Ui.gapM
-            CButton {
-                id: buyButton
-                width: parent.width - nextKey.width - Ui.gapM
-                big: true
-                kind: "primary"
-                opacity: morph.morphing ? 0 : 1
-                readonly property string gid: page.steamShown && page.info.owned ? Backend.libraryIdForApp(page.item.appid || 0) : ""
-                readonly property bool isFree: page.steamShown ? page.info.free === true
-                                             : page.offer !== null && page.offer.free === true
-                text: gid ? "Show in My Library"
-                    : page.steamShown && page.info.comingSoon ? "Wishlist in Steam"
-                    : (isFree ? "Get on " : "Buy on ") + page.storeName
-                icon.name: gid ? "view-grid-symbolic" : "internet-services-symbolic"
-                onClicked: {
-                    if (gid) {
-                        page.close()
-                        page.appRoot.showOwned(gid)
-                    } else Backend.openUrl(page.steamShown || !page.offer ? page.steamUrl() : page.offer.url)
-                }
-            }
-            CButton {
-                id: nextKey
-                // Mentioning playNextStore re-checks it whenever Play Next changes.
-                readonly property bool next: Backend.playNextStore, Backend.isPlayNextStore(page.keyOf(page.item), page.item.appid || 0)
-                kind: "scrim"
-                width: buyButton.height
-                height: buyButton.height
-                icon.name: next ? "bookmark-filled-symbolic" : "bookmark-symbolic"
-                Accessible.name: next ? "Remove from Play Next" : "Add to Play Next"
-                QQC2.ToolTip.visible: tipWanted
-                QQC2.ToolTip.text: Accessible.name
-                QQC2.ToolTip.delay: 300
-                // Remembers the store on show (Steam, Epic…) with its offer and price.
-                onClicked: Backend.setPlayNextStore(Object.assign({}, page.item, {
-                    key: page.keyOf(page.item),
-                    store: page.store,
-                    name: page.item.name || page.info.name || "",
-                    price: page.shown.price || page.item.price || "",
-                    original: page.shown.original || "",
-                    discount: page.shown.discount || 0,
-                    offers: page.offer ? [page.offer].concat(page.offers.filter(o => o !== page.offer)) : (page.item.offers || []),
-                }), !next)
-            }
-            }
-            CButton {
-                visible: page.steamShown && page.info.owned === true
-                kind: "scrim"
-                text: "Open Store Page in Steam"
-                icon.name: "internet-services-symbolic"
-                onClicked: Backend.openUrl(page.steamUrl())
-            }
-
+    details: [
+        ReviewBadges {
+            width: parent.width
+            info: page.info
+        },
+        Text {
+            visible: text !== ""
+            width: parent.width
+            text: page.info.description || ""
+            color: Ui.onScrim
+            font.family: Ui.fontText
+            font.pixelSize: Ui.textLead
+            lineHeight: 1.15
+            wrapMode: Text.Wrap
+        },
+        FoldSection {
+            width: parent.width
+            title: "About This Game"
+            text: page.info.about || ""
+        },
+        FoldSection {
+            width: parent.width
+            title: "Details"
+            text: [
+                [page.info.controller || "",
+                 page.info.achievements ? page.info.achievements + (page.info.achievements === 1 ? " achievement" : " achievements") : "",
+                 page.info.dlcCount ? page.info.dlcCount + " DLC" : "",
+                 Qt.platform.os === "windows" ? (page.info.windows === false ? "Doesn't run on Windows" : "")
+                     : page.info.linux ? "Runs natively on Linux" : "",
+                 page.info.ageRating ? "Rated " + page.info.ageRating + "+" : ""].filter(x => x).join("  ·  "),
+                (page.info.features || []).length ? "Features: " + page.info.features.join(", ") : "",
+                (page.info.languages || []).length ? "Languages: " + page.info.languages.map(x => x.trim()).join(", ") : "",
+                page.info.requirements ? "Minimum requirements: " + page.info.requirements : "",
+            ].filter(x => x).join("\n\n")
+        },
+        CButton {
+            visible: page.steamShown && page.info.owned === true
+            kind: "scrim"
+            text: "Open Store Page in Steam"
+            icon.name: "internet-services-symbolic"
+            onClicked: Backend.openUrl(page.steamUrl())
+        },
+        GameLinks {
+            width: parent.width
+            appid: page.item.appid || 0
+            title: page.info.name || page.item.name || ""
+            website: page.info.website || ""
+            metacriticUrl: page.info.metacriticUrl || ""
         }
-
-        Flickable {
-            id: details
-            objectName: "storePageDetails"  // for the test harness
-            y: pinned.height + Ui.gapL
-            width: page.panelW + (contentHeight > height ? Ui.gapL : 0)
-            height: Math.max(0, Math.min(col.height, detailsPanel.avail - pinned.height - Ui.gapL))
-            contentHeight: Math.max(col.height, morph.neededContentHeight)
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            WheelAccel { id: detailsWheel; flickable: details; step: 90 }
-            AutoScroll { flickable: details }
-            QQC2.ScrollBar.vertical: CScrollBar { onDark: true }
-
-            Column {
-                id: col
-                width: page.panelW
-                spacing: Ui.gapL
-                ReviewBadges {
-                    width: parent.width
-                    info: page.info
-                }
-
-                Text {
-                    visible: text !== ""
-                    width: parent.width
-                    text: page.info.description || ""
-                    color: Ui.onScrim
-                    font.family: Ui.fontText
-                    font.pixelSize: Ui.textLead
-                    lineHeight: 1.15
-                    wrapMode: Text.Wrap
-                }
-
-
-                Repeater {
-                    // Two folds: the long description, and everything else in one place.
-                    model: [
-                        { title: "About This Game", text: page.info.about || "" },
-                        { title: "Details", text: [
-                            [page.info.controller || "",
-                             page.info.achievements ? page.info.achievements + (page.info.achievements === 1 ? " achievement" : " achievements") : "",
-                             page.info.dlcCount ? page.info.dlcCount + " DLC" : "",
-                             Qt.platform.os === "windows" ? (page.info.windows === false ? "Doesn't run on Windows" : "")
-                                 : page.info.linux ? "Runs natively on Linux" : "",
-                             page.info.ageRating ? "Rated " + page.info.ageRating + "+" : ""].filter(x => x).join("  ·  "),
-                            (page.info.features || []).length ? "Features: " + page.info.features.join(", ") : "",
-                            (page.info.languages || []).length ? "Languages: " + page.info.languages.map(x => x.trim()).join(", ") : "",
-                            page.info.requirements ? "Minimum requirements: " + page.info.requirements : "",
-                          ].filter(x => x).join("\n\n") },
-                    ].filter(x => x.text)
-                    delegate: FoldSection {
-                        required property var modelData
-                        width: col.width
-                        title: modelData.title
-                        text: modelData.text
-                    }
-                }
-
-                GameLinks {
-                    width: parent.width
-                    appid: page.item.appid || 0
-                    title: page.info.name || page.item.name || ""
-                    website: page.info.website || ""
-                    metacriticUrl: page.info.metacriticUrl || ""
-                }
-
-                MediaGallery {
-                    id: mediaGallery
-                    width: page.panelW
-                    info: page.info
-                    appRoot: page.appRoot
-                    hideFirst: morph.morphing
-                }
-            }
-        }
-    }
-
-    GalleryMorph {
-        id: morph
-        anchors.fill: parent
-        flick: details
-        wheel: detailsWheel
-        gallery: mediaGallery
-        view: galleryView
-        button: buyButton
-        active: false  // full view only when a screenshot is clicked (scrolling just scrolls)
-        motion: page.motion
-        onEntered: galleryView.forceActiveFocus()
-    }
-
-    PageControls {
-        anchors.fill: parent
-        shown: page.open
-        arrows: page.wide && page.siblings.length > 1
-        opacity: page.level
-        arrowY: page.wide ? card.y + card.height / 2 : -1
-        onStep: (dir) => page.step(dir)
-        onClose: page.close()
-    }
+    ]
 }

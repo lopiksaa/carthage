@@ -3,6 +3,7 @@
 // game's view, the sidebar, the store) and it tidies up after itself.
 //   tour.begin()
 import QtQuick
+import QtQuick.Shapes
 import Carthage
 
 Item {
@@ -200,22 +201,24 @@ Item {
         onWheel: (w) => w.accepted = true
     }
 
-    // The dim, around the spotlight (or all over, lighter, when nothing is lit).
+    // The dim, around the spotlight (or all over when nothing is lit): one shape with the
+    // spotlight cut out of it, its corners rounded like the rim.
     readonly property color dim: Qt.rgba(0, 0, 0, 0.55)
-    Rectangle { x: 0; y: 0; width: parent.width; height: tour.hasHole ? tour.hole.y : parent.height; color: tour.dim }
-    Rectangle {
-        visible: tour.hasHole
-        x: 0; y: tour.hole.y; width: tour.hole.x; height: tour.hole.height; color: tour.dim
-    }
-    Rectangle {
-        visible: tour.hasHole
-        x: tour.hole.x + tour.hole.width; y: tour.hole.y
-        width: parent.width - x; height: tour.hole.height; color: tour.dim
-    }
-    Rectangle {
-        visible: tour.hasHole
-        x: 0; y: tour.hole.y + tour.hole.height
-        width: parent.width; height: parent.height - y; color: tour.dim
+    Shape {
+        anchors.fill: parent
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            fillColor: tour.dim
+            strokeColor: "transparent"
+            fillRule: ShapePath.OddEvenFill
+            PathRectangle { x: 0; y: 0; width: tour.width; height: tour.height }
+            PathRectangle {
+                x: tour.hole.x; y: tour.hole.y
+                width: tour.hasHole ? tour.hole.width : 0
+                height: tour.hasHole ? tour.hole.height : 0
+                radius: tour.hasHole ? 12 : 0
+            }
+        }
     }
     Rectangle {  // the spotlight's rim
         visible: tour.hasHole

@@ -129,30 +129,34 @@ Item {
         }
     }
 
-    Item {
-        visible: art.wideArt
+    // Wide art (a store banner) shown whole, over a blurred copy of itself. Made only when
+    // needed: the blur is a heavy item, and every library cartridge built one while scrolling.
+    Loader {
+        active: art.wideArt
         x: art.x
         y: art.y
         width: art.width
         height: art.height
-        clip: true
-        Image {
-            id: artBack
-            anchors.fill: parent
-            source: art.wideArt ? art.source : ""
-            fillMode: Image.PreserveAspectCrop
-            sourceSize: Qt.size(160, 90)
-            smooth: true
-            visible: false
-        }
-        MultiEffect {
-            anchors.fill: parent
-            source: artBack
-            blurEnabled: true
-            blur: 1.0
-            blurMax: 32
-            brightness: -0.15
-            autoPaddingEnabled: false
+        sourceComponent: Item {
+            clip: true
+            Image {
+                id: artBack
+                anchors.fill: parent
+                source: art.source
+                fillMode: Image.PreserveAspectCrop
+                sourceSize: Qt.size(160, 90)
+                smooth: true
+                visible: false
+            }
+            MultiEffect {
+                anchors.fill: parent
+                source: artBack
+                blurEnabled: true
+                blur: 1.0
+                blurMax: 32
+                brightness: -0.15
+                autoPaddingEnabled: false
+            }
         }
     }
 

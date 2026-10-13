@@ -186,6 +186,19 @@ Item {
                             extId: preview.role(index, 7) || ""
                             installed: preview.role(index, 8) !== false
                         }
+                        Text {  // its name, as Settings → Appearance → Titles under cards has it
+                            visible: Backend.settings.showTitles
+                            anchors.top: parent.bottom
+                            anchors.topMargin: Ui.spacingSmall * 2
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width + Ui.spacingLarge
+                            text: preview.role(index, 2) || "Your Game"
+                            color: preview.pal.trayText  // (as the library's)
+                            font.family: Ui.fontText
+                            font.pixelSize: Ui.textBody
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                        }
                     }
                 }
             }

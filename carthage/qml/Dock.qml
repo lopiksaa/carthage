@@ -341,16 +341,17 @@ Item {
         id: textPlate
         visible: dock.glassy && !dock.demo
         x: statusWing.x - 10
-        y: Math.round((dock.shellH - 46) / 2)
+        // Its blur stays inside the shell (reaching past the top, it was cut off in a hard edge).
+        y: Math.round((dock.shellH - 34) / 2)
         // It ends before the slot (running under it, it was cut off in a hard edge there).
         width: Math.min(dock.leftW + 10, 28 + Math.max(line1.implicitWidth, line2.visible ? line2.implicitWidth : 0) + 56)
-        height: 46
+        height: 34
         // Full strength under the words, fading out to the right; blurred so it has no edge —
         // a shadow under the words, not a box.
         Rectangle {
             id: plateShape
             anchors.fill: parent
-            radius: 23
+            radius: 17
             visible: false
             readonly property color c: Backend.theme.dark ? Qt.rgba(0, 0, 0, 0.46) : Qt.rgba(1, 1, 1, 0.40)
             gradient: Gradient {
@@ -364,7 +365,7 @@ Item {
             source: plateShape
             anchors.fill: parent
             blurEnabled: true
-            blurMax: 32
+            blurMax: 14
             blur: 1
             autoPaddingEnabled: true
         }
@@ -560,14 +561,17 @@ Item {
                 border.width: 1
                 border.color: dock.glassy ? dock.g.ring : Qt.rgba(1, 1, 1, 0.07)
             }
-            Rectangle {  // the glint across its top, fading out downwards (not cut off)
+            Item {  // the glint across its top: a crisp, level reflection (the clock's glass; tilted,
+                    // it made one end of the window look taller than the other)
                 anchors.fill: parent
                 anchors.margins: 1
-                radius: parent.radius - 1
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, dock.glassy ? 0.14 : 0.10) }
-                    GradientStop { position: 0.2; color: Qt.rgba(1, 1, 1, dock.glassy ? 0.10 : 0.07) }
-                    GradientStop { position: 0.55; color: "transparent" }
+                anchors.bottomMargin: Math.round(parent.height * 0.6)
+                clip: true
+                Rectangle {
+                    width: parent.width
+                    height: parent.height + 10
+                    radius: 8
+                    color: Qt.rgba(1, 1, 1, dock.glassy ? 0.14 : 0.10)
                 }
             }
             property date now: new Date()

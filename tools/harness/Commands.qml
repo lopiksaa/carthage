@@ -303,6 +303,9 @@ QtObject {
         case "storeViewer":
             viewMedia(storePage.media, cmd.index || 0)
             break
+        case "shelvesScroll":  // {"y": n} scrolls the store's home
+            { const f = harness.find("storeShelves"); f.contentY = f.originY - f.topMargin + cmd.y }
+            break
         case "storeScroll":
             harness.find("storePageDetails").contentY = cmd.y
             break
@@ -361,8 +364,14 @@ QtObject {
             if (cmd.step) whatsNew.step = cmd.step
             break
         case "setup": // {"step": n, "splash": bool} opens the first-run setup (on that step)
-            firstRun.start(cmd.splash === true)
+            firstRun.start(cmd.splash === true, cmd.update === true)
             firstRun.step = cmd.step || 0
+            break
+        case "setupRun":  // the splash's Run Setup (the cartridge docks)
+            firstRun.runSetup()
+            break
+        case "setupMore":  // the update setup's "And more!" link
+            firstRun.showMore()
             break
         case "setupNext":  // the setup's main button, as if pressed
             if (firstRun.step >= firstRun.lastStep) firstRun.finish(); else firstRun.step++
@@ -424,6 +433,12 @@ QtObject {
             break
         case "cardWidth":
             Backend.settings.cardWidth = cmd.value
+            break
+        case "storePageProp":  // {"prop", "value"}: the store page's own (experiments)
+            storePage[cmd.prop] = cmd.value
+            break
+        case "trayProp":  // {"prop": "cacheBuffer", "value": n}: the library grid's own (experiments)
+            tray[cmd.prop] = cmd.value
             break
         case "set": // {"target": "games" | "settings", "prop": ..., "value": ...}
             Backend[cmd.target][cmd.prop] = cmd.value
