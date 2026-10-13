@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 # QML modules Carthage imports (qml/*.qml), plus what they import themselves.
-KEEP_QML = {"Qt", "QtCore", "QtQml", "QtQuick", "QtQuick3D", "QtMultimedia"}
+KEEP_QML = {"Qt", "QtCore", "QtQml", "QtQuick", "QtQuick3D", "QtMultimedia", "QtWebEngine", "QtWebChannel"}
 # Parts of the kept modules Carthage doesn't use (each links to a big library).
 DROP_QML = ["QtQuick/Pdf", "QtQuick/Scene2D", "QtQuick/Scene3D", "QtQuick/VirtualKeyboard", "QtQuick3D/Xr"]
 DROP_PLUGINS = ["qmltooling", "platforminputcontexts", "imageformats/libqpdf.so"]

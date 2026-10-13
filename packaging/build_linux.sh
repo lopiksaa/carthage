@@ -32,6 +32,16 @@ for lib in libstdc++.so.6 libgcc_s.so.1 libgbm.so.1 libX11.so.6 libX11-xcb.so.1 
     libharfbuzz.so.0 libexpat.so.1 libz.so.1 libdbus-1.so.3; do
     rm -f "dist/Carthage/_internal/$lib"
 done
+# Qt's X11 plugin also needs these xcb helpers, which minimal installs (and the AppImage
+# catalog's test machine) don't have: without them Carthage quits before showing a window.
+# Bundled from the build machine (apt: libxcb-cursor0 libxcb-icccm4 libxcb-util1 libxcb-image0
+# libxcb-keysyms1 libxcb-render-util0 libxcb-xkb1 libxkbcommon-x11-0).
+for lib in libxcb-cursor.so.0 libxcb-icccm.so.4 libxcb-util.so.1 libxcb-image.so.0 \
+    libxcb-keysyms.so.1 libxcb-render-util.so.0 libxcb-xkb.so.1 libxkbcommon-x11.so.0; do
+    path=$(/sbin/ldconfig -p | awk -v l="$lib" '$1 == l && /x86-64/ { print $NF; exit }')
+    [ -n "$path" ] || { echo "$lib isn't installed on this machine" >&2; exit 1; }
+    cp -L "$path" "dist/Carthage/_internal/$lib"
+done
 
 tar -C dist -czf "dist/Carthage-$version-linux.tar.gz" Carthage
 
