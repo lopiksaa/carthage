@@ -8,7 +8,7 @@
 
 ## Carthage
 Carthage is a game launcher for Linux and Windows. It gathers your games from Steam, Heroic,
-Lutris, Flatpak, Epic, Battle.net, Riot and games you add yourself, and shows them as cartidges. Launching a game makes it slide into the dock. You may also browse the Steam and Epic store from Carthage, allowing you to compare prices at a glance.
+Lutris, Flatpak, Epic, Battle.net, Riot and games you add yourself, and shows them as cartridges. Launching a game makes it slide into the dock. You may also browse the Steam and Epic store from Carthage, allowing you to compare prices at a glance.
 
 
 
@@ -44,7 +44,7 @@ Manager on Windows. They are not kept in Carthage's config or logs.
 
 ## Run from source
 
-Carthage is Python 3.13+ and Qt Quick (PySide6 6.11).
+Carthage is Python 3.13+ and Qt Quick (PySide6 6.12).
 
 **Arch / CachyOS** (the only distro Carthage has been tested on so far):
 
@@ -57,7 +57,7 @@ python -m carthage
 **Anywhere else:**
 
 ```sh
-pip install "PySide6==6.11.*" numpy pillow
+pip install "PySide6==6.12.*" numpy pillow
 pip install python-xlib   # Linux: window handling
 pip install psutil        # Windows
 python -m carthage

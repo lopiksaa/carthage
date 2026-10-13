@@ -32,7 +32,7 @@ CACHE = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "cart
 FEATURED_TTL = 30 * 60
 SPOTLIGHT_SIZE = 10      # games in the banner
 CHART_SIZE = 30          # games in "Most Played Right Now"
-CATEGORY_SIZE = 60       # top sellers fetched per category
+CATEGORY_SIZE = 60       # games per store search (the search page)
 GAMES_ONLY = 998         # Steam search "category1" id for games (no DLC, software, videos)
 BATCH_SIZE = 50          # apps per IStoreBrowseService/GetItems call
 DETAILS_TTL = 24 * 3600
@@ -352,11 +352,9 @@ class Store(QObject):
     featuredReady = Signal("QVariantList")  # [{key, title, items: [...]}]
     searchReady = Signal(str, "QVariantList")
     searchWarning = Signal(str, str)  # term, partial-result warning
-    # A search or category that couldn't load: shown in its own grid, not as the store-wide
-    # error.
+    # A search that couldn't load: shown on the search page, not as the store-wide error.
     searchFailed = Signal(str)
     browseWarning = Signal(str, str)  # request key, partial-result warning
-    categoryFailed = Signal(int)
     detailsReady = Signal(int, "QVariantMap")
     failed = Signal(str)
 
@@ -565,7 +563,6 @@ class Store(QObject):
 
         threading.Thread(target=work, daemon=True).start()
 
-
     @Slot(str, int, str, "QVariantMap")
     def loadOffers(self, key, appid, title, steam):
         """Every store selling this game, Steam's offer (`steam`, from the page) first, then
@@ -608,7 +605,6 @@ class Store(QObject):
     def categories(self):
         return [{"name": n, "tag": t} for n, t in self.CATEGORIES]
 
-    categoryReady = Signal(int, "QVariantList")  # tag, items
     categoryArtChanged = Signal()
     _categoryArtFound = Signal(int, "QVariantList")  # worker → UI thread: tag, items
     _categoryArtDone = Signal(bool)  # worker → UI thread: every category was looked at
@@ -621,7 +617,7 @@ class Store(QObject):
 
     @Property("QVariantMap", notify=categoryArtChanged)
     def categoryArt(self):
-        """{tag: image url} — each category's top game, once the category has been opened."""
+        """{tag: image url} — each category's top game (loadAllCategoryArt)."""
         return dict(self._cat_art)
 
     def _remember_category_art(self, tag, items):
@@ -677,7 +673,7 @@ class Store(QObject):
             except OSError:
                 pass
 
-    def _category_items(self, tag, count=CATEGORY_SIZE):
+    def _category_items(self, tag, count):
         try:
             raw = _fetch_json("https://store.steampowered.com/search/results/", {
                 "query": "", "start": 0, "count": count, "tags": tag, "filter": "topsellers",
@@ -859,19 +855,6 @@ class Store(QObject):
 
         threading.Thread(target=work, daemon=True).start()
 
-    @Slot(int)
-    def loadCategory(self, tag):
-        """Top sellers in one category (Steam's store search filtered by tag)."""
-        def work():
-            items = self._category_items(tag)
-            if items is None:
-                self.categoryFailed.emit(tag)
-                return
-            self.categoryReady.emit(tag, self._shown(items))
-            self._categoryArtFound.emit(tag, items)
-
-        threading.Thread(target=work, daemon=True).start()
-
     @Slot(str)
     def search(self, term):
         term = term.strip()
@@ -983,11 +966,14 @@ class Store(QObject):
                     if not entry.get("success"):
                         raise ValueError("no data")
                     data = entry["data"]
-                    path.write_text(json.dumps(data), encoding="utf-8")
                 except FETCH_ERRORS + (StopIteration,):
                     if not self._fetching.get(appid, quiet):
                         self.failed.emit("Couldn't load this game's store page.")
                     return
+                try:
+                    path.write_text(json.dumps(data), encoding="utf-8")
+                except OSError:
+                    pass  # (only the cache: the page still shows)
             po = data.get("price_overview") or {}
             rel = data.get("release_date") or {}
             info = {

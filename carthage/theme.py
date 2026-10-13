@@ -532,10 +532,10 @@ def ground_colours(g, dark):
     return [_corner(g, dark, i, h) for i, h in enumerate(g["hues"])]
 
 
-# The plastic texture (an ambientCG normal map, textures.py), on hardware and cartridges.
+# The plastic texture (an ambientCG normal map, textures.py), on hardware and cartridges: one
+# plastic, at one grain and depth. Appended to the textured images' ids (render.py).
 PLASTIC_TEXTURE = "Plastic012A"
-TEXTURE_GRAIN = "coarse"
-TEXTURE_STRENGTH = 0.6
+TEXTURE_QUERY = f"?tex={PLASTIC_TEXTURE}&size=coarse&s=0.6"
 
 
 class Theme(QObject):
@@ -544,9 +544,6 @@ class Theme(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._hardware = "black"
-        self._texture = PLASTIC_TEXTURE
-        self._card_texture = PLASTIC_TEXTURE
-        self._strength = TEXTURE_STRENGTH
 
     def _get_hardware(self):
         return self._hardware
@@ -642,31 +639,15 @@ class Theme(QObject):
         return [{"value": k, "text": n, "color": EDITIONS[e]["shellTop"], "suggested": k in SUGGESTED}
                 for k, e, n in HARDWARE]
 
-    def _get_texture(self):
-        return self._texture
-
-    def _set_texture(self, value):
-        if value != self._texture:
-            self._texture = value
-            self.changed.emit()
-
-    texture = Property(str, _get_texture, _set_texture, notify=changed)
-
-    def set_card_texture(self, value):
-        if value != self._card_texture:
-            self._card_texture = value
-            self.changed.emit()
-
-    @Property(str, notify=changed)
+    @Property(str, constant=True)
     def texQuery(self):
-        """Appended to image ids so every textured image re-renders when this changes."""
-        return f"?tex={self._texture}&size={TEXTURE_GRAIN}&s={self._strength:g}"
+        """Appended to the hardware's textured image ids."""
+        return TEXTURE_QUERY
 
-    @Property(str, notify=changed)
+    @Property(str, constant=True)
     def cardTexQuery(self):
-        """The same for cartridges, which are always textured ("Textured plastic" is the
-        hardware's finish only)."""
-        return f"?tex={self._card_texture}&size={TEXTURE_GRAIN}&s={self._strength:g}"
+        """Appended to the cartridges' textured image ids."""
+        return TEXTURE_QUERY
 
     @Property(str, notify=changed)
     def edition(self):

@@ -2,7 +2,7 @@
 # dist\Carthage-<version>-setup.exe (the installer). Used by .github/workflows/release.yml;
 # also runs locally from the repo root:
 #   powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1
-# Needs Python 3.13 with PySide6 6.11, pillow, numpy, psutil and pyinstaller, and Inno Setup 6.
+# Needs Python 3.13 with PySide6 6.12, pillow, numpy, psutil and pyinstaller, and Inno Setup 6.
 param([string]$Python = "python")
 
 $ErrorActionPreference = "Stop"

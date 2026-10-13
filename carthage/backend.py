@@ -8,7 +8,7 @@ from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 from .library import GameModel, TrayModel, real_games
 from .sessions import SessionModel
 from .settings import Settings
-from .theme import PLASTIC_TEXTURE, Theme
+from .theme import Theme
 from .version import VERSION
 from .watchers import InstallWatch, LibraryWatcher
 
@@ -46,28 +46,27 @@ class Backend(QObject):
         games = games if fake else self._load_real()
         self._library = GameModel(games, self)
         self._tray = TrayModel(self._library, self)
-        self._favorites = TrayModel(self._library, self, part="favorites", mirror=self._tray)
-        self._play_next = TrayModel(self._library, self, part="playnext", mirror=self._tray)
-        # Favorites as a list (the sidebar concept): like Play Next, they stay in the tray too.
-        self._favorites_list = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        # The lists: their games stay in the tray too. Each follows the tray's search, filters
+        # and order.
+        self._play_next = TrayModel(self._library, self, part="list", mirror=self._tray)
+        self._favorites_list = TrayModel(self._library, self, part="list", mirror=self._tray)
         # The open custom list (one model, filled with the list shown).
-        self._custom_list = TrayModel(self._library, self, part="playnext", mirror=self._tray)
+        self._custom_list = TrayModel(self._library, self, part="list", mirror=self._tray)
         self._shown_list = ""
         # The search page's library results: its own text and genres, not the tray's.
-        self._search_library = TrayModel(self._library, self, part="all")
+        self._search_library = TrayModel(self._library, self)
         self._play_next_store = []
         st = self._settings
         self._apply_favorites()
         self._apply_play_next()
         self._library.modelReset.connect(self._apply_play_next)  # a bought game becomes a library game
         self._genre_options = []
+        self._top_genres = []
         self._genres_busy = False
         self._genresReady.connect(self._apply_genres)
         if not fake:
             self._library.modelReset.connect(self._load_genres)
             QTimer.singleShot(1500, self._load_genres)
-        self._shelf_on = st.get("favoritesShelf")
-        st.changed.connect(self._shelf_toggled)
         if not fake:
             from .playtime import PlayLog
 
@@ -78,20 +77,16 @@ class Backend(QObject):
             self._tray.changed.connect(self._save_tray)
         self._tray.installedFirst = st.get("installedFirst")
         st.changed.connect(lambda: setattr(self._tray, "installedFirst", st.get("installedFirst")))
-        # One plastic, no variants: the default texture at its default depth (the texture
-        # choices and the strength slider are gone; old settings are ignored).
-        self._theme.set_card_texture(PLASTIC_TEXTURE)
-        self._theme.texture = PLASTIC_TEXTURE
 
-        def apply_texture():
+        def apply_look():
             self._settle_mode()
             self._theme.look = st.get("look")
             self._theme.mode = st.get("themeMode")
             self._theme.groundColors = st.get("groundColors")
             self._theme.set_ground_tuning(st.get("groundTuning"))
 
-        apply_texture()
-        st.changed.connect(apply_texture)
+        apply_look()
+        st.changed.connect(apply_look)
         self._sessions = SessionModel(self._library, real=not fake, parent=self)
         self._sessions.frozen = self._test_run  # tests never quit or kill real games
         self._sessions.set_related(self._settings.get("related"))
@@ -114,13 +109,11 @@ class Backend(QObject):
                             other_stores=lambda: self._settings.get("otherStores"))
         self._store.playNextPrices.connect(self._play_next_prices)
         self._store.refreshPlayNext([e for e in self._settings.get("playNext") if isinstance(e, dict)])
-        from .keys import Keys
-        from .sources import steam
-
-        self._keys = Keys(lambda: steam.steam_id64(steam.find_root()) if steam.find_root() else None, self)
         from .achievements import Achievements
+        from .keys import Keys
 
-        self._achievements = Achievements(lambda: steam.steam_id64(steam.find_root()) if steam.find_root() else None, self)
+        self._keys = Keys(self._steam_id64, self)
+        self._achievements = Achievements(self._steam_id64, self)
         self._art = None
         self._art_rev = {}
         if not fake:
@@ -142,6 +135,14 @@ class Backend(QObject):
             self._test_on = self._settings.get("testCartridge")
             self._settings.changed.connect(self._test_toggled)
             self._watch.failed.connect(self.libraryError)
+
+    @staticmethod
+    def _steam_id64():
+        """The Steam account on this PC (from Steam's own files), or None."""
+        from .sources import steam
+
+        root = steam.find_root()
+        return steam.steam_id64(root) if root else None
 
     def _settle_mode(self):
         """The mode is always chosen, dark or light: picking a colour must never change it.
@@ -328,11 +329,6 @@ class Backend(QObject):
     def games(self):
         return self._tray
 
-    @Property(QObject, constant=True)
-    def favorites(self):
-        """The favorites shelf's games (the tray holds the rest)."""
-        return self._favorites
-
     @Slot()
     def resetSettings(self):
         """Settings → Reset All Settings: every preference and per-game choice back to the
@@ -347,16 +343,8 @@ class Backend(QObject):
         self._bump_headers()
         self.headersChanged.emit()
 
-    def _shelf_toggled(self):
-        if self._settings.get("favoritesShelf") != self._shelf_on:
-            self._shelf_on = self._settings.get("favoritesShelf")
-            self._apply_favorites()
-
     def _apply_favorites(self):
-        self._favorites_list.set_play_next(self._settings.get("favorites"))
-        ids = []  # the sidebar concept: favorites are a list page, not a shelf above the tray
-        self._tray.set_favorites(ids)
-        self._favorites.set_favorites(ids)
+        self._favorites_list.set_list(self._settings.get("favorites"))
 
     # ── Genres: the store's categories for library games (genres.py) ────────────────────────
 
@@ -383,7 +371,7 @@ class Backend(QObject):
         self._genres_busy = False
         if not result:
             return
-        for m in (self._tray, self._favorites, self._play_next, self._search_library):
+        for m in (self._tray, self._play_next, self._favorites_list, self._custom_list, self._search_library):
             m.set_genres(result)
         from .store import Store
 
@@ -393,7 +381,7 @@ class Backend(QObject):
         for tags in result.values():
             for t in tags:
                 counts[t] = counts.get(t, 0) + 1
-        names = dict((t, n) for n, t in Store.CATEGORIES)
+        names = {t: n for n, t in Store.CATEGORIES}
         self._top_genres = [{"value": t, "text": names[t], "count": c}
                             for t, c in sorted(counts.items(), key=lambda kv: -kv[1]) if t in names]
         self.genresChanged.emit()
@@ -401,7 +389,7 @@ class Backend(QObject):
     @Property("QVariantList", notify=genresChanged)
     def topGenres(self):
         """The library's genres, most games first: [{value: tag, text, count}]."""
-        return getattr(self, "_top_genres", [])
+        return self._top_genres
 
     @Property(QObject, constant=True)
     def searchLibrary(self):
@@ -439,7 +427,7 @@ class Backend(QObject):
                     ids.append(gid)
                 else:
                     store.append(dict(e, key=self._store_key(e)))
-        self._play_next.set_play_next(ids)
+        self._play_next.set_list(ids)
         self._play_next_store = store
         self.playNextChanged.emit()
 
@@ -508,7 +496,7 @@ class Backend(QObject):
         """Fills customList with this list's games."""
         self._shown_list = lid
         ids = next((x.get("ids") or [] for x in self._lists() if x["id"] == lid), [])
-        self._custom_list.set_play_next(ids)
+        self._custom_list.set_list(ids)
 
     @Property(QObject, constant=True)
     def customList(self):
@@ -517,10 +505,7 @@ class Backend(QObject):
     @Slot(result=str)
     def steamId(self):
         """Your Steam ID (from Steam's own files), "" without Steam."""
-        from .sources import steam
-
-        root = steam.find_root()
-        return str(steam.steam_id64(root) or "") if root else ""
+        return str(self._steam_id64() or "")
 
     @Property(QObject, constant=True)
     def favoritesList(self):
@@ -604,7 +589,7 @@ class Backend(QObject):
 
     @Slot(str, bool)
     def setFavorite(self, game_id, on):
-        """Onto the favorites shelf (on) or back into the tray."""
+        """Into Favorites (on) or out of it."""
         favs = [g for g in self._settings.get("favorites") if g != game_id]
         if on:
             favs.append(game_id)

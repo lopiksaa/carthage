@@ -41,7 +41,6 @@ STAGES = {
               (300, "Window Shopping", "Just looking"),
               (1200, "Still Window Shopping", "The wishlist keeps growing")],
 }
-STATES = {k: v[0][1:] for k, v in STAGES.items()}
 
 
 def stage_for(screen, seconds):

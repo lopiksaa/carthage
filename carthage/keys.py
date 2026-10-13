@@ -89,10 +89,8 @@ class Keys(QObject):
         self._has = {"steam": False, "steamgrid": False, "itad": False}
         self._status = {"steam": "", "steamgrid": "", "itad": ""}
         self._message = {"steam": "", "steamgrid": "", "itad": ""}
-        # A check that failed for reasons other than the key (offline, service down): setup
-        # then lets you go on without it for now.
-        self._steam_found = False
         self._results = []  # delivered to the UI thread via _deliver
+        self._deliver.connect(self._apply)
         self._refresh()
 
     def _run(self, fn):
@@ -106,15 +104,8 @@ class Keys(QObject):
 
     def _refresh(self):
         def work():
-            has = {s: bool(_lookup(s)) for s in self._has}
-            self._results.append(("has", has))
-            try:
-                found = bool(self._steam_id())
-            except Exception:
-                found = False
-            self._results.append(("steam", found))
+            self._results.append(("has", {s: bool(_lookup(s)) for s in self._has}))
 
-        self._deliver.connect(self._apply)
         self._run(work)
 
     @Slot()
@@ -123,8 +114,6 @@ class Keys(QObject):
             kind, data = self._results.pop(0)
             if kind == "has":
                 self._has.update(data)
-            elif kind == "steam":
-                self._steam_found = data
             elif kind == "status":
                 service, status, message, stored = data
                 self._status[service] = status
@@ -147,11 +136,6 @@ class Keys(QObject):
     @Property("QVariantMap", notify=changed)
     def message(self):
         return dict(self._message)
-
-    @Property(bool, notify=changed)
-    def steamFound(self):
-        """A Steam account on this PC (the Steam key needs one to be checked with)."""
-        return self._steam_found
 
     @Slot(str, str)
     def save(self, service, key):

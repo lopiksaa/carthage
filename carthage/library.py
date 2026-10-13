@@ -1,7 +1,8 @@
 """Games, the library model and the tray's search/filter/sort model.
 
-`real_games()` reads every launcher (sources/). A game with a `sim` behavior is simulated
-instead of launched (the Test Cartridge; the test harness's demo library in tools/harness):
+`real_games()` reads every launcher (sources/). A game with a `sim` behavior is pretend: it's
+simulated instead of launched (the Test Cartridge; the test harness's demo library in
+tools/harness). Real games have none.
 
     normal    starts, runs, quits after ~1.5 s
     stubborn  ignores Quit, so "isn't responding" appears after 10 s
@@ -94,7 +95,7 @@ class Game:
     source: str
     ext_id: str
     installed: bool = True
-    sim: str = "normal"
+    sim: str = ""  # a pretend game's behavior (see above); "" for real games
     no_slot: bool = False
     last_played: int = 0
     added: int = 0
@@ -220,10 +221,9 @@ class GameModel(QAbstractListModel):
         super().__init__(parent)
         self._hidden = set()
         self.no_slot_ids = {g.game_id for g in games if g.no_slot}
+        self.title_overrides = {}
+        self.play_log = None  # playtime.PlayLog (not for the demo library)
         self._index(games)
-
-    title_overrides = {}
-    play_log = None  # playtime.PlayLog (not for the demo library)
 
     def _index(self, games):
         self._games = games
@@ -372,23 +372,20 @@ def source_label(source):
 class TrayModel(QSortFilterProxyModel):
     """Search, filter and sort for the tray.
 
-    A cartridge sits in one place: the favorites shelf or the tray. `part` says which this
-    model holds: "tray" (everything but the favorites), "favorites" (only them), "all", or
-    "playnext" (the Play Next bookmarks, in the order they were added; bookmarking doesn't
-    take a game off the tray). A model given `mirror` (the tray's model) follows its search,
-    filter and sort."""
+    `part` says what this model holds: "all" (every game that isn't hidden) or "list" (one
+    list's games, set with set_list(), in the order they were added: Play Next, Favorites, your
+    own lists). A model given `mirror` (the tray's model) follows its search, filter and sort."""
 
     changed = Signal()
 
-    def __init__(self, source, parent=None, part="tray", mirror=None):
+    def __init__(self, source, parent=None, part="all", mirror=None):
         super().__init__(parent)
         self.setSourceModel(source)
         self._text = ""
         self._filter = "all"
         self._sort = "recent"
         self._part = part
-        self._favorites = set()
-        self._play_next = {}  # game_id → position in the Play Next list
+        self._list = {}  # game_id → position in the list ("list" models)
         self._genre = 0       # a genre's Steam tag (genres.py); 0 = every genre
         self._genre_all = []  # several genres, all required (the search page)
         self._genre_none = []  # genres a game must not have (the search page)
@@ -406,17 +403,10 @@ class TrayModel(QSortFilterProxyModel):
         self.sort(0)
         self.changed.emit()
 
-    def set_favorites(self, ids):
-        ids = set(ids)
-        if ids != self._favorites:
-            self._favorites = ids
-            self.invalidateFilter()
-            self.changed.emit()
-
-    def set_play_next(self, ids):
+    def set_list(self, ids):
         order = {g: i for i, g in enumerate(ids)}
-        if order != self._play_next:
-            self._play_next = order
+        if order != self._list:
+            self._list = order
             self.invalidate()
             self.sort(0)
             self.changed.emit()
@@ -521,10 +511,7 @@ class TrayModel(QSortFilterProxyModel):
         g = m._games[row]
         if g.game_id in m._hidden:
             return False
-        if self._part == "playnext" and g.game_id not in self._play_next:
-            return False
-        fav = g.game_id in self._favorites
-        if (self._part == "tray" and fav) or (self._part == "favorites" and not fav):
+        if self._part == "list" and g.game_id not in self._list:
             return False
         o = self._opts()
         if g.game_id == TEST_CARTRIDGE_ID:  # a test tool: shown whatever the filter
@@ -561,8 +548,8 @@ class TrayModel(QSortFilterProxyModel):
     def lessThan(self, left, right):
         m = self.sourceModel()
         a, b = m._games[left.row()], m._games[right.row()]
-        if self._part == "playnext":  # first bookmarked, first in line
-            return self._play_next.get(a.game_id, 0) < self._play_next.get(b.game_id, 0)
+        if self._part == "list":  # first added, first in line
+            return self._list.get(a.game_id, 0) < self._list.get(b.game_id, 0)
         o = self._opts()
         if TEST_CARTRIDGE_ID in (a.game_id, b.game_id):  # the Test Cartridge comes first
             return a.game_id == TEST_CARTRIDGE_ID

@@ -1,5 +1,5 @@
-// The tray of recesses holding the cartridges. With `shelf: true` it's the favorites shelf: one
-// row that scrolls sideways.
+// The tray of recesses holding the cartridges. With `shelf: true` it's a list's grid inside a
+// page (PlayNextShelf): it wraps like the tray but never scrolls on its own.
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -12,12 +12,11 @@ GridView {
     property var trayModel: Backend.games
     property bool shelf: false
     property Item mainTray: grid     // the shelf hands its card menu to the main tray
-    // Where the first column's pocket starts and the last one's ends, for aligning the bar and
-    // shelf.
+    // Where the first column's pocket starts and the last one's ends, for aligning the bars and
+    // pages.
     readonly property real pocketW: cardW + 2 * pad
     readonly property real contentLeft: leftMargin + Math.round((cellWidth - pocketW) / 2)
     readonly property real contentRight: width - rightMargin - Math.round((cellWidth - pocketW) / 2)
-    readonly property var shelfItem: !shelf && headerItem ? headerItem.shelf : null
 
     readonly property real cardW: Backend.settings.cardWidth
     readonly property real pad: cardW * 0.035
@@ -29,8 +28,7 @@ GridView {
 
     function cellFor(gameId) {
         const row = trayModel.rowOf(gameId)
-        if (row >= 0) return itemAtIndex(row)
-        return shelfItem ? shelfItem.cellFor(gameId) : null
+        return row >= 0 ? itemAtIndex(row) : null
     }
     function isCellVisible(cell) {
         if (!cell) return false
@@ -95,28 +93,6 @@ GridView {
         enabled: !grid.shelf  // the shelf leaves the wheel to the tray around it
         flickable: grid
         step: grid.cellHeight * 0.34
-    }
-
-    property bool showShelves: true  // Favorites and Play Next above the games (not in the sidebar concept)
-    header: grid.shelf || !showShelves ? null : shelfHeader
-    Component {
-        id: shelfHeader
-        LibraryShelves {
-            width: grid.width - grid.leftMargin - grid.rightMargin
-            tray: grid
-            appRoot: grid.appRoot
-        }
-    }
-    // While the tray is at its top, keep it there when the shelf loads or resizes. (Set only by
-    // scrolling: a header change moves the top, not the view.)
-    property bool atTop: true
-    onContentYChanged: atTop = contentY <= originY + 1
-    onHeaderItemChanged: if (!shelf && atTop) Qt.callLater(positionViewAtBeginning)
-    Connections {
-        target: grid.shelf ? null : grid.headerItem
-        function onHeightChanged() {
-            if (grid.atTop && !grid.appRoot.dragging) Qt.callLater(grid.positionViewAtBeginning)
-        }
     }
 
     delegate: TrayCell {

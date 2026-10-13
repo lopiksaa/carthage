@@ -43,7 +43,6 @@ SHADOW_PAD = 0.16  # fraction of card width added around the shadow image
 RECESS_PAD = 0.035  # fraction of card width the pocket extends past the card
 
 
-
 def _img(w, h):
     img = QImage(max(1, w), max(1, h), QImage.Format_ARGB32_Premultiplied)
     img.fill(Qt.transparent)
@@ -344,11 +343,6 @@ def _gauss(a, sigma):
     pad = np.pad(a, r, mode="edge")
     tmp = np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 1, pad)
     return np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 0, tmp)
-
-
-def _qcolor(argb):
-    c = QColor(argb)
-    return c
 
 
 def render_glass_well(w, h, edition, dark=None):

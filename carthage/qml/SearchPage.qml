@@ -1,6 +1,6 @@
-// The search page (sidebar layout concept): one search for the library and the stores. A big
-// field, filter chips (genres, price, on sale, store, order) and the results as cartridges:
-// your games first, then the stores'. Works with no text too: pick chips and browse.
+// The search page: one search for the library and the stores. The top bar's field sets `text`
+// (App.qml search()); filter chips (genres, price, on sale, store, order) and the results as
+// cartridges: your games first, then the stores'. Works with no text too: pick chips and browse.
 import QtQuick
 import Carthage
 import QtQuick.Controls as QQC2
@@ -10,11 +10,10 @@ Flickable {
 
     property Item tray      // the main tray, for the cartridge geometry
     property Item appRoot
-    property bool showField: true  // off when the top bar's field drives the page
     signal chosen(var item, Item cart, var siblings)
 
     readonly property var pal: Backend.theme.p
-    property alias text: field.text
+    property string text: ""
     property var genres: []       // Steam tags, all required
     property var exGenres: []     // Steam tags to leave out
     property string price: ""     // "", "free", "10", "20"
@@ -30,7 +29,6 @@ Flickable {
     readonly property bool hasFilters: genres.length > 0 || exGenres.length > 0 || price !== "" || sale || sort !== "top"
     readonly property bool libraryShown: (term.length >= 2 || genres.length > 0) && store === "all"
 
-    function focusField() { field.forceActiveFocus() }
     function setGenres(list) { genres = list; contentY = 0 }
     // A genre chip goes: off → included → left out → off.
     function toggleGenre(tag) {
@@ -297,52 +295,6 @@ Flickable {
         y: Ui.spacingLarge
         spacing: Ui.gapM
 
-        // The field.
-        QQC2.TextField {
-            id: field
-            visible: page.showField
-            width: parent.width
-            height: visible ? 48 : 0
-            leftPadding: 52
-            rightPadding: 48
-            placeholderText: "Search your games and the stores"
-            placeholderTextColor: page.pal.trayTextDim
-            color: page.pal.trayText
-            font.family: Ui.fontText
-            font.pixelSize: Ui.textLead
-            font.weight: Font.DemiBold
-            selectByMouse: true
-            Accessible.name: "Search"
-            Keys.onEscapePressed: page.appRoot.navigateBack()
-            Keys.onDownPressed: page.forceActiveFocus()
-            background: Rectangle {
-                radius: Ui.radiusMedium + 4
-                color: Qt.alpha(page.pal.trayText, 0.07)
-                border.width: field.activeFocus ? 2 : 1
-                border.color: field.activeFocus ? Backend.theme.accent.accent : Qt.alpha(page.pal.trayText, 0.2)
-                CIcon {
-                    x: 18
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 20
-                    height: 20
-                    source: "search"
-                    color: page.pal.trayTextDim
-                }
-            }
-            CButton {
-                visible: field.text !== ""
-                anchors.right: parent.right
-                anchors.rightMargin: 8
-                anchors.verticalCenter: parent.verticalCenter
-                width: 36
-                height: 36
-                kind: "ghost"
-                icon.name: "edit-clear"
-                Accessible.name: "Clear the search"
-                onClicked: { field.text = ""; field.forceActiveFocus() }
-            }
-        }
-
         // The chips.
         Row {
             visible: page.store !== "epic"
@@ -445,7 +397,6 @@ Flickable {
                     id: libShelf
                     // (libClip already starts at the tray's margin: the tray's columns exactly.)
                     width: page.width - page.tray.leftMargin - page.tray.rightMargin
-                    asPage: true
                     tray: page.tray
                     appRoot: page.appRoot
                     listModel: Backend.searchLibrary
@@ -465,11 +416,11 @@ Flickable {
                 EngravedLabel { text: page.term.length >= 2 || page.hasFilters || page.store === "epic" ? "In the Stores" : "Popular Right Now" }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                                        text: page.state_ === "loading" ? "Searching…"
-                                                : page.state_ === "error" ? "Unavailable"
-                                                : page.epicNeedsTerm ? "Search by name"
-                                                : page.results.length === 0 && (page.term.length >= 2 || page.hasFilters)
-                                                    ? "No results" : page.results.length + " games"
+                    text: page.state_ === "loading" ? "Searching…"
+                        : page.state_ === "error" ? "Unavailable"
+                        : page.epicNeedsTerm ? "Search by name"
+                        : page.results.length === 0 && (page.term.length >= 2 || page.hasFilters)
+                            ? "No results" : page.results.length + " games"
                     color: page.pal.trayTextDim
                     font.family: Ui.fontText
                     font.weight: Font.Bold

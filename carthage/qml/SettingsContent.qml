@@ -1,4 +1,4 @@
-// One settings section of the drawer; only its controls are created.
+// One settings section (SettingsPage); only its controls are created.
 //   SettingsContent { section: "look" }
 import QtQuick
 import Carthage
@@ -255,14 +255,6 @@ Column {
                 text: "Titles under cards"
                 checked: Backend.settings.showTitles
                 onToggled: Backend.settings.showTitles = checked
-            }
-            CSwitch {
-                width: parent.width
-                visible: false  // the sidebar concept: Favorites is a page, not a shelf
-                text: "Favorites shelf"
-                hint: "A shelf above your games for the ones you keep coming back to"
-                checked: Backend.settings.favoritesShelf
-                onToggled: Backend.settings.favoritesShelf = checked
             }
             Row {
                 width: parent.width

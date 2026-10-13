@@ -32,7 +32,7 @@ UninstallDisplayName=Carthage
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-; Qt 6.11 needs 64-bit Windows 10 1809 or later. Everything else ships inside the app:
+; Qt 6.12 needs 64-bit Windows 10 1809 or later. Everything else ships inside the app:
 ; its own Visual C++ runtime, the Universal CRT and a software OpenGL fallback.
 MinVersion=10.0.17763
 ArchitecturesAllowed=x64compatible

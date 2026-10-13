@@ -30,7 +30,6 @@ Flickable {
         y: Ui.spacingLarge
         x: page.tray.leftMargin
         width: page.width - page.tray.leftMargin - page.tray.rightMargin
-        asPage: true
         tray: page.tray
         appRoot: page.appRoot
         listModel: page.listModel

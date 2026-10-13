@@ -273,7 +273,7 @@ def launch(game):
         # Epic's com.epicgames.launcher:// link, RiotClientServices.exe --launch-product, a
         # game's own launcher); the game itself then runs from its install folder, which is
         # what gets tracked.
-        if kind_of(exe) == "handoff":  # a link (Epic's)
+        if kind == "handoff":  # a link (Epic's)
             os.startfile(exe)
         else:
             # A game's own launcher starts in its own folder, like its shortcut does.

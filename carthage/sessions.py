@@ -40,10 +40,8 @@ GENERIC_PROGRAMS = {"sh", "bash", "zsh", "fish", "env", "python", "python3", "wi
                     "steam", "heroic", "lutris", "legendary", "gamemoderun", "mangohud", "flatpak",
                     "xdg-open", "gio", "systemd-run", "cmd", "powershell", "start", "java", "mono", "dotnet"}
 CRASH_WINDOW = 5.0  # s: exiting this soon after starting counts as "closed right after starting"
-_log = logging.getLogger("carthage.sessions")  # what the dock did, for Copy Diagnostics
-
-
 RELAUNCH_WAIT = 20  # s to wait for a game that closed right away to come back (see _apply_poll)
+_log = logging.getLogger("carthage.sessions")  # what the dock did, for Copy Diagnostics
 
 
 def _program_name(exe):
@@ -259,7 +257,7 @@ class SessionModel(QAbstractListModel):
 
     @Slot(str)
     def quit(self, game_id):
-        i, s = self._row(game_id)
+        _, s = self._row(game_id)
         # Frozen (a test on the real library): only simulated games, which have no process.
         if self.frozen and not (s and s.simulated):
             return
@@ -282,7 +280,7 @@ class SessionModel(QAbstractListModel):
 
     @Slot(str)
     def keepWaiting(self, game_id):
-        i, s = self._row(game_id)
+        _, s = self._row(game_id)
         if s and s.state == "notresponding":
             self._set_state(game_id, "closing")
             s.later(NOT_RESPONDING_AFTER, lambda: self._set_state(game_id, "notresponding"))
@@ -291,7 +289,7 @@ class SessionModel(QAbstractListModel):
     def forceQuit(self, game_id):
         if self.frozen:
             return
-        i, s = self._row(game_id)
+        _, s = self._row(game_id)
         if not s:
             return
         s.cancel_timers()
@@ -310,7 +308,7 @@ class SessionModel(QAbstractListModel):
 
     @Slot(str, result=bool)
     def switchTo(self, game_id):
-        i, s = self._row(game_id)
+        _, s = self._row(game_id)
         if not s or not s.pids:
             return False
         pids = set(s.pids)
@@ -319,11 +317,11 @@ class SessionModel(QAbstractListModel):
 
     @Slot(str, result=bool)
     def canSwitch(self, game_id):
-        i, s = self._row(game_id)
+        _, s = self._row(game_id)
         return bool(s and s.pids and s.state in ("running", "closing", "notresponding"))
 
     def _end(self, game_id, reason):
-        i, s = self._row(game_id)
+        _, s = self._row(game_id)
         if not s or s.state == "ended":
             return
         s.cancel_timers()

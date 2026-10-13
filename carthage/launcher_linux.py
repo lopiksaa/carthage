@@ -58,7 +58,6 @@ def _detach(args):
     )
 
 
-
 def progname(argv):
     """A process's program name from its argv, robust to Wine paths and to programs (like
     Chromium) that rewrite argv into one long string."""
@@ -114,15 +113,16 @@ class Snapshot:
             return set()
         out = set()
         for pid, argv in self.cmd.items():
-            names = {progname(argv).lower()} | {progname([a]).lower() for a in argv[1:3]}
-            if names & wanted:
+            found = {progname(argv).lower()} | {progname([a]).lower() for a in argv[1:3]}
+            if found & wanted:
                 out.add(pid)
         return self.tree(out)
 
     def started_since(self, since, uid=None):
-        """[(pid, name)] of this user's processes started after `since` (unix time)."""
+        """[(pid, name, start time)] of this user's processes started after `since` (unix time)."""
         try:
-            btime = next(int(l.split()[1]) for l in open("/proc/stat") if l.startswith("btime"))
+            with open("/proc/stat") as f:
+                btime = next(int(line.split()[1]) for line in f if line.startswith("btime"))
             hz = os.sysconf("SC_CLK_TCK")
         except (OSError, StopIteration, ValueError):
             return []
@@ -190,7 +190,6 @@ def flatpak_instances():
     return apps
 
 
-
 def _load_scopes():
     try:
         return json.loads(SCOPES_FILE.read_text(encoding="utf-8"))
@@ -229,7 +228,6 @@ def forget_scope(unit):
     scopes = _load_scopes()
     if scopes.pop(unit, None) is not None:
         _save_scopes(scopes)
-
 
 
 def launch(game):
@@ -305,9 +303,9 @@ def pids_for(handle, snap, flatpaks=None):
     return set()
 
 
-
 class Windows:
-    """Close or raise a game's windows through the window manager (EWMH)."""
+    """Close or raise a game's windows through the window manager (EWMH). One use each: the
+    connection to the X server is closed afterwards."""
 
     def __init__(self):
         self._d = None
@@ -355,6 +353,8 @@ class Windows:
             return n
         except Exception:
             return 0
+        finally:
+            self._close()
 
     def activate(self, pids):
         try:
@@ -374,6 +374,16 @@ class Windows:
             return True
         except Exception:
             return False
+        finally:
+            self._close()
+
+    def _close(self):
+        if self._d is not None:
+            try:
+                self._d.close()
+            except Exception:
+                pass
+            self._d = None
 
 
 def signal_all(pids, sig):

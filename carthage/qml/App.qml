@@ -7,7 +7,7 @@ Item {
     id: app
     objectName: "app"
     // The main pieces by name, for the test harness (tools/harness/Commands.qml).
-    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, settingsPage: settingsPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, firstRun: firstRun, tour: tour, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
+    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, settingsPage: settingsPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, firstRun: firstRun, tour: tour, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
 
     readonly property var pal: Backend.theme.p
     // The desktop's animation-speed factor (KDE setting on Linux; 1 elsewhere); 0 = instant.
@@ -34,7 +34,7 @@ Item {
     property bool sidebarOpen: false
     function toggleSidebar() { sidebarOpen = !sidebarOpen }
 
-    // The sidebar layout concept: one page at a time in the main area, picked in the sidebar.
+    // One page at a time in the main area, picked in the sidebar:
     //   library:all · library:source:<launcher> · library:playnext · library:favorites
     //   store:discover · store:deals · store:free · store:genres · store:wishlist · search · settings
     property string page: "library:all"
@@ -84,7 +84,6 @@ Item {
         }
         if (p === "store:genres") storeView.showCategories()
         else if (p === "store:discover") storeView.backToStore()
-        if (p === "store:deals" && deals.length === 0) Backend.store.loadDeals()
         if (p === "store:wishlist") loadWishlist()  // fresh each visit (prices change)
         if (p === "search") Qt.callLater(() => header.searchField.forceActiveFocus())
         else if (p.startsWith("library:")) focusTray()
@@ -97,6 +96,7 @@ Item {
     }
     function searchGenre(tag) {
         navigate("search")
+        header.searchField.text = ""  // (which clears the page's text too)
         searchPage.clear()
         searchPage.setGenres([tag])
     }
@@ -133,7 +133,7 @@ Item {
         return tray.indexAt(tray.contentX + tray.width / 2, tray.contentY + 10)
     }
     function showOwned(gid) {
-        setMode("library")
+        navigate("library:all")
         Backend.games.filterText = ""
         Qt.callLater(function () {
             const row = Backend.games.rowOf(gid)
@@ -147,7 +147,7 @@ Item {
     }
     // True while any window/panel sits on top of the tray and dock: they then ignore input,
     // because Qt's tap handlers can still see clicks underneath a modal popup.
-    readonly property bool modalOpen: dialogOpen || storePage.open || inspect.open || app.settingsOpen
+    readonly property bool modalOpen: dialogOpen || storePage.open || inspect.open
     // Dialogs, panels and menus: these block the sidebar too (a game's view doesn't).
     readonly property bool dialogOpen: artPicker.opened || cropEditor.opened || confirm.opened
                                        || headerPicker.opened || textPrompt.opened || processPicker.opened
@@ -294,7 +294,7 @@ Item {
     }
 
     property bool dragging: false
-    property string dragTarget: ""   // "favorites" | "tray" | "dock" | ""
+    property string dragTarget: ""   // "dock" | ""
     property var dragData: null
     property Item dragCell: null
     property CardDrag dragProxy: null
@@ -303,7 +303,6 @@ Item {
         if (dragging || modalOpen) return
         dragCell = cell
         dragData = cardData(cell)
-        dragData.favorite = Backend.isFavorite(cell.gameId)
         const f = cardDragComponent.createObject(flightLayer, {
             cardW: cell.cardW, grabX: grab.x, grabY: grab.y, motion: app.motion,
         })
@@ -320,17 +319,7 @@ Item {
     }
     function dropTargetAt(scenePos) {
         const d = dock.mapFromItem(null, scenePos.x, scenePos.y)
-        if (d.y > -dock.protrude * 0.6 && d.x >= 0 && d.x <= dock.width) return "dock"
-        if (mode !== "library") return ""
-        const zone = tray.headerItem ? tray.headerItem.dropZone : null
-        if (zone && zone.visible) {
-            const z = zone.mapFromItem(null, scenePos.x, scenePos.y)
-            if (z.x >= 0 && z.y >= -12 && z.x <= zone.width && z.y <= zone.height + 12)
-                return dragData.favorite ? "" : "favorites"
-        }
-        const t = tray.mapFromItem(null, scenePos.x, scenePos.y)
-        if (dragData.favorite && t.x >= 0 && t.y >= 0 && t.x <= tray.width && t.y <= tray.height) return "tray"
-        return ""
+        return d.y > -dock.protrude * 0.6 && d.x >= 0 && d.x <= dock.width ? "dock" : ""
     }
     function moveCardDrag(scenePos) {
         if (!dragging) return
@@ -340,12 +329,8 @@ Item {
         if (t !== dragTarget && t) sound("hover")
         dragTarget = t
         dragProxy.overDock = t === "dock"
-        dragProxy.hint = t === "favorites" ? "Add to Favorites"
-                       : t === "tray" ? "Back to the Tray"
-                       : t === "dock" ? (dragData.installed ? "Play" : "Install") : ""
-        dragProxy.hintIcon = t === "favorites" ? "starred-symbolic"
-                           : t === "dock" ? (dragData.installed ? "media-playback-start-symbolic" : "download-symbolic")
-                           : t === "tray" ? "view-grid-symbolic" : ""
+        dragProxy.hint = t === "dock" ? (dragData.installed ? "Play" : "Install") : ""
+        dragProxy.hintIcon = t === "dock" ? (dragData.installed ? "media-playback-start-symbolic" : "download-symbolic") : ""
     }
     // The drag stopped without a drop (the pointer was taken away): spring back home.
     function cancelCardDrag() {
@@ -365,40 +350,23 @@ Item {
                 f.destroy()
                 return
             }
-            settleCard(f, gid, true)  // installing / launched without a slot: back to its recess
-            return
-        }
-        if (target === "favorites" || target === "tray") {
-            Backend.setFavorite(gid, target === "favorites")
-            sound("place")
-            Qt.callLater(() => settleCard(f, gid, false))
+            settleCard(f, gid)  // installing / launched without a slot: back to its recess
             return
         }
         sound("release")
-        settleCard(f, gid, true)
+        settleCard(f, gid)
     }
-    function settleCard(f, gid, home) {
-        // The tray and shelf make a new recess on their next layout; do it now, so the
-        // cartridge can fly into it instead of appearing there.
-        tray.forceLayout()
-        if (tray.shelfItem && tray.shelfItem.forceLayout) tray.shelfItem.forceLayout()
-        const cell = tray.cellFor(gid)
+    // Back into the recess it was picked up from.
+    function settleCard(f, gid) {
         f.settled.connect(() => {
             setHidden(gid, false)
             const c = tray.cellFor(gid)
             if (c) c.press()  // it lands with a little bump
             f.destroy()
         })
-        if (home) {
-            const c = dragCell && dragCell.gameId === gid ? dragCell : null
-            const p = c ? c.mapToItem(flightLayer, c.cardX, c.cardY) : dragHome
-            f.springTo(p.x, p.y)
-        } else if (cell && tray.isCellVisible(cell)) {
-            const p = cell.mapToItem(flightLayer, cell.cardX, cell.cardY)
-            f.springTo(p.x, p.y)
-        } else {
-            f.settle(f.x, f.y + 30, 0.9)  // its new recess is out of view: set it down there
-        }
+        const c = dragCell && dragCell.gameId === gid ? dragCell : null
+        const p = c ? c.mapToItem(flightLayer, c.cardX, c.cardY) : dragHome
+        f.springTo(p.x, p.y)
     }
     Component {
         id: cardDragComponent
@@ -457,11 +425,10 @@ Item {
         if (mediaViewer.opened) mediaViewer.close()  // back from a full-size screenshot first
         const current = inspect.open ? inspect.game.gameId : ""
         const pool = []
-        for (const m of [Backend.favorites, Backend.games])
-            for (let r = 0; r < m.count; r++) {
-                const id = m.idAt(r)
-                if (id !== current && Backend.sessions.indexOf(id) < 0) pool.push(id)
-            }
+        for (let r = 0; r < Backend.games.count; r++) {
+            const id = Backend.games.idAt(r)
+            if (id !== current && Backend.sessions.indexOf(id) < 0) pool.push(id)
+        }
         if (!pool.length) {
             notify(current ? "There's no other game to pick." : "There's no game to pick.")
             return
@@ -478,16 +445,11 @@ Item {
         }
     }
     function bringIntoView(gid, glide) {
-        const fav = Backend.favorites.rowOf(gid)
-        const row = Backend.games.rowOf(gid)
-        const shelf = tray.shelfItem
-        if (fav >= 0 && shelf && shelf.positionViewAtIndex) shelf.positionViewAtIndex(fav, GridView.Contain)
         const cell = tray.cellFor(gid)
         let to = tray.contentY
         if (!cell || !tray.isCellVisible(cell)) {
             const from = tray.contentY
-            if (fav >= 0) tray.positionViewAtBeginning()
-            else tray.positionViewAtIndex(row, GridView.Center)
+            tray.positionViewAtIndex(Backend.games.rowOf(gid), GridView.Center)
             to = tray.contentY
             if (glide) tray.contentY = from
         }
@@ -509,11 +471,8 @@ Item {
     }
     function startHops() {
         const cells = []
-        for (const grid of [tray, tray.shelfItem]) {
-            if (!grid || !grid.contentItem) continue
-            for (const c of grid.contentItem.children)
-                if (c.gameId && c.gameId !== diceTimer.pick && !c.out && tray.isCellVisible(c)) cells.push(c.gameId)
-        }
+        for (const c of tray.contentItem.children)
+            if (c.gameId && c.gameId !== diceTimer.pick && !c.out && tray.isCellVisible(c)) cells.push(c.gameId)
         const hops = []
         for (let i = 0; i < 7 && cells.length; i++) {
             let id = cells[Math.floor(Math.random() * cells.length)]
@@ -531,8 +490,8 @@ Item {
         property var hops: []
         property int k: 0
         onTriggered: {
-            // Something else took over (a click, a drag, the drawer): the light goes out.
-            if (inspect.open || app.settingsOpen || app.mode !== "library" || app.dragging) {
+            // Something else took over (a click, a drag, the store): the light goes out.
+            if (inspect.open || app.mode !== "library" || app.dragging) {
                 app.diceSpot = ""
                 return
             }
@@ -675,7 +634,7 @@ Item {
     Component.onCompleted: {
         Window.window.searchField = header.searchField  // Ctrl+F
         const problems = Backend.libraryProblems()
-        if (problems) notify("Couldn't read " + problems + ". Details are in " + Backend.logFile(), "long")
+        if (problems) Window.window.showPassiveNotification("Couldn't read " + problems + ". Details are in " + Backend.logFile(), "long")
         // Cartridges already in the dock (startup or live reload) are out of their recesses.
         const h = {}
         for (let i = 0; i < Backend.sessions.count; i++) {
@@ -685,54 +644,16 @@ Item {
         hiddenCards = h
     }
 
-    property real drawerProgress: 0
-    property bool settingsOpen: false  // where it's heading
-    // Settings is a page in the sidebar concept; the old drawer stays closed.
-    function toggleDrawer() {
+    // F10: Settings, and back.
+    function toggleSettings() {
         if (page === "settings") navigateBack()
         else navigate("settings")
-    }
-    function openDrawer() { navigate("settings") }
-    function closeDrawer() {}
-    function openDrawerOld() {
-        if (inspect.open) inspect.close()
-        settingsOpen = true
-        drawerAnim.to = 1
-        drawerAnim.easing.type = Easing.OutCubic
-        drawerAnim.duration = 280 * motion
-        drawerAnim.restart()
-        drawer.focusFirst()
-    }
-    function closeDrawerOld() {
-        if (!settingsOpen) return
-        settingsOpen = false
-        drawerAnim.to = 0
-        drawerAnim.easing.type = Easing.InOutCubic
-        drawerAnim.duration = 220 * motion
-        drawerAnim.restart()
-        focusTray()
-    }
-    NumberAnimation {
-        id: drawerAnim
-        target: app
-        property: "drawerProgress"
-    }
-
-    SideDrawer {
-        id: drawer
-        appRoot: app
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.right: parent.right
-        visible: app.drawerProgress > 0
-        onCloseRequested: app.closeDrawer()
     }
 
     Item {
         id: slide
         width: app.width
         height: app.height
-        x: -drawer.width * app.drawerProgress
 
         Item {
             id: stage
@@ -769,8 +690,6 @@ Item {
             }
             Sidebar {
                 id: sidebar
-                drawer: true
-                onRight: true
                 enabled: !app.modalOpen && app.sidebarOpen
                 anchors.top: header.bottom
                 anchors.bottom: parent.bottom
@@ -793,7 +712,6 @@ Item {
                 // After the click has finished: disabling the sidebar inside its own click left
                 // the mouse grabbed, and the next click anywhere did nothing.
                 onNavigate: (p) => Qt.callLater(() => { app.navigate(p); app.sidebarOpen = false })
-                onSearchRequested: Qt.callLater(() => { app.navigate("search"); app.sidebarOpen = false })
                 z: 4
             }
 
@@ -801,7 +719,7 @@ Item {
                 id: body
                 objectName: "appBody"  // (CButton looks for it)
                 // One rule for the whole app: while anything sits on top (closer look, store
-                // page, dialog, menu, drawer), nothing behind it takes clicks, hover or scroll.
+                // page, dialog, menu, sidebar), nothing behind it takes clicks, hover or scroll.
                 enabled: !app.modalOpen && !app.sidebarOpen
                 onEnabledChanged: Ui.bodyBlocked = !enabled
                 anchors.top: header.bottom
@@ -839,7 +757,6 @@ Item {
                         tray: tray
                         appRoot: app
                         title: app.pageTitle
-                        withSources: false
                         sourcePage: app.page.startsWith("library:source:")
                         count: app.page === "library:playnext" ? playNextPage.count
                              : app.page === "library:favorites" ? favoritesPage.count
@@ -869,7 +786,6 @@ Item {
                         id: tray
                         appRoot: app
                         visible: app.libraryGrid
-                        showShelves: false
                         anchors.top: libraryBar.bottom
                         anchors.left: parent.left
                         anchors.right: parent.right
@@ -934,7 +850,6 @@ Item {
                         id: storeView
                         appRoot: app
                         visible: app.page === "store:discover" || app.page === "store:genres"
-                        showBar: false
                         tray: tray
                         onGenre: (c) => app.searchGenre(c.tag)
                         anchors.top: pageBar.bottom
@@ -988,7 +903,6 @@ Item {
                     }
                     SearchPage {
                         id: searchPage
-                        showField: false  // the top bar's field
                         visible: app.page === "search"
                         anchors.fill: parent
                         tray: tray
@@ -1048,7 +962,7 @@ Item {
                     y: tray.y + Math.round((tray.height - height) / 2)
                     width: tray.width - Ui.gridUnit * 4
                     readonly property string filter: Backend.games.filterMode
-                    visible: Backend.games.count + Backend.favorites.count === 0 && app.libraryGrid
+                    visible: Backend.games.count === 0 && app.libraryGrid
                     iconName: Backend.games.filterText ? "search" : "applications-games"
                     text: Backend.games.filterText ? "No games match “" + Backend.games.filterText + "”"
                         : filter === "installed" ? "No installed games"
@@ -1164,37 +1078,6 @@ Item {
             anchors.fill: parent
             z: 100
         }
-
-        Rectangle {
-            visible: app.drawerProgress > 0
-            x: parent.width
-            width: 40
-            height: parent.height
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.5 * app.drawerProgress) }
-                GradientStop { position: 0.35; color: Qt.rgba(0, 0, 0, 0.18 * app.drawerProgress) }
-                GradientStop { position: 1.0; color: "transparent" }
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            visible: app.drawerProgress > 0
-            z: 200
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.4 * app.drawerProgress) }
-                GradientStop { position: 0.7; color: Qt.rgba(0, 0, 0, 0.52 * app.drawerProgress) }
-                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.7 * app.drawerProgress) }
-            }
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.AllButtons
-                hoverEnabled: true
-                onClicked: app.closeDrawer()
-                onWheel: (wheel) => wheel.accepted = true
-            }
-        }
     }
 
     SlotPanel {
@@ -1308,7 +1191,6 @@ Item {
         storePage.openFor(item, list)
     }
     function addGame() {
-        closeDrawer()
         addGameDialog.start()
     }
 
@@ -1334,17 +1216,14 @@ Item {
     Timer { id: tourDelay; interval: 1300; onTriggered: tour.begin() }
     Tour { id: tour; appRoot: app }
     function repeatTour() {
-        closeDrawer()
         tour.begin()
     }
     function runSetup() {
-        closeDrawer()
         navigate("library:all")
         firstRun.start(true)
     }
     WhatsNewDialog { id: whatsNew; appRoot: app }
     function showWhatsNew() {
-        closeDrawer()
         whatsNew.openWith(Backend.whatsNewNotes(), false)
     }
     Timer {
@@ -1380,7 +1259,6 @@ Item {
     }
     FeedbackDialog { id: feedbackDialog; appRoot: app }
     function sendFeedback() {
-        closeDrawer()
         feedbackDialog.start()
     }
 
@@ -1407,12 +1285,7 @@ Item {
     }
     Shortcut {
         sequence: "F10"
-        onActivated: app.toggleDrawer()
-    }
-    Shortcut {
-        sequence: "Esc"
-        enabled: app.settingsOpen
-        onActivated: app.closeDrawer()
+        onActivated: app.toggleSettings()
     }
     Shortcut {
         sequence: "F6"

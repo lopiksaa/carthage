@@ -25,7 +25,8 @@ class PlayLog:
 
     @staticmethod
     def counts(game):
-        # Not Steam (it counts its own), and not a pretend game (Test Cartridge, demo library).
+        # Not Steam (it counts its own), and not a pretend game (Test Cartridge, demo library:
+        # they have a `sim` behavior).
         return game.source != "steam" and not game.sim
 
     def apply(self, game):

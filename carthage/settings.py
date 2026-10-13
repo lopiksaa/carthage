@@ -27,19 +27,15 @@ class Settings(QObject):
         "background": "mesh",  # the glass ground: mesh, rays (underwater), iris (holographic), topo, still
         "groundColors": "nebula",  # the glass ground's colours (theme.GROUNDS)
         "groundTuning": {},  # Settings → Appearance → Advanced (theme.GROUND_TUNING, hue1–hue4)
-        "groundBlur": 0.5,
+        "groundBlur": 0.5,  # the glass ground's blur, 0–1
+        # The game view's background: "blur" (the library, blurred) or "backdrop" (the game's art).
         "gameBackground": "backdrop",
-        "colorUninstalled": False,  # uninstalled games' art in colour (off: greyed out)  # the game view: "blur" (the library, blurred) or "backdrop" (the game's art)  # the glass ground's blur, 0–1
+        "colorUninstalled": False,  # uninstalled games' art in colour (off: greyed out)
         "sortMode": "recent", "filterMode": "all", "hidden": [], "noSlot": [],
         "titles": {}, "headers": {}, "headerTexts": {}, "sgdbIds": {},
         "cardColor": "black", "testCartridge": False, "related": {}, "installedFirst": False,
         "checkUpdates": True, "setupDone": False, "hideAdult": True,
         "favorites": [], "crtEffects": True,
-        "favoritesShelf": False,
-        # Library shelves folded shut (their title stays, with the count).
-        "favoritesCollapsed": False,
-        "playNextCollapsed": False,
-        "sidebarCollapsed": False,
         # Play Next bookmarks, in order: a library game id, or a store game {appid, name, capsule, header}.
         "playNext": [],
         "lists": [],  # your own lists: [{id, name, ids: [gameId, …]}]
@@ -144,10 +140,6 @@ class Settings(QObject):
     discordPresence = _prop("discordPresence", bool, changed)
     usageMinutes = _prop("usageMinutes", int, changed)
     feedbackAsked = _prop("feedbackAsked", bool, changed)
-    favoritesShelf = _prop("favoritesShelf", bool, changed)
-    favoritesCollapsed = _prop("favoritesCollapsed", bool, changed)
-    playNextCollapsed = _prop("playNextCollapsed", bool, changed)
-    sidebarCollapsed = _prop("sidebarCollapsed", bool, changed)
     crtEffects = _prop("crtEffects", bool, changed)
     look = _prop("look", str, changed)
     themeMode = _prop("themeMode", str, changed)

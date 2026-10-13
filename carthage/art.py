@@ -9,7 +9,8 @@ For each game, the first that works:
   4. the launcher's local cover (Lutris coverart)
   5. nothing → the generated placeholder stays
 
-Cached as 640×640 JPEGs in ~/.cache/carthage/art/. Misses are remembered for a week so
+Cached as 640-px-wide JPEGs (the art window's shape) in ~/.cache/carthage/art/, beside the
+original each was cropped from. Misses are remembered for a week so
 Carthage doesn't ask SteamGridDB about the same game on every start.
 """
 
@@ -184,9 +185,7 @@ class ArtManager(QObject):
             entry.update(file=name, orig=orig_name, crop=crop)
         with self._lock:
             self._index[gid] = entry
-            tmp = INDEX.with_suffix(".tmp")
-            tmp.write_text(json.dumps(self._index), encoding="utf-8")
-            os.replace(tmp, INDEX)
+            self._write_index()
         if img is not None:
             self.ready.emit(gid)
 
@@ -498,7 +497,7 @@ class ArtManager(QObject):
                             "data_request": {"include_assets": True}})
         url = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=" + urllib.parse.quote(query)
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Carthage"}), timeout=10) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=10) as r:
                 items = json.load(r).get("response", {}).get("store_items", [])
             return items[0].get("assets", {}) if items else {}
         except (urllib.error.URLError, TimeoutError, OSError, ValueError):

@@ -9,7 +9,6 @@ Item {
     property Item tray
     property Item appRoot
     property string title: "Library"
-    property bool withSources: true  // launchers in Show (the sidebar concept lists them itself)
     property bool sourcePage: false  // one launcher's games: no Show menu
     property int count: -1           // shown instead of the library's count (a list page)
     property string listId: ""       // one of your lists: Rename and Delete in its menu
@@ -19,7 +18,7 @@ Item {
         { value: "all", text: "All" },
         { value: "installed", text: "Installed" },
         { value: "notinstalled", text: "Not Installed" },
-    ].concat(withSources && Backend.games.launchers.length > 1 ? Backend.games.launchers : [])
+    ]  // (the launchers are pages of their own, in the sidebar)
     readonly property var sortOptions: [
         { value: "recent", text: "Recently Played" },
         { value: "playtime", text: "Most Played" },
@@ -44,7 +43,7 @@ Item {
         Text {
             visible: !bar.tiny
             anchors.verticalCenter: parent.verticalCenter
-            readonly property int n: bar.count >= 0 ? bar.count : Backend.games.count + Backend.favorites.count
+            readonly property int n: bar.count >= 0 ? bar.count : Backend.games.count
             text: n + " "
                   + (Backend.games && Backend.games.filterText !== "" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games"))
             color: bar.pal.trayTextDim
@@ -95,7 +94,7 @@ Item {
             objectName: "tourDice"  // (the first-run tour points at it)
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
-            enabled: Backend.games.count + Backend.favorites.count > 1  // nothing to pick from otherwise
+            enabled: Backend.games.count > 1  // nothing to pick from otherwise
             onRolled: bar.appRoot.rollDice()
         }
         CButton {

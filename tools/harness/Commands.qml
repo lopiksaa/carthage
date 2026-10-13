@@ -4,6 +4,7 @@
 // helper: find(objectName), mouseMove(x, y), install(gameId, fraction), finishInstall(gameId).
 import QtQuick
 import Carthage
+import "../../carthage/qml"  // (the Ui singleton)
 
 QtObject {
     property Item app
@@ -49,14 +50,12 @@ QtObject {
         return p ? Math.round(p.x) + "," + Math.round(p.y) + "," + hits.length : "none," + hits.length
     }
     function run(cmd) {
-        const { addGameDialog, artPicker, autoScroll, colorPicker, confirm, cropEditor, dock, drawer, feedbackDialog, feedbackPrompt, header, headerPicker, inspect, mediaViewer, processPicker, firstRun, tour, slotPanel, sounds, storePage, storeView, textPrompt, tray, whatsNew } = app.parts
+        const { addGameDialog, artPicker, autoScroll, colorPicker, confirm, cropEditor, dock, feedbackDialog, feedbackPrompt, header, headerPicker, inspect, mediaViewer, processPicker, firstRun, tour, slotPanel, sounds, storePage, storeView, textPrompt, tray, whatsNew } = app.parts
         const changeArt = (...a) => app.changeArt(...a)
         const changeHeader = (...a) => app.changeHeader(...a)
         const choose = (...a) => app.choose(...a)
-        const closeDrawer = (...a) => app.closeDrawer(...a)
         const confirmQuit = (...a) => app.confirmQuit(...a)
         const linkProcess = (...a) => app.linkProcess(...a)
-        const openDrawer = (...a) => app.openDrawer(...a)
         const openSlotPanel = (...a) => app.openSlotPanel(...a)
         const pickColor = (...a) => app.pickColor(...a)
         const play = (...a) => app.play(...a)
@@ -68,7 +67,7 @@ QtObject {
         const sendFeedback = (...a) => app.sendFeedback(...a)
         const setMode = (...a) => app.setMode(...a)
         const showWhatsNew = (...a) => app.showWhatsNew(...a)
-        const toggleDrawer = (...a) => app.toggleDrawer(...a)
+        const toggleSettings = (...a) => app.toggleSettings(...a)
         const viewMedia = (...a) => app.viewMedia(...a)
         switch (cmd.do) {
         case "hover": {
@@ -140,8 +139,8 @@ QtObject {
         case "state":
             console.warn("STATE inspect.open=" + inspect.open + " picker=" + artPicker.opened
                          + " crop=" + cropEditor.opened + " sessions=" + Backend.sessions.count
-                         + " drawer=" + app.settingsOpen + " storePage=" + storePage.open + " menus=" + Ui.openMenus
-                         + " trayY=" + Math.round(tray.contentY) + " drawerY=" + Math.round(harness.find("drawerFlick").contentY))
+                         + " page=" + app.page + " storePage=" + storePage.open + " menus=" + Ui.openMenus
+                         + " trayY=" + Math.round(tray.contentY))
             break
         case "headerPicker": {
             const c = tray.itemAtIndex(cmd.index)
@@ -168,11 +167,6 @@ QtObject {
         }
         case "search":
             header.searchField.text = cmd.value
-            break
-        case "storeFilter":  // {"store": "steam"|"epic"|"all", "genre": tag}
-            if (cmd.store !== undefined) storeView.filterStore = cmd.store
-            if (cmd.genre !== undefined) storeView.filterGenre = cmd.genre
-            console.warn("STOREFILTER", storeView.filterStore, storeView.filterGenre)
             break
         case "geometry": { // {"tag": "library"}: one GEO line per visible item (for layout audits)
             const W = app.width, H = app.height
@@ -287,17 +281,11 @@ QtObject {
         case "toggleSidebar":
             app.toggleSidebar()
             break
-        case "sidebar":  // {"collapsed": bool}
-            Backend.settings.sidebarCollapsed = cmd.collapsed
-            break
-        case "navigate":  // {"page": "store:deals"} (the sidebar layout concept)
+        case "navigate":  // {"page": "store:deals"}
             app.navigate(cmd.page)
             break
         case "searchPage":  // {"text": "…", "genres": [tag], "sale": bool}
-            if (cmd.text !== undefined) {
-                if (app.parts.searchPage.showField) app.parts.searchPage.text = cmd.text
-                else header.searchField.text = cmd.text
-            }
+            if (cmd.text !== undefined) header.searchField.text = cmd.text
             if (cmd.genres !== undefined) app.parts.searchPage.setGenres(cmd.genres)
             if (cmd.sale !== undefined) app.parts.searchPage.sale = cmd.sale
             if (cmd.store !== undefined) app.parts.searchPage.store = cmd.store
@@ -323,9 +311,6 @@ QtObject {
             if (s) storePage.openFor(s.items[cmd.index || 0], s.items)
             break
         }
-        case "storeOpenResult":  // {"index": n} opens a search result
-            if (storeView.results[cmd.index || 0]) storePage.openFor(storeView.results[cmd.index || 0], storeView.results)
-            break
         case "storeOpenFree":  // {"index": n} opens a game from Free for a Limited Time
             if (storeView.free[cmd.index || 0]) storePage.openFor(storeView.free[cmd.index || 0], storeView.free)
             break
@@ -345,10 +330,10 @@ QtObject {
             if (c) linkProcess(c.gameId, c.title)
             break
         }
-        case "closeAll":  // every dialog, menu, page and the drawer (each on its own, so one can't stop the rest)
+        case "closeAll":  // every dialog, menu and page (each on its own, so one can't stop the rest)
             for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, slotPanel, mediaViewer, colorPicker, whatsNew, feedbackDialog])
                 try { p.close() } catch (e) { console.warn("closeAll:", e) }
-            for (const f of [() => harness.find("inspectOtherMenu").close(), () => harness.find("cardMenu").close(), () => storePage.close(), () => inspect.close(), () => closeDrawer(), () => { firstRun.phase = "" }, () => { if (tour.running) tour.end() }])
+            for (const f of [() => harness.find("inspectOtherMenu").close(), () => harness.find("cardMenu").close(), () => storePage.close(), () => inspect.close(), () => { app.sidebarOpen = false }, () => { firstRun.phase = "" }, () => { if (tour.running) tour.end() }])
                 try { f() } catch (e) { console.warn("closeAll:", e) }
             break
         case "addDialog":
@@ -418,8 +403,8 @@ QtObject {
         case "inspectFlip":
             inspect.flip()
             break
-        case "drawer":
-            toggleDrawer()
+        case "settings":
+            toggleSettings()
             break
         case "inspectClose":
             inspect.close()
