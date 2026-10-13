@@ -5,23 +5,10 @@
 ![Closer look](screenshots/closer-look.png)
 
 ![Store](screenshots/store.png)
-## Regarding AI usage
- Carthage was built with Claude Opus 5.5.
- I'm learning to code, and wanting to make this project is what got me into it. 
- I gave Claude a try, and yes it basically wrote the whole thing, but it made me want
- to be able to code without it.
- I don't want my only approach to coding to be sending a prompt, so I'm studying, 
- and I'm determined to one day be able to build something like this myself. 
- I do not in any way claim to be a developer or to know what the different parts of this 
- code do, yet I am determined to get there. This is just a way to share the project
- I am using as a learning tool. Thank you for reading this, and I hope you have fun 
- using Carthage as much as I am enjoying learning how to make something like this.
 
 ## Carthage
 Carthage is a game launcher for Linux and Windows. It gathers your games from Steam, Heroic,
-Lutris, Flatpak, Epic, Battle.net, Riot and games you add yourself, and shows each one as a
-cartridge. Start one and it slides into the dock while it runs. The Steam and Epic stores are
-built in, in the same style as your library.
+Lutris, Flatpak, Epic, Battle.net, Riot and games you add yourself, and shows them as cartidges. Launching a game makes it slide into the dock. You may also browse the Steam and Epic store from Carthage, allowing you to compare prices at a glance.
 
 
 
@@ -43,25 +30,17 @@ updates and open the release page. Control update checks in Settings → System.
 
 ## Keys and network
 
-Carthage works without keys: it reads installed and previously played Steam games from local files,
-draws a printed label when art is missing, and shows the stores. Three optional keys add remote
-library, art and price data. Add them during setup or later in Settings → Accounts & Keys:
+Carthage functions without any API keys: it reads installed and previously played Steam games from local files,
+draws a printed label when art is missing, and shows the stores.
+For optimal experience, two optional keys add full library (games not yet installed from Steam) and ability to customize art through SteamGridDB. You can add them during setup or later in Settings → Accounts & Keys:
 
 | Key | What it adds | Service |
 |---|---|---|
 | SteamGridDB | Custom game art for your cartridges, fetched from SteamGridDB's website | www.steamgriddb.com |
 | Steam Web API | Steam-owned games not found in local files, with Steam-reported playtime (game details must be public) | api.steampowered.com |
-| IsThereAnyDeal | Prices from GOG, Microsoft Store, EA and Battle.net in the store | api.isthereanydeal.com |
 
 Keys are saved in your operating system's password store: Secret Service on Linux and Credential
 Manager on Windows. They are not kept in Carthage's config or logs.
-
-Other network activity:
-
-- Steam and Epic provide store data.
-- GitHub provides update checks and downloads; update checks can be turned off in Settings → System.
-- Discord receives library/store activity when Rich Presence is enabled.
-- Sending feedback submits your message, Carthage's version and operating system, and your email if supplied.
 
 ## Run from source
 
@@ -84,7 +63,7 @@ pip install psutil        # Windows
 python -m carthage
 ```
 
-Useful while working on it:
+flags:
 
 - `python -m carthage --dev` reloads the interface when a QML file changes.
 - Set `QT_FORCE_STDERR_LOGGING=1` to see QML errors.
@@ -125,5 +104,9 @@ these companies or projects:
 
 Their names and logos belong to their owners. Carthage shows a launcher's name or logo only to
 tell you where a game comes from.
+
+## AI Usage
+Carthage was built using Claude Opus 5.5
+
 
 Copyright © 2026 lopiksa
