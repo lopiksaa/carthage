@@ -518,7 +518,7 @@ def ground_for(choice, tuning):
 
 # The four corners' lightness and share of the chroma, at night and by day (ground.html palette()).
 _CORNERS = {True: ((0.42, 1.05), (0.36, 1.0), (0.30, 0.9), (0.26, 0.8)),
-            False: ((0.90, 0.55), (0.86, 0.6), (0.92, 0.45), (0.88, 0.5))}
+            False: ((0.84, 0.95), (0.80, 1.0), (0.86, 0.85), (0.82, 0.9))}
 
 
 def _corner(g, dark, i, hue):

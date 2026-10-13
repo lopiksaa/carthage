@@ -28,7 +28,8 @@ class Settings(QObject):
         "groundColors": "nebula",  # the glass ground's colours (theme.GROUNDS)
         "groundTuning": {},  # Settings → Appearance → Advanced (theme.GROUND_TUNING, hue1–hue4)
         "groundBlur": 0.5,
-        "gameBackground": "backdrop",  # the game view: "blur" (the library, blurred) or "backdrop" (the game's art)  # the glass ground's blur, 0–1
+        "gameBackground": "backdrop",
+        "colorUninstalled": False,  # uninstalled games' art in colour (off: greyed out)  # the game view: "blur" (the library, blurred) or "backdrop" (the game's art)  # the glass ground's blur, 0–1
         "sortMode": "recent", "filterMode": "all", "hidden": [], "noSlot": [],
         "titles": {}, "headers": {}, "headerTexts": {}, "sgdbIds": {},
         "cardColor": "black", "testCartridge": False, "related": {}, "installedFirst": False,
@@ -155,5 +156,6 @@ class Settings(QObject):
     groundTuning = _prop("groundTuning", "QVariantMap", changed)
     groundBlur = _prop("groundBlur", float, changed)
     gameBackground = _prop("gameBackground", str, changed)
+    colorUninstalled = _prop("colorUninstalled", bool, changed)
     preferOfficialArt = _prop("preferOfficialArt", bool, changed)
     del _prop

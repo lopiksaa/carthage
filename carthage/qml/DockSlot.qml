@@ -133,53 +133,23 @@ Item {
 
     readonly property real mouthX: Math.round((width - 76) / 2)
 
-    // The mouth: gloss black, or the two flaps meeting at a seam when empty.
+    // The mouth: a slit cut into the shell, flush with it: a dark recess with a soft shadow at its
+    // top and the shell's own lit edge below; it widens a little as a cartridge goes in. (No
+    // raised flaps or seam: they stood out over the glass.)
     Rectangle {
+        readonly property real h: 5 + 3 * slot.open_
         x: slot.mouthX
-        y: slot.mouthY
+        y: slot.mouthY + (8 - h) / 2
         width: 76
-        height: 8
-        radius: 4
-        color: slot.glassy ? slot.g.mouth : "#0a0a0c"
+        height: h
+        radius: h / 2
+        color: slot.glassy ? Qt.alpha(slot.g.mouth, 0.42 + 0.3 * slot.open_) : Qt.alpha("#0a0a0c", 0.7 + 0.3 * slot.open_)
         Rectangle {  // the inner shadow at its top
             anchors.fill: parent
-            radius: 4
+            radius: parent.radius
             gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, slot.glassy ? 0.6 : 0.85) }
-                GradientStop { position: 0.6; color: "transparent" }
-            }
-        }
-        Rectangle {  // its near edge catches the light
-            x: 3
-            y: parent.height
-            width: parent.width - 6
-            height: 1
-            color: slot.glassy ? slot.g.edge : slot.pal.dockHi
-        }
-        Item {  // the flaps (they part from the middle as a cartridge goes in)
-            anchors.fill: parent
-            clip: true
-            opacity: 1 - slot.open_
-            Rectangle {
-                width: parent.width / 2 - 1
-                height: parent.height
-                radius: 4
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: slot.glassy ? slot.g.sheen : Qt.darker(slot.pal.dockBottom, 1.2) }
-                    GradientStop { position: 1.0; color: slot.glassy ? slot.g.ring : slot.pal.dockTop }
-                }
-            }
-            Rectangle {
-                x: parent.width / 2 + 1
-                width: parent.width / 2 - 1
-                height: parent.height
-                radius: 4
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: slot.glassy ? slot.g.ring : slot.pal.dockTop }
-                    GradientStop { position: 1.0; color: slot.glassy ? slot.g.sheen : Qt.darker(slot.pal.dockBottom, 1.2) }
-                }
+                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, slot.glassy ? 0.35 : 0.6) }
+                GradientStop { position: 0.7; color: "transparent" }
             }
         }
     }

@@ -50,6 +50,7 @@ Column {
         }
     }
     Text {
+        visible: row.purpose !== ""
         width: parent.width
         text: row.purpose
         color: row.pal.panelTextDim

@@ -18,6 +18,16 @@ Item {
     property bool floating: false     // (kept for App: the dock always floats now)
     property bool valley: false       // (kept for App)
     property real hideY: 0            // slid down out of sight by this much
+    // A dock for show (the first-run splash): just the shell and its slot, holding the one
+    // cartridge demoInsert() puts in; no status, keys or clock, and no real games.
+    property bool demo: false
+    ListModel { id: demoSessions }
+    function demoInsert(card) {
+        demoSessions.clear()
+        demoSessions.append(Object.assign({ gameId: "demo", title: "", state: "running", statusText: "", led: "green",
+                                            source: "carthage", sourceName: "CARTHAGE", sourceIcon: "carthage",
+                                            code: "", extId: "", tracked: true }, card || {}))
+    }
 
     readonly property var pal: Backend.theme.p
     readonly property var g: Backend.theme.glass
@@ -39,7 +49,7 @@ Item {
     readonly property real riseHeight: 0       // (App: flights aim straight at seatPos)
     readonly property real rise: 0
 
-    readonly property int filled: Backend.sessions.count
+    readonly property int filled: demo ? demoSessions.count : Backend.sessions.count
     readonly property int bays: Math.max(1, filled)
     height: shellH
     // The whole dock takes the pointer: hovering its middle mustn't hover (and click) the
@@ -188,8 +198,8 @@ Item {
 
     // ── Widths (they animate, so the shell grows and shrinks from its centre) ──
     readonly property real keysW: keys.reduce((a, k) => a + k[1], 0) + Math.max(0, keys.length - 1) * 8
-    readonly property real leftWTarget: (keys.length || status.two) ? 216 : 96
-    readonly property real rightWTarget: keys.length ? keysW + 30 + 66 : 96
+    readonly property real leftWTarget: demo ? 22 : (keys.length || status.two) ? 216 : 96
+    readonly property real rightWTarget: demo ? 22 : keys.length ? keysW + 30 + 66 : 96
     readonly property real flatTarget: 88 + (bays - 1) * pitch
     property real leftW: leftWTarget
     property real rightW: rightWTarget
@@ -265,13 +275,6 @@ Item {
             }
             PathSvg { path: dock.shellPath }
         }
-        // The lit top contour, inside the shell (no outline elsewhere).
-        ShapePath {
-            fillColor: "transparent"
-            strokeColor: dock.glassy ? dock.g.edge : Qt.alpha(dock.pal.dockHi, Backend.theme.dark ? 0.5 : 0.95)
-            strokeWidth: 1.3
-            PathSvg { path: dock.topEdge }
-        }
         // Plastic: the shaded bottom contour.
         ShapePath {
             fillColor: "transparent"
@@ -281,11 +284,62 @@ Item {
         }
     }
 
+    // The lit rim: light caught on the glass's own edge. Drawn on the outline set in by half the
+    // line's width, so all of it lies on the glass (a reflection, not a line laid over the edge);
+    // along the top and round the corners, fading out down the sides.
+    readonly property real rimIn: 0.35
+    readonly property string rimPath: {
+        const d = rimIn, rr = r - d, w = width, bottomY = shellH - r
+        // (all the way round: a reflection wraps the glass, it doesn't stop on the sides)
+        const dipIn = "L " + (x0 - curve) + " " + d + " C " + (x0 - curve / 2) + " " + d + " " + (x0 - curve / 2) + " " + (saddle + d)
+                      + " " + x0 + " " + (saddle + d) + " L " + x1 + " " + (saddle + d) + " C " + (x1 + curve / 2) + " " + (saddle + d)
+                      + " " + (x1 + curve / 2) + " " + d + " " + (x1 + curve) + " " + d
+        return "M " + d + " " + bottomY + " L " + d + " " + r + " A " + rr + " " + rr + " 0 0 1 " + r + " " + d + " " + dipIn
+             + " L " + (w - r) + " " + d + " A " + rr + " " + rr + " 0 0 1 " + (w - d) + " " + r + " L " + (w - d) + " " + bottomY
+             + " A " + rr + " " + rr + " 0 0 1 " + (w - r) + " " + (shellH - d) + " L " + r + " " + (shellH - d)
+             + " A " + rr + " " + rr + " 0 0 1 " + d + " " + bottomY
+    }
+    // Painted like light catching the edge (as LitEdge): brightest at the top-left corner and
+    // fading smoothly away from it, a softer glow at the bottom-right, a faint line in between.
+    Shape {
+        id: rim
+        width: dock.width
+        height: dock.shellH
+        preferredRendererType: Shape.CurveRenderer
+        readonly property color ink: dock.glassy ? dock.g.edge : Qt.alpha(dock.pal.dockHi, Backend.theme.dark ? 0.5 : 0.95)
+        function tone(k) { return Qt.alpha(rim.ink, Math.min(1, rim.ink.a * 2.2 * k)) }
+        component RimPath: ShapePath {
+            fillColor: "transparent"
+            strokeWidth: 2 * dock.rimIn
+            PathSvg { path: dock.rimPath }
+        }
+        RimPath { strokeColor: rim.tone(0.1) }
+        RimPath {
+            strokeColor: "transparent"
+            strokeGradient: RadialGradient {
+                centerX: 0; centerY: 0; centerRadius: 160
+                focalX: 0; focalY: 0
+                GradientStop { position: 0.0; color: rim.tone(1) }
+                GradientStop { position: 0.4; color: rim.tone(0.55) }
+                GradientStop { position: 1.0; color: rim.tone(0) }
+            }
+        }
+        RimPath {
+            strokeColor: "transparent"
+            strokeGradient: RadialGradient {
+                centerX: dock.width; centerY: dock.shellH; centerRadius: 90
+                focalX: dock.width; focalY: dock.shellH
+                GradientStop { position: 0.0; color: rim.tone(0.5) }
+                GradientStop { position: 1.0; color: rim.tone(0) }
+            }
+        }
+    }
+
     // Glass: a soft plate under the words only, so the shell stays real glass (the handoff's
     // tint) while the text keeps ≥ 4.5:1 over the brightest art scrolling behind (measured).
     Item {
         id: textPlate
-        visible: dock.glassy
+        visible: dock.glassy && !dock.demo
         x: statusWing.x - 10
         y: Math.round((dock.shellH - 46) / 2)
         // It ends before the slot (running under it, it was cut off in a hard edge there).
@@ -319,6 +373,7 @@ Item {
     // ── Left wing: the status ──
     Item {
         id: statusWing
+        visible: !dock.demo
         x: dock.pad
         width: dock.leftW
         height: dock.shellH
@@ -433,7 +488,7 @@ Item {
     // ── The bays ──
     Repeater {
         id: slots
-        model: Backend.sessions
+        model: dock.demo ? demoSessions : Backend.sessions
         delegate: DockSlot {
             required property var model
             required property int index
@@ -473,6 +528,7 @@ Item {
     // ── Right wing: keys, groove, clock ──
     Row {
         id: rightWing
+        visible: !dock.demo
         x: dock.x1 + dock.curve + dock.wingGap
         width: dock.rightW
         height: dock.shellH
@@ -504,17 +560,14 @@ Item {
                 border.width: 1
                 border.color: dock.glassy ? dock.g.ring : Qt.rgba(1, 1, 1, 0.07)
             }
-            Item {  // the glint across its top
+            Rectangle {  // the glint across its top, fading out downwards (not cut off)
                 anchors.fill: parent
                 anchors.margins: 1
-                anchors.bottomMargin: parent.height * 0.62
-                clip: true
-                Rectangle {
-                    width: parent.width
-                    height: parent.height + 4
-                    radius: 8
-                    color: Qt.rgba(1, 1, 1, dock.glassy ? 0.14 : 0.10)
-                    rotation: -1.5
+                radius: parent.radius - 1
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, dock.glassy ? 0.14 : 0.10) }
+                    GradientStop { position: 0.2; color: Qt.rgba(1, 1, 1, dock.glassy ? 0.10 : 0.07) }
+                    GradientStop { position: 0.55; color: "transparent" }
                 }
             }
             property date now: new Date()

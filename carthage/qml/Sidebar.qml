@@ -55,16 +55,22 @@ Item {
         height: parent.height
         color: Backend.theme.glassy ? Backend.theme.glass.ring : bar.pal.dockSeam
     }
-    // The panel's shadow on the tray, on the side facing it.
+    // The panel's shadow on the tray, on the side facing it: soft and wide, fading out on a
+    // curve (a short, strong linear one read as a hard dark band).
     Rectangle {
-        readonly property real strength: Backend.theme.dark ? 0.32 : 0.16
+        id: sideShadow
+        readonly property real strength: Backend.theme.dark ? 0.2 : 0.08
+        function a(k) { return Qt.rgba(0, 0, 0, strength * k) }  // k: 1 at the panel, 0 far out
         x: bar.onRight ? -width : parent.width
-        width: 12
+        width: 32
         height: parent.height
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: bar.onRight ? "transparent" : Qt.rgba(0, 0, 0, parent.strength) }
-            GradientStop { position: 1.0; color: bar.onRight ? Qt.rgba(0, 0, 0, parent.strength) : "transparent" }
+            GradientStop { position: 0.0; color: sideShadow.a(bar.onRight ? 0 : 1) }
+            GradientStop { position: 0.25; color: sideShadow.a(bar.onRight ? 0.06 : 0.45) }
+            GradientStop { position: 0.5; color: sideShadow.a(bar.onRight ? 0.2 : 0.2) }
+            GradientStop { position: 0.75; color: sideShadow.a(bar.onRight ? 0.45 : 0.06) }
+            GradientStop { position: 1.0; color: sideShadow.a(bar.onRight ? 1 : 0) }
         }
     }
 
@@ -355,6 +361,7 @@ Item {
             Heading { text: "Library" }
             Entry { text: "All Games"; iconName: "view-grid"; target: "library:all" }
             Entry {
+                objectName: "tourPlayNext"  // (the first-run tour points at it)
                 text: "Play Next"
                 iconName: "bookmark"
                 target: "library:playnext"
@@ -412,6 +419,7 @@ Item {
         }
         Entry {
             y: Ui.gapS + 1
+            objectName: "tourSettings"
             text: "Settings"
             iconName: "configure"
             target: "settings"

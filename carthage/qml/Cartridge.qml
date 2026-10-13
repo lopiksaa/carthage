@@ -171,7 +171,7 @@ Item {
         readonly property var fallbacks: (cart.artFallback || "").split("|").filter(x => x)
         source: cart.artUrl ? (fallbackIndex >= 0 && fallbackIndex < fallbacks.length ? fallbacks[fallbackIndex] : cart.artUrl)
               : cart.artKey ? "image://gc/art/" + cart.artKey + "?r=" + rev + "&g=" + Backend.artGen
-              : cart.gameId ? "image://gc/art/" + cart.gameId + (cart.installed ? "" : "/off")
+              : cart.gameId ? "image://gc/art/" + cart.gameId + (cart.installed || Backend.settings.colorUninstalled ? "" : "/off")
                               + "?r=" + rev + "&g=" + Backend.artGen : ""
         sourceSize: Qt.size(Math.ceil(width * cart.dpr), Math.ceil(height * cart.dpr))
         verticalAlignment: cart.artUrl && !wideArt ? Image.AlignTop : Image.AlignVCenter

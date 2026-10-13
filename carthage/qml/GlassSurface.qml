@@ -71,18 +71,10 @@ Item {
         border.width: 1
         border.color: gs.ring
     }
-    Item {  // the lit top edge: the shape's outline, kept along the top and round the corners
+    LitEdge {  // the lit rim, graded all the way round
         visible: gs.edges
         anchors.fill: parent
-        anchors.bottomMargin: Math.max(0, parent.height - Math.max(3, gs.radius * 0.75))
-        clip: true
-        Rectangle {
-            width: gs.width
-            height: gs.height
-            radius: gs.radius
-            color: "transparent"
-            border.width: 1
-            border.color: gs.edge
-        }
+        radius: gs.radius
+        color: gs.edge
     }
 }

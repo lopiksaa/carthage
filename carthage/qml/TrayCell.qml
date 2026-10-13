@@ -5,6 +5,26 @@ import Carthage
 Item {
     id: cell
 
+    // Arriving (after setup, App.qml introCards): the cartridges in view pop in one by one, in
+    // reading order; the rest are simply there.
+    property real intro: 1
+    opacity: intro
+    NumberAnimation { id: introAnim; target: cell; property: "intro"; from: 0; to: 1; duration: 360 * Backend.motion; easing.type: Easing.OutBack }
+    Timer { id: introWait; onTriggered: introAnim.restart() }
+    Connections {
+        target: cell.appRoot
+        function onIntroCards() {
+            const g = cell.GridView.view
+            // (any card on screen at all: the ones partly hidden or under the dock too)
+            if (!g || Backend.motion <= 0 || cell.y + cell.height <= g.contentY || cell.y >= g.contentY + g.height) return
+            const row = Math.floor((cell.y - g.contentY) / g.cellHeight)
+            const col = Math.round(cell.x / g.cellWidth)
+            cell.intro = 0
+            introWait.interval = 450 + (Math.max(0, row) * g.columns + col) * 70
+            introWait.restart()
+        }
+    }
+
     required property int index
     required property string gameId
     required property string title

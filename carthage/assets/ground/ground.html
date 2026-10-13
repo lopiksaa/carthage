@@ -83,7 +83,7 @@ vec3 lit(vec3 base, vec3 N, vec3 L, bool night){
   vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
   float spec = pow(clamp(dot(N, H), 0.0, 1.0), 40.0);
   float fres = pow(1.0 - clamp(N.z, 0.0, 1.0), 3.0);
-  float shade = night ? (0.55 + 0.75 * diff) : (0.86 + 0.20 * diff);
+  float shade = night ? (0.55 + 0.75 * diff) : (0.84 + 0.18 * diff);
   vec3 lab = vec3(base.x * shade, base.yz * (0.85 + 0.25 * diff));
   lab.x += (night ? 0.10 : 0.05) * spec + (night ? 0.05 : 0.03) * fres;
   return lab;
@@ -281,13 +281,13 @@ try {
 // saturated) or day (light, soft) — never muddy. (theme.py ground_colours() mirrors it.)
 const lch = (L, C, h) => [L, C * Math.cos(h * Math.PI / 180), C * Math.sin(h * Math.PI / 180)];
 const CORNERS = { night: [[0.42, 1.05], [0.36, 1.0], [0.30, 0.9], [0.26, 0.8]],
-                  day: [[0.90, 0.55], [0.86, 0.6], [0.92, 0.45], [0.88, 0.5]] };
+                  day: [[0.84, 0.95], [0.80, 1.0], [0.86, 0.85], [0.82, 0.9]] };
 const clampL = (L) => Math.max(0, Math.min(0.99, L));
 const lift = () => (S.dark ? 0.12 : 0.06) * S.lift;
 function baseColour(){
   const k = (1 - 0.85 * S.tone) * S.chroma / 0.12;
   return S.dark ? lch(clampL(0.17 + 0.13 * S.tone + lift()), 0.025 * k, S.hues[0])
-                : lch(clampL(0.955 - 0.11 * S.tone + lift()), 0.012 * k, S.hues[0]);
+                : lch(clampL(0.90 - 0.11 * S.tone + lift()), 0.03 * k, S.hues[0]);
 }
 function palette(){
   const t = (S.dark ? 0.16 : -0.12) * S.tone + lift();

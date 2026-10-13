@@ -15,7 +15,7 @@ LOG_LINES = 300  # from the end of each log
 
 
 # Settings worth knowing when something goes wrong (looks and switches, not personal data).
-SETTINGS = ("setupDone", "hardware", "cardColor", "look", "themeMode", "background", "groundColors", "groundTuning", "groundBlur", "gameBackground", "cardWidth", "showTitles",
+SETTINGS = ("setupDone", "hardware", "cardColor", "look", "themeMode", "background", "groundColors", "groundTuning", "groundBlur", "gameBackground", "colorUninstalled", "cardWidth", "showTitles",
             "tiltEnabled", "soundsEnabled", "soundVolume", "sortMode", "filterMode", "installedFirst", "favoritesShelf",
             "storeLayout", "otherStores", "hideAdult", "discordPresence", "checkUpdates", "testCartridge",
             "preferOfficialArt", "fontLabels", "fontTitles", "fontButtons", "fontText")

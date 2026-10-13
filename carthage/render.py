@@ -833,7 +833,8 @@ class ImageProvider(QQuickImageProvider):
                     img = img.copy((img.width() - w) // 2, (img.height() - h) // 2, w, h)
                     img = img.convertToFormat(QImage.Format_ARGB32_Premultiplied)
             if img is None:
-                title = self._library.title_for(parts[1]) or parts[1]
+                # (_demo: the first-run splash's cartridge, a picture with no title on it)
+                title = "" if parts[1] == "_demo" else self._library.title_for(parts[1]) or parts[1]
                 img = render_generated_art(w, h, title)
             if len(parts) > 2 and parts[2] == "off":
                 img = not_installed(img)

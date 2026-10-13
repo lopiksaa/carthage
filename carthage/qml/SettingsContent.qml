@@ -624,6 +624,13 @@ Column {
                 spacing: 2
                 CSwitch {
                     width: parent.width
+                    text: "Color uninstalled games"
+                    hint: "Show the art of games you haven't installed in color, not greyed out"
+                    checked: Backend.settings.colorUninstalled
+                    onToggled: Backend.settings.colorUninstalled = checked
+                }
+                CSwitch {
+                    width: parent.width
                     text: "Tilt cards on hover"
                     checked: Backend.settings.tiltEnabled
                     onToggled: Backend.settings.tiltEnabled = checked
@@ -783,6 +790,12 @@ Column {
                         Backend.artPicker.retryMissing()
                         sc.appRoot.notify("Looking for missing art again…")
                     }
+                }
+                CButton {
+                    width: parent.width
+                    text: "Repeat Tutorial"
+                    icon.name: "help-about-symbolic"
+                    onClicked: sc.appRoot.repeatTour()
                 }
                 CButton {
                     width: parent.width

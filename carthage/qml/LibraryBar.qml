@@ -92,6 +92,7 @@ Item {
             onPicked: (v) => Backend.games.sortMode = v
         }
         DiceButton {
+            objectName: "tourDice"  // (the first-run tour points at it)
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
             enabled: Backend.games.count + Backend.favorites.count > 1  // nothing to pick from otherwise
@@ -101,6 +102,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             kind: "key"
             glyph: "plus"
+            objectName: "tourAdd"
             Accessible.name: "Add Game"
             onClicked: bar.appRoot.addGame()
         }

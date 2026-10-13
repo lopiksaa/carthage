@@ -784,7 +784,7 @@ class Backend(QObject):
         for g in self._library._games:
             if g.source != "carthage":
                 counts[g.source] = counts.get(g.source, 0) + 1
-        return [{"name": source_label(s), "count": n} for s, n in sorted(counts.items(), key=lambda kv: -kv[1])]
+        return [{"name": source_label(s), "source": s, "count": n} for s, n in sorted(counts.items(), key=lambda kv: -kv[1])]
 
     @Slot(result=bool)
     def copyDiagnostics(self):

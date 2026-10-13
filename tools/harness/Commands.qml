@@ -49,7 +49,7 @@ QtObject {
         return p ? Math.round(p.x) + "," + Math.round(p.y) + "," + hits.length : "none," + hits.length
     }
     function run(cmd) {
-        const { addGameDialog, artPicker, autoScroll, colorPicker, confirm, cropEditor, dock, drawer, feedbackDialog, feedbackPrompt, header, headerPicker, inspect, mediaViewer, processPicker, setupWizard, slotPanel, sounds, storePage, storeView, textPrompt, tray, whatsNew } = app.parts
+        const { addGameDialog, artPicker, autoScroll, colorPicker, confirm, cropEditor, dock, drawer, feedbackDialog, feedbackPrompt, header, headerPicker, inspect, mediaViewer, processPicker, firstRun, tour, slotPanel, sounds, storePage, storeView, textPrompt, tray, whatsNew } = app.parts
         const changeArt = (...a) => app.changeArt(...a)
         const changeHeader = (...a) => app.changeHeader(...a)
         const choose = (...a) => app.choose(...a)
@@ -346,9 +346,9 @@ QtObject {
             break
         }
         case "closeAll":  // every dialog, menu, page and the drawer (each on its own, so one can't stop the rest)
-            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, setupWizard, slotPanel, mediaViewer, colorPicker, whatsNew, feedbackDialog])
+            for (const p of [artPicker, cropEditor, confirm, headerPicker, textPrompt, processPicker, addGameDialog, slotPanel, mediaViewer, colorPicker, whatsNew, feedbackDialog])
                 try { p.close() } catch (e) { console.warn("closeAll:", e) }
-            for (const f of [() => harness.find("inspectOtherMenu").close(), () => harness.find("cardMenu").close(), () => storePage.close(), () => inspect.close(), () => closeDrawer()])
+            for (const f of [() => harness.find("inspectOtherMenu").close(), () => harness.find("cardMenu").close(), () => storePage.close(), () => inspect.close(), () => closeDrawer(), () => { firstRun.phase = "" }, () => { if (tour.running) tour.end() }])
                 try { f() } catch (e) { console.warn("closeAll:", e) }
             break
         case "addDialog":
@@ -375,9 +375,15 @@ QtObject {
             showWhatsNew()
             if (cmd.step) whatsNew.step = cmd.step
             break
-        case "setup": // {"step": n} opens the setup wizard on that step
-            setupWizard.start()
-            setupWizard.step = cmd.step || 0
+        case "setup": // {"step": n, "splash": bool} opens the first-run setup (on that step)
+            firstRun.start(cmd.splash === true)
+            firstRun.step = cmd.step || 0
+            break
+        case "setupNext":  // the setup's main button, as if pressed
+            if (firstRun.step >= firstRun.lastStep) firstRun.finish(); else firstRun.step++
+            break
+        case "tour":  // {"next": true} the tour's Next; else starts it
+            if (cmd.next) tour.next(); else tour.begin()
             break
         case "dice":
             rollDice()

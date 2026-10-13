@@ -11,6 +11,7 @@ Item {
     property real shadowOffset: 10
     property real shadowBlur: 32
     property real shadowOpacity: 0.35
+    property var frosts: Ui.glassLayers  // what the glass blurs (the setup: only the ground)
     readonly property alias surface: surface
     readonly property bool glassy: Backend.theme.glassy
     readonly property var g: Backend.theme.glass
@@ -26,7 +27,7 @@ Item {
         visible: panel.glassy && panel.visible
         anchors.fill: parent
         radius: panel.radius
-        behind: visible ? Ui.glassLayers : []
+        behind: visible ? panel.frosts : []
         blurPx: 26
         // (the panel can move — menus open where asked — so the capture follows it)
         track: { const p = panel.mapToItem(null, 0, 0); return Qt.point(p.x + 0 * panel.x, p.y + 0 * panel.y) }
@@ -39,18 +40,10 @@ Item {
         border.width: 1
         border.color: Backend.theme.p.panelBorder
     }
-    Item {  // glass: the lit top edge
+    LitEdge {  // glass: the lit top edge, fading down the sides
         visible: panel.glassy
         anchors.fill: parent
-        anchors.bottomMargin: Math.max(0, parent.height - panel.radius * 0.75)
-        clip: true
-        Rectangle {
-            width: panel.width
-            height: panel.height
-            radius: panel.radius
-            color: "transparent"
-            border.width: 1
-            border.color: panel.g.edge
-        }
+        radius: panel.radius
+        color: panel.g.edge
     }
 }

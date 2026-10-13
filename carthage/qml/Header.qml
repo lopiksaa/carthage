@@ -106,7 +106,18 @@ Item {
         anchors.leftMargin: 20
         anchors.verticalCenter: parent.verticalCenter
         spacing: Ui.gapM
-        Accessible.ignored: true
+        // The logo takes you home: back to the library from anywhere (a game's view, the store,
+        // settings…).
+        Accessible.role: Accessible.Button
+        Accessible.name: "Carthage: go to the library"
+        opacity: brandHover.hovered ? 0.8 : 1
+        HoverHandler { id: brandHover; cursorShape: Qt.PointingHandCursor }
+        TapHandler {
+            onTapped: {
+                header.appRoot.navigate("library:all")
+                header.appRoot.sound("key")
+            }
+        }
 
         CIcon {
             anchors.verticalCenter: parent.verticalCenter
@@ -130,6 +141,7 @@ Item {
 
     QQC2.TextField {
         id: search
+        objectName: "tourSearch"  // (the first-run tour points at it)
         readonly property bool compact: header.width < 680
         anchors.verticalCenter: parent.verticalCenter
         x: compact ? brand.x + brand.width + 12 : (header.width - width) / 2
@@ -210,6 +222,8 @@ Item {
 
     ModeSwitch {
         id: modeSwitch
+        objectName: "tourStore"
+        onLibraryHome: header.appRoot.navigate("library:all")
         anchors.right: burger.left
         anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter

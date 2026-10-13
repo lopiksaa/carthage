@@ -524,7 +524,7 @@ FocusScope {
         onWheel: (wheel) => wheel.accepted = true
     }
 
-    Item {
+    HeroCard {
         id: hero
         visible: false || inspect.warming
         opacity: inspect.warming && !inspect.open ? 0.004 : 1
@@ -535,90 +535,14 @@ FocusScope {
         height: inspect.heroW * inspect.ratio
         transformOrigin: Item.TopLeft
         transform: Translate { x: -inspect.galleryLevel * (inspect.heroX + inspect.heroW - inspect.peekW) }
-
-        readonly property bool tilting: heroHover.hovered && !spinDrag.active && inspect.open
-                                        && Backend.settings.tiltEnabled && inspect.motion > 0
-        property real dragTilt: 0 // forward/back tip while being dragged
-
-        readonly property bool idle: inspect.open && !openAnim.running && !flipAnim.running
-                                     && !settleAnim.running && !spinDrag.active && !heroHover.hovered
-        IdleDrift {
-            id: drift
-            active: hero.idle
-            motion: inspect.motion
-        }
-        property real tiltX: tilting ? -(heroHover.point.position.y / height - 0.5) * 2 * 7 : 0
-        property real tiltY: tilting ? (heroHover.point.position.x / width - 0.5) * 2 * 7 : 0
-        Behavior on tiltX { SpringAnimation { spring: 4; damping: 0.55; epsilon: 0.05 } }
-        Behavior on tiltY { SpringAnimation { spring: 4; damping: 0.55; epsilon: 0.05 } }
-        property real press: 1
-        property real spin: 0 // degrees around the vertical axis; 180 shows the back
-        readonly property bool showingBack: Math.cos(spin * Math.PI / 180) < 0
-
-        Image {
-            readonly property real sp: hero.width * 0.16
-            x: -sp + hero.width * 0.05
-            y: -sp + hero.width * 0.09
-            width: hero.width + 2 * sp
-            height: hero.height + 2 * sp
-            readonly property real face: Math.abs(Math.cos(hero.spin * Math.PI / 180))
-                                       * Math.abs(Math.cos((hero.tiltX + hero.dragTilt) * Math.PI / 180))
-            opacity: inspect.pal.shadowStrength * 0.8 * Math.pow(face, 1.5)
-            visible: opacity > 0.01
-            transform: Scale {
-                origin.x: hero.width / 2 + hero.width * 0.16
-                origin.y: hero.height / 2 + hero.width * 0.16
-                xScale: Math.max(0.05, Math.abs(Math.cos(hero.spin * Math.PI / 180)))
-                yScale: Math.max(0.3, Math.abs(Math.cos((hero.tiltX + hero.dragTilt) * Math.PI / 180)))
-            }
-            source: "image://gc/shadow/" + Backend.theme.edition
-            sourceSize: Qt.size(Math.ceil(width / 2), Math.ceil(height / 2))
-        }
-
-        // Larger than the card, so the corners have room while it turns.
-        Card3D {
-            id: card3d
-            anchors.centerIn: parent
-            width: hero.width * 2.1
-            height: hero.height * 1.35
-            cardHeight: hero.height
-            game: inspect.game
-            anchors.verticalCenterOffset: drift.float
-            spin: hero.spin + drift.turn
-            tiltX: hero.tiltX + hero.dragTilt + drift.tip
-            tiltY: hero.tiltY
-            scale: hero.press
-        }
-
-        HoverHandler {
-            id: heroHover
-            cursorShape: spinDrag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-        }
-        DragHandler {
-            id: spinDrag
-            target: null
-            enabled: inspect.open
-            property real startSpin: 0
-            onActiveChanged: {
-                if (active) {
-                    flipAnim.stop()
-                    settleAnim.stop()
-                    startSpin = hero.spin
-                } else {
-                    inspect.settle(centroid.velocity.x)
-                }
-            }
-            onTranslationChanged: {
-                if (!active) return
-                hero.spin = startSpin + translation.x * 0.55
-                hero.dragTilt = Math.max(-30, Math.min(30, -translation.y * 0.25))
-            }
-        }
-        TapHandler {
-            gesturePolicy: TapHandler.ReleaseWithinBounds
-            onTapped: inspect.galleryMode ? inspect.exitGallery() : inspect.flip()
-        }
-
+        game: inspect.game
+        motion: inspect.motion
+        holding: inspect.open
+        busy: openAnim.running || flipAnim.running || settleAnim.running
+        selfSettling: false
+        onReleased: (vx) => inspect.settle(vx)
+        onTapped: inspect.galleryMode ? inspect.exitGallery() : inspect.flip()
+        onDraggingChanged: if (dragging) { flipAnim.stop(); settleAnim.stop() }
     }
 
     ParallelAnimation {
@@ -885,6 +809,7 @@ FocusScope {
             CButton {
                 // Mentioning playNextStore re-checks it whenever Play Next changes.
                 readonly property bool next: Backend.playNextStore, Backend.isPlayNext(inspect.game.gameId || "")
+                objectName: "tourBookmark"  // (the first-run tour points at it)
                 kind: "scrim"
                 width: playButton.height
                 height: playButton.height

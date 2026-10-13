@@ -7,7 +7,7 @@ Item {
     id: app
     objectName: "app"
     // The main pieces by name, for the test harness (tools/harness/Commands.qml).
-    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, settingsPage: settingsPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, setupWizard: setupWizard, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
+    readonly property var parts: ({ sidebar: sidebar, searchPage: searchPage, settingsPage: settingsPage, addGameDialog: addGameDialog, artPicker: artPicker, autoScroll: autoScroll, colorPicker: colorPicker, confirm: confirm, cropEditor: cropEditor, dock: dock, drawer: drawer, feedbackDialog: feedbackDialog, feedbackPrompt: feedbackPrompt, header: header, headerPicker: headerPicker, inspect: inspect, mediaViewer: mediaViewer, processPicker: processPicker, firstRun: firstRun, tour: tour, slotPanel: slotPanel, sounds: sounds, storePage: storePage, storeView: storeView, textPrompt: textPrompt, tray: tray, whatsNew: whatsNew })
 
     readonly property var pal: Backend.theme.p
     // The desktop's animation-speed factor (KDE setting on Linux; 1 elsewhere); 0 = instant.
@@ -1053,10 +1053,10 @@ Item {
                     text: Backend.games.filterText ? "No games match “" + Backend.games.filterText + "”"
                         : filter === "installed" ? "No installed games"
                         : filter === "notinstalled" ? "Everything is installed"
-                        : "No games yet"
+                        : "Ready to play?"
                     explanation: Backend.games.filterText ? "Try a different name, or clear the search."
                         : filter !== "all" ? "Set Show to All in the bar above to see the rest."
-                        : "Carthage finds games from Steam, Heroic, Lutris and more. Add any other game yourself."
+                        : "Add a game with the + button at the top right, or install a launcher like Steam or Epic: Carthage finds their games by itself."
                     // The way out of each empty state, as a button.
                     actionText: Backend.games.filterText ? "Clear Search"
                         : filter !== "all" ? "Show All" : "Add a Game…"
@@ -1321,13 +1321,26 @@ Item {
     function pickGameColor(gameId, title) {  // one game's own cartridge color
         colorPicker.openFor("game", gameId, title)
     }
-    SetupWizard {
-        id: setupWizard
+    // First launch (and Settings → Run Setup): the splash and setup, then the tour.
+    signal introCards()  // the library's cartridges in view arrive one by one (TrayCell.qml)
+    function closeInspect() { if (inspect.open) inspect.close() }
+    FirstRun {
+        id: firstRun
         appRoot: app
+        ground: ground
+        onFinished: tourDelay.restart()
+        Component.onCompleted: if (Backend.firstRun) start(true)
+    }
+    Timer { id: tourDelay; interval: 1300; onTriggered: tour.begin() }
+    Tour { id: tour; appRoot: app }
+    function repeatTour() {
+        closeDrawer()
+        tour.begin()
     }
     function runSetup() {
         closeDrawer()
-        setupWizard.start()
+        navigate("library:all")
+        firstRun.start(true)
     }
     WhatsNewDialog { id: whatsNew; appRoot: app }
     function showWhatsNew() {
@@ -1337,12 +1350,7 @@ Item {
     Timer {
         running: !!Backend.whatsNew.version && app.powered
         interval: 900
-        onTriggered: if (!setupWizard.opened && !app.modalOpen) whatsNew.openWith(Backend.whatsNew, true)
-    }
-    Timer {
-        running: Backend.firstRun
-        interval: 700
-        onTriggered: setupWizard.start()
+        onTriggered: if (!firstRun.visible && !tour.running && !app.modalOpen) whatsNew.openWith(Backend.whatsNew, true)
     }
 
     Sounds { id: sounds }
@@ -1364,7 +1372,7 @@ Item {
         running: app.powered && !Backend.settings.feedbackAsked && Qt.application.state === Qt.ApplicationActive
         onTriggered: {
             Backend.settings.usageMinutes += 1
-            if (Backend.settings.usageMinutes >= 40 && !app.modalOpen && !app.dragging && !setupWizard.opened) {
+            if (Backend.settings.usageMinutes >= 40 && !app.modalOpen && !app.dragging && !firstRun.visible && !tour.running) {
                 Backend.settings.feedbackAsked = true
                 feedbackPrompt.show()
             }

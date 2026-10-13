@@ -7,6 +7,7 @@ FocusScope {
     id: sw
 
     property string value: "library"
+    signal libraryHome()  // Library double-clicked: back to All Games
     signal picked(string value)
 
     readonly property var pal: Backend.theme.p
@@ -47,6 +48,7 @@ FocusScope {
             anchors.margins: -6
             cursorShape: Qt.PointingHandCursor
             onClicked: sw.pick(word.choice)
+            onDoubleClicked: if (word.choice === "library") sw.libraryHome()
         }
     }
 
@@ -113,6 +115,7 @@ FocusScope {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         onClicked: sw.pick(seg.modelData[0])
+                        onDoubleClicked: if (seg.modelData[0] === "library") sw.libraryHome()
                     }
                 }
             }
