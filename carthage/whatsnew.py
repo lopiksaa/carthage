@@ -10,7 +10,7 @@ user needs to know. Newest version first.
 NOTES = {
     # A version's notes can also be Markdown as written: "## Section" headings with "- " items
     # (the GitHub release as is; the window shows one step per section).
-    "0.4.0": """## Look
+    "0.4.1": """## Look
 - Glass is the new default look, with frosted panels, menus, sidebar and dock. Plastic is still available in Appearance.
 - Animated backgrounds: Holographic, Mesh, Underwater, Contours and Still.
 - Colour presets, a blur slider, and an Advanced section to tune every colour.

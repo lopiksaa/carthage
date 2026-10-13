@@ -374,7 +374,7 @@ Item {
                 visible: fr.shownStep === 0 && fr.updating
                 width: parent.width
                 spacing: Ui.gapM
-                Title_ { text: fr.moreNews ? "Okay, here goes:" : "What's new in 0.4.0"; color: fr.pal.panelText }
+                Title_ { text: fr.moreNews ? "Okay, here goes:" : "What's new in 0.4.1"; color: fr.pal.panelText }
                 Flickable {
                     id: newsFlick
                     width: parent.width
