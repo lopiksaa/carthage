@@ -5,7 +5,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*", "!v*-*"]  # real versions only; test tags (v0.2.0-test) are skipped
+    tags: ["v*", "!v*-test*"]  # versions and pre-releases (v0.4.0-beta.1); test tags (v0.2.0-test) are skipped
   workflow_dispatch:
 
 jobs:
@@ -94,10 +94,14 @@ jobs:
         run: |
           v="${{ github.ref_name }}"
           python3 -m carthage.whatsnew "${v#v}" > notes.md
+          # A tag with a suffix (v0.4.0-beta.1) is a pre-release: never "latest", so neither the
+          # in-app updater nor install.sh hands it out.
+          pre=""
+          case "$v" in *-*) pre="--prerelease" ;; esac
           # A release made on the website (which also makes the tag) already exists: fill it in.
           if gh release view "$v" >/dev/null 2>&1; then
             gh release upload "$v" Carthage-* --clobber
-            gh release edit "$v" --title "Carthage $v" --notes-file notes.md
+            gh release edit "$v" --title "Carthage $v" --notes-file notes.md $pre
           else
-            gh release create "$v" Carthage-* --title "Carthage $v" --notes-file notes.md
+            gh release create "$v" Carthage-* --title "Carthage $v" --notes-file notes.md $pre
           fi

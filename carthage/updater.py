@@ -39,7 +39,9 @@ ERRORS = (urllib.error.URLError, TimeoutError, OSError, ValueError)
 
 
 def _parse(v):
-    return tuple(int(x) for x in re.findall(r"\d+", v or "")[:3]) or (0,)
+    """"0.4.0" → (0, 4, 0, 1); a pre-release ("0.4.0-beta.1") sorts just below its release."""
+    nums = tuple(int(x) for x in re.findall(r"\d+", (v or "").split("-")[0])[:3]) or (0,)
+    return nums + (0 if "-" in (v or "") else 1,)
 
 
 def _install_kind():

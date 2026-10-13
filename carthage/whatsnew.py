@@ -8,6 +8,13 @@ user needs to know. Newest version first.
 """
 
 NOTES = {
+    "0.4.0-beta.1": [
+        {"kind": "fixed", "text": "Pre-release of a big redesign, so expect rough edges. It doesn't reach anyone automatically: download it from this page to try it."},
+        {"kind": "fixed", "text": "A new look: glass panels, a sidebar, a new dock, and a live preview in Settings → Appearance."},
+        {"kind": "fixed", "text": "Your own lists, a Steam wishlist page with the best price across Steam and Epic, and Steam Family games."},
+        {"kind": "fixed", "text": "A first-run tour, Copy Diagnostics for bug reports, and only one Carthage open at a time."},
+        {"kind": "fixed", "text": "Windows: games with their own launcher, and Steam games started by a publisher's launcher, are tracked properly."},
+    ],
     "0.3.8": [
         {"kind": "new", "icon": "bookmark", "title": "Play Next",
          "text": "Bookmark games to play soon from their page, store games too: they wait greyed out with a shopping bag and their price. Play Next sits above the library."},
