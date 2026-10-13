@@ -2,6 +2,8 @@
 
 ![Library](screenshots/library.png)
 
+![Glass and Plastic](screenshots/glass-plastic.png)
+
 ![Closer look](screenshots/closer-look.png)
 
 ![Store](screenshots/store.png)
